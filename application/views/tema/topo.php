@@ -40,7 +40,10 @@
   <script type="text/javascript" src="<?= base_url(); ?>assets/js/funcoesGlobal.js"></script>
   <script type="text/javascript" src="<?= base_url(); ?>assets/js/datatables.min.js"></script>
   <script type="text/javascript" src="<?= base_url(); ?>assets/js/sweetalert.min.js"></script>
-  <script type="text/javascript" src="<?= base_url(); ?>assets/js/csrf.js"></script>
+  <script
+    type="text/javascript"
+    src="<?= base_url(); ?>assets/js/csrf.js?v=<?= filemtime(FCPATH . 'assets/js/csrf.js'); ?>"
+  ></script>
   <script type="text/javascript">
     shortcut.add("escape", function() {
       location.href = '<?= base_url(); ?>';
