@@ -1,31 +1,70 @@
-# See https://help.github.com/ignore-files/ for more about ignoring files.
-# production
-/install/files
-/docker/data
+# ============================================================
+# MAPOS - PRODUÇÃO / RUNTIME
+# ============================================================
 
-# misc
-.DS_Store
-.vscode
+# Configurações e secrets
+/application/.env
+/docker/.env
+
+# Banco antigo em bind mount
+/docker/data/
+
+# ============================================================
+# DEPENDÊNCIAS
+# ============================================================
 
 /vendor/
 /application/vendor/
+
+# ============================================================
+# LOGS / CACHE / SESSÕES
+# ============================================================
+
+/application/logs/*
+!/application/logs/index.html
+
+/application/cache/*
+!/application/cache/index.html
+
+/ci_sessions/
+
+# ============================================================
+# ARQUIVOS GERADOS PELOS USUÁRIOS
+# ============================================================
+
+/assets/anexos/*
+!/assets/anexos/index.html
+!/assets/anexos/.gitkeep
+
+/assets/arquivos/*
+!/assets/arquivos/index.html
+!/assets/arquivos/.gitkeep
+
+/assets/uploads/*
+!/assets/uploads/index.html
+!/assets/uploads/.gitkeep
+
+/assets/userImage/*
+!/assets/userImage/index.html
+!/assets/userImage/.gitkeep
+
+# ============================================================
+# AMBIENTES LOCAIS
+# ============================================================
 
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-!blank/.gitkeep
-desktop.ini
+# ============================================================
+# EDITORES / SISTEMA OPERACIONAL
+# ============================================================
 
-application/vendor/
-vendor/
+.DS_Store
+desktop.ini
+.vscode/
 .idea/
+
 .php_cs.cache
 .php-cs-fixer.cache
-application/logs/*
-ci_sessions/
-
-uploads
-application/.env
-assets/userImage
