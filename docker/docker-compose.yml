@@ -1,50 +1,122 @@
-version: '3.9'
 services:
+
   nginx:
-    image: 'nginx:alpine'
-    container_name: nginx
+    image: nginx:alpine
+    restart: unless-stopped
+
     volumes:
-      - './:/var/www/html'
-      - './docker/etc/nginx/default.template.conf:/etc/nginx/conf.d/default.template'
-    ports:
-      - '${NGINX_PORT}:${NGINX_PORT}'
-    env_file:
-      - .env
-    command: "/bin/sh -c \"envsubst '$$NGINX_HOST $$NGINX_PORT' < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'\""
-    restart: always
+      # Código do MapOS: nginx só precisa ler
+      - './:/var/www/html:ro'
+
+      # Configuração do nginx
+      - './docker/etc/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro'
+
+      # Arquivos persistentes enviados/gerados pelo MapOS
+      - 'mapos-anexos:/var/www/html/assets/anexos:ro'
+      - 'mapos-arquivos:/var/www/html/assets/arquivos:ro'
+      - 'mapos-uploads:/var/www/html/assets/uploads:ro'
+      - 'mapos-userimage:/var/www/html/assets/userImage:ro'
+
+    expose:
+      - '80'
+
     depends_on:
-      - php-fpm
-      - mysql
-  php-fpm:
-    container_name: php-fpm
-    build:
-      context: ./docker/etc/php
-      dockerfile: Dockerfile
-    restart: always
-    volumes:
-      - './docker/etc/php/php.ini:/usr/local/etc/php/conf.d/php.ini'
-      - './docker/etc/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini'
-      - './:/var/www/html'
+      php-fpm:
+        condition: service_started
+
+
   composer:
-    container_name: composer
     build:
       context: ./docker/etc/composer
       dockerfile: Dockerfile
+
+    restart: "no"
+
     volumes:
       - './:/app'
-    command: 'install --ignore-platform-reqs --no-scripts'
-  mysql:
-    image: 'mysql:${MYSQL_MAPOS_VERSION}'
-    container_name: mysql
-    restart: always
-    env_file:
-      - .env
-    environment:
-      - 'MYSQL_DATABASE=${MYSQL_MAPOS_DATABASE}'
-      - 'MYSQL_ROOT_PASSWORD=${MYSQL_MAPOS_ROOT_PASSWORD}'
-      - 'MYSQL_USER=${MYSQL_MAPOS_USER}'
-      - 'MYSQL_PASSWORD=${MYSQL_MAPOS_PASSWORD}'
-    ports:
-      - '${MYSQL_MAPOS_PORT}:3306'
+
+    command:
+      - install
+      - --ignore-platform-reqs
+      - --no-scripts
+      - --no-dev
+      - --prefer-dist
+      - --no-interaction
+      - --optimize-autoloader
+
+
+  php-fpm:
+    build:
+      context: ./docker/etc/php
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
     volumes:
-      - './docker/data/db/mysql:/var/lib/mysql'
+      # Configurações do PHP
+      - './docker/etc/php/php.ini:/usr/local/etc/php/conf.d/php.ini:ro'
+      - './docker/etc/php/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro'
+
+      # Código do MapOS
+      - './:/var/www/html'
+
+      # .env persistente
+      - 'mapos-config:/var/www/mapos-config'
+
+      # Runtime persistente
+      - 'mapos-logs:/var/www/html/application/logs'
+      - 'mapos-cache:/var/www/html/application/cache'
+
+      # Dados dos clientes
+      - 'mapos-anexos:/var/www/html/assets/anexos'
+      - 'mapos-arquivos:/var/www/html/assets/arquivos'
+      - 'mapos-uploads:/var/www/html/assets/uploads'
+      - 'mapos-userimage:/var/www/html/assets/userImage'
+
+    depends_on:
+      composer:
+        condition: service_completed_successfully
+
+      mysql:
+        condition: service_healthy
+
+
+  mysql:
+    image: 'mysql:${MYSQL_MAPOS_VERSION:-8.4}'
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: '${MYSQL_MAPOS_DATABASE}'
+      MYSQL_ROOT_PASSWORD: '${MYSQL_MAPOS_ROOT_PASSWORD}'
+      MYSQL_USER: '${MYSQL_MAPOS_USER}'
+      MYSQL_PASSWORD: '${MYSQL_MAPOS_PASSWORD}'
+
+    # Não publica a porta na Orange Pi.
+    # PHP acessa internamente usando mysql:3306.
+    expose:
+      - '3306'
+
+    volumes:
+      - 'mapos-mysql:/var/lib/mysql'
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+volumes:
+  mapos-mysql:
+  mapos-config:
+  mapos-logs:
+  mapos-cache:
+  mapos-anexos:
+  mapos-arquivos:
+  mapos-uploads:
+  mapos-userimage:
