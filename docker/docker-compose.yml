@@ -66,6 +66,7 @@ services:
       # Runtime persistente
       - 'mapos-logs:/var/www/html/application/logs'
       - 'mapos-cache:/var/www/html/application/cache'
+      - 'mapos-updates:/var/www/html/updates'
 
       # Dados dos clientes
       - 'mapos-anexos:/var/www/html/assets/anexos'
@@ -116,6 +117,7 @@ volumes:
   mapos-config:
   mapos-logs:
   mapos-cache:
+  mapos-updates:
   mapos-anexos:
   mapos-arquivos:
   mapos-uploads:
