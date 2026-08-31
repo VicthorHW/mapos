@@ -5,8 +5,8 @@
   <title><?= $configuration['app_name'] ?: 'Map-OS' ?></title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="csrf-token-name" content="<?= config_item("csrf_token_name") ?>">
-  <meta name="csrf-cookie-name" content="<?= config_item("csrf_cookie_name") ?>">
+  <meta name="csrf-token-name" content="<?= html_escape($this->security->get_csrf_token_name()) ?>">
+  <meta name="csrf-token" content="<?= html_escape($this->security->get_csrf_hash()) ?>">
   <link rel="shortcut icon" type="image/png" href="<?= base_url(); ?>assets/img/favicon.png" />
   <link rel="stylesheet" href="<?= base_url(); ?>assets/css/bootstrap.min.css" />
   <link rel="stylesheet" href="<?= base_url(); ?>assets/css/bootstrap-responsive.min.css" />
