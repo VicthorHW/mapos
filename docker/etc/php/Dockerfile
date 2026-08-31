@@ -55,8 +55,6 @@ RUN apt update && apt upgrade -y \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/* /var/tmp/*
 
-# Permission for PHP to write in volumes
-RUN usermod -u 1000 www-data
 
 # Install supervisor and cron
 RUN apt update && apt install supervisor cron -y
@@ -74,7 +72,13 @@ RUN crontab /etc/cron.d/cron-jobs
 # Supervisor logs directory
 RUN mkdir -p /var/log/supervisor
 
-# Supervisor config file
+# Supervisor
 COPY ./supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Inicialização segura do MapOS
+COPY ./entrypoint.sh /usr/local/bin/mapos-entrypoint
+RUN chmod 0755 /usr/local/bin/mapos-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/mapos-entrypoint"]
 
 CMD ["/usr/bin/supervisord"]
