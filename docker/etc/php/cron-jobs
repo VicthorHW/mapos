@@ -1,2 +1,2 @@
-*/2 * * * * /usr/local/bin/php /var/www/html/index.php email/process >> /var/log/cron.log
-*/5 * * * * /usr/local/bin/php /var/www/html/index.php email/retry >> /var/log/cron.log
+*/2 * * * * su -s /bin/sh -c '/usr/local/bin/php /var/www/html/index.php email/process' www-data >> /var/log/cron.log 2>&1
+*/5 * * * * su -s /bin/sh -c '/usr/local/bin/php /var/www/html/index.php email/retry' www-data >> /var/log/cron.log 2>&1
