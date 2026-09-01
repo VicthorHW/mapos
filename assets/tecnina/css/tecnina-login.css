@@ -1,0 +1,35 @@
+/* ==========================================================
+   TECNINA — Login skin
+   ========================================================== */
+
+.tecnina-login-brand {
+    min-height: 42px;
+    margin-bottom: 12px !important;
+}
+
+.tecnina-login-brand img {
+    display: block;
+    width: 155px;
+    height: auto;
+    max-height: 42px;
+    object-fit: contain;
+}
+
+.tecnina-register-button.btn-success {
+    background: #f26a21;
+    border-color: #f26a21;
+    box-shadow: none;
+}
+
+.tecnina-register-button.btn-success:hover,
+.tecnina-register-button.btn-success:focus {
+    background: #dc5917;
+    border-color: #dc5917;
+    box-shadow: 0 7px 30px -12px rgba(242, 106, 33, .75);
+}
+
+@media (max-width: 374px) {
+    .tecnina-login-brand img {
+        width: 135px;
+    }
+}

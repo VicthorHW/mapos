@@ -2,7 +2,7 @@
 <html lang="pt-br">
 
 <head>
-  <title><?= $configuration['app_name'] ?: 'Map-OS' ?></title>
+  <title>TecNina | Administração</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="csrf-token-name" content="<?= html_escape($this->security->get_csrf_token_name()) ?>">

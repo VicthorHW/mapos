@@ -2,7 +2,7 @@
 <html lang="pt-br">
 
 <head>
-    <title><?php echo $this->config->item('app_name') ?></title>
+    <title>Área do Cliente | TecNina</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="<?php echo $this->config->item('app_name') . ' - ' . $this->config->item('app_subname') ?>">
@@ -11,10 +11,14 @@
     <link rel="stylesheet" href="<?php echo base_url() ?>assets/css/bootstrap.min.css" />
     <link rel="stylesheet" href="<?php echo base_url() ?>assets/css/bootstrap-responsive.min.css" />
     <link rel="stylesheet" href="<?php echo base_url() ?>assets/css/matrix-login.css" />
+    <link rel="stylesheet" href="<?= base_url(); ?>assets/tecnina/css/tecnina-login.css?v=<?= filemtime(FCPATH . 'assets/tecnina/css/tecnina-login.css'); ?>" />
     <link href="<?= base_url('assets/css/particula.css'); ?>" rel="stylesheet">
     <link href="<?php echo base_url(); ?>assets/font-awesome/css/font-awesome.css" rel="stylesheet" />
     <script src="<?php echo base_url() ?>assets/js/jquery-1.12.4.min.js"></script>
-    <link rel="shortcut icon" href="<?php echo base_url(); ?>assets/img/favicon.png">
+    <link rel="icon" type="image/x-icon" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url(); ?>assets/tecnina/img/favicon/apple-touch-icon.png">
+    <link rel="manifest" href="<?= base_url(); ?>assets/tecnina/img/favicon/site.webmanifest">
     <script src="<?php echo base_url() ?>assets/js/jquery.mask.min.js"></script>
     <script src="<?php echo base_url() ?>assets/js/funcoes.js"></script>
     <link href='https://unpkg.com/boxicons@2.1.1/css/boxicons.min.css' rel='stylesheet'>
@@ -43,7 +47,7 @@ $parse_email = $this->input->get('e');
     <div class="main-login">
         <div class="left-login">
             <h1 class="h-one">Área do Cliente</h1>
-            <img src="<?php echo base_url() ?>assets/img/forms-animate.svg" class="left-login-imagec" alt="Map-OS 5.0">
+            <img src="<?php echo base_url() ?>assets/img/forms-animate.svg" class="left-login-imagec" alt="Ilustração da Área do Cliente TecNina">
         </div>
 
         <div id="loginbox">
@@ -54,15 +58,9 @@ $parse_email = $this->input->get('e');
                         <div class="container">
                             <div class="card card-cad">
                                 <div class="content">
-                                    <div id="newlog">
-                                        <div class="icon2">
-                                            <img src="<?php echo base_url() ?>assets/img/logo-two.png">
-                                        </div>
-                                        <div class="title01">
-                                            <img src="<?php echo base_url() ?>assets/img/logo-mapos-branco.png">
-                                        </div>
+                                    <div id="newlog" class="tecnina-login-brand">
+                                        <img src="<?= base_url(); ?>assets/tecnina/img/svg/logo-on-dark.svg" alt="TECNINA">
                                     </div>
-                                    <div id="mcell">Versão: <?= $this->config->item('app_version'); ?></div>
                                     <div class="control-group">
                                         <div class="controls">
                                             <div class="main_input_box">
@@ -82,13 +80,11 @@ $parse_email = $this->input->get('e');
                                     </div>
 
                                     <button style="margin: 0" class="btn btn-info btn-large"> Acessar</button>
-                                    <a href="<?= site_url('mine/cadastrar') ?>" class="btn btn-success btn-large">Cadastrar-me</a>
+                                    <a href="<?= site_url('mine/cadastrar') ?>" class="btn btn-success btn-large tecnina-register-button">Cadastrar-me</a>
                                     <div class="links-uteis"><a href="<?= site_url('mine/resetarSenha') ?>">
                                             <p style="margin:0px 0 18px">Esqueceu a senha?</p>
                                         </a></div>
-                                    <div class="links-uteis"><a href="https://github.com/RamonSilva20/mapos">
-                                            <p><?= date('Y'); ?> &copy; Ramon Silva</p>
-                                        </a></div>
+                                    <div class="links-uteis"><p>&copy; <?= date('Y'); ?> TecNina</p></div>
                                 </div>
                             </div>
                         </div>

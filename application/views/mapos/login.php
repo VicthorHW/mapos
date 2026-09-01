@@ -2,14 +2,18 @@
 <html lang="pt-br">
 
 <head>
-  <title><?= $this->config->item('app_name') ?> </title>
+  <title>TecNina | Administração</title>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="<?= base_url() ?>assets/css/bootstrap.min.css" />
   <link rel="stylesheet" href="<?= base_url() ?>assets/css/bootstrap-responsive.min.css" />
   <link rel="stylesheet" href="<?= base_url() ?>assets/css/matrix-login.css" />
+  <link rel="stylesheet" href="<?= base_url(); ?>assets/tecnina/css/tecnina-login.css?v=<?= filemtime(FCPATH . 'assets/tecnina/css/tecnina-login.css'); ?>" />
   <link href="<?= base_url(); ?>assets/font-awesome/css/font-awesome.css" rel="stylesheet" />
-  <link rel="shortcut icon" type="image/png" href="<?= base_url(); ?>assets/img/favicon.png" />
+  <link rel="icon" type="image/x-icon" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url(); ?>assets/tecnina/img/favicon/apple-touch-icon.png">
+  <link rel="manifest" href="<?= base_url(); ?>assets/tecnina/img/favicon/site.webmanifest">
 </head>
 
 <body>
@@ -34,8 +38,8 @@
   // Irá retornar conforme o horário:
   ?>
       </h1>
-      <h2 class="h-two"> Ao Sistema de Controle de Ordens de Serviço</h2>
-      <img src="<?php echo base_url() ?>assets/img/dashboard-animate.svg" class="left-login-image" alt="Map-OS - Versão: <?= $this->config->item('app_version'); ?>">
+      <h2 class="h-two">Painel Administrativo TecNina</h2>
+      <img src="<?php echo base_url() ?>assets/img/dashboard-animate.svg" class="left-login-image" alt="Painel Administrativo TecNina - Versão: <?= $this->config->item('app_version'); ?>">
     </div>
     <form class="form-vertical" id="formLogin" method="post" action="<?= site_url('login/verificarLogin') ?>">
       <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
@@ -52,13 +56,8 @@
           <div class="container">
             <div class="card">
               <div class="content">
-                <div id="newlog">
-                  <div class="icon2">
-                    <img src="<?php echo base_url() ?>assets/img/logo-two.png">
-                  </div>
-                  <div class="title01">
-                    <?= '<img src="' . base_url() . 'assets/img/logo-mapos-branco.png">'; ?>
-                  </div>
+                <div id="newlog" class="tecnina-login-brand">
+                  <img src="<?= base_url(); ?>assets/tecnina/img/svg/logo-on-dark.svg" alt="TECNINA">
                 </div>
                 <div id="mcell">Versão: <?= $this->config->item('app_version'); ?></div>
                 <div class="input-field">
@@ -72,14 +71,11 @@
                 <div class="center">
                   <button id="btn-acessar">Acessar</button>
                 </div>
-                <div class="links-uteis"><a href="https://github.com/RamonSilva20/mapos">
-                    <p><?= date('Y'); ?> &copy; Ramon Silva</p>
-                  </a>
-                </div>
+                <div class="links-uteis"><p>&copy; <?= date('Y'); ?> TecNina</p></div>
                 <a href="#notification" id="call-modal" role="button" class="btn" data-toggle="modal" style="display: none ">notification</a>
                 <div id="notification" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
                   <div class="modal-header">
-                    <h4 id="myModalLabel">Map-OS</h4>
+                    <h4 id="myModalLabel">TecNina</h4>
                   </div>
                   <div class="modal-body">
                     <h5 style="text-align: center" id="message">Os dados de acesso estão incorretos, por favor tente novamente!</h5>
@@ -96,7 +92,7 @@
       <a href="#notification" id="call-modal" role="button" class="btn" data-toggle="modal" style="display: none ">notification</a>
       <div id="notification" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
         <div class="modal-header">
-          <h4 id="myModalLabel">Map-OS</h4>
+          <h4 id="myModalLabel">TecNina</h4>
         </div>
         <div class="modal-body">
           <h5 style="text-align: center" id="message">Os dados de acesso estão incorretos, por favor tente novamente!</h5>

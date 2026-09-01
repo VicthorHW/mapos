@@ -2,7 +2,7 @@
 <html lang="pt-br">
 
 <head>
-    <title>Área do Cliente - <?php echo $this->config->item('app_name') ?></title>
+    <title>Área do Cliente | TecNina</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="<?php echo $this->config->item('app_name') . ' - ' . $this->config->item('app_subname') ?>">
@@ -16,9 +16,13 @@
     <link rel="stylesheet" href="<?php echo base_url(); ?>assets/css/fullcalendar.css" />
     <link href="<?php echo base_url(); ?>assets/css/bootstrap-responsive.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo base_url(); ?>assets/css/conecte-mobile.css" />
+    <link rel="stylesheet" href="<?= base_url(); ?>assets/tecnina/css/tecnina.css?v=<?= filemtime(FCPATH . 'assets/tecnina/css/tecnina.css'); ?>" />
     <script type="text/javascript" src="<?php echo base_url(); ?>assets/js/jquery-1.12.4.min.js"></script>
     <script type="text/javascript" src="<?= base_url(); ?>assets/js/sweetalert.min.js"></script>
-    <link rel="shortcut icon" href="<?php echo base_url(); ?>assets/img/favicon.png">
+    <link rel="icon" type="image/x-icon" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="<?= base_url(); ?>assets/tecnina/img/favicon/apple-touch-icon.png">
+    <link rel="manifest" href="<?= base_url(); ?>assets/tecnina/img/favicon/site.webmanifest">
     <link href='https://unpkg.com/boxicons@2.1.1/css/boxicons.min.css' rel='stylesheet'>
     <script type="text/javascript" src="<?= base_url(); ?>assets/js/funcoesGlobal.js"></script>
     <script type="text/javascript" src="<?= base_url(); ?>assets/js/csrf.js"></script>
@@ -34,7 +38,7 @@
 
     <!--Header-part-->
     <div id="header">
-        <h1><a href="dashboard.html"><?php echo $this->config->item('app_name'); ?></a></h1>
+        <h1><a href="dashboard.html">TecNina</a></h1>
     </div>
     <!--close-Header-part-->
 
@@ -55,12 +59,9 @@
     </div>
 
     <nav id="sidebar">
-        <div id="newlog">
-            <div class="icon2">
-                <img src="<?php echo base_url() ?>assets/img/logo-two.png">
-            </div>
-            <div class="title1">
-                <img src="<?= base_url() ?>assets/img/logo-mapos-branco.png">
+        <div id="newlog" class="tecnina-brand">
+            <div class="tecnina-brand-logo">
+                <img src="<?= base_url(); ?>assets/tecnina/img/svg/logo-on-dark.svg" alt="TECNINA">
             </div>
         </div>
         <a href="#" class="visible-phone">
@@ -131,9 +132,7 @@
     <!--Footer-part-->
     <div class="row-fluid">
         <div id="footer" class="span12">
-            <?= date('Y') ?> &copy;
-            <?php echo $this->config->item('app_name'); ?> - Versão:
-            <?php echo $this->config->item('app_version'); ?>
+            &copy; <?= date('Y') ?> TecNina
         </div>
     </div>
 
