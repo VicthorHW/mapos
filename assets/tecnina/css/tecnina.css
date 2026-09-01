@@ -1,0 +1,94 @@
+/* ==========================================================
+   TECNINA — Skin MapOS
+   ========================================================== */
+
+:root {
+    --tecnina-orange: #f26a21;
+    --tecnina-orange-hover: #dc5917;
+    --tecnina-dark: #17191d;
+    --tecnina-dark-hover: #23262c;
+    --tecnina-radius: 7px;
+}
+
+/* BRANDING / LOGO */
+.tecnina-brand {
+    height: 70px;
+    padding: 12px 16px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tecnina-brand-symbol {
+    display: none;
+}
+
+.tecnina-brand-logo {
+    display: flex;
+    align-items: center;
+}
+
+.tecnina-brand-logo img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 155px;
+    max-height: 42px;
+    object-fit: contain;
+}
+
+/* MENU */
+#sidebar .menu-links li a {
+    transition: background-color .15s ease, color .15s ease;
+}
+
+#sidebar .menu-links li.active > a {
+    border-left: 3px solid var(--tecnina-orange);
+}
+
+#sidebar .menu-links li > a:hover {
+    background-color: rgba(242, 106, 33, .08);
+}
+
+/* BOTÕES PRINCIPAIS */
+.btn-primary,
+.button.btn-primary {
+    background: var(--tecnina-orange) !important;
+    border-color: var(--tecnina-orange) !important;
+    background-image: none !important;
+    color: #fff !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.button.btn-primary:hover,
+.button.btn-primary:focus {
+    background: var(--tecnina-orange-hover) !important;
+    border-color: var(--tecnina-orange-hover) !important;
+}
+
+/* CAMPOS */
+input,
+select,
+textarea {
+    border-radius: var(--tecnina-radius) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--tecnina-orange) !important;
+    box-shadow: 0 0 0 2px rgba(242, 106, 33, .12) !important;
+}
+
+/* LINKS */
+a {
+    transition: color .15s ease;
+}
+
+/* SELEÇÃO */
+::selection {
+    background: var(--tecnina-orange);
+    color: #fff;
+}

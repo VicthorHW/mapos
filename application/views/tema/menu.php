@@ -1,11 +1,25 @@
 <!--sidebar-menu-->
 <nav id="sidebar">
-    <div id="newlog">
-        <div class="icon2">
-            <img src="<?php echo base_url() ?>assets/img/logo-two.png">
+    <?php
+    $tecninaLightThemes = ['white', 'whitegreen', 'whiteblack'];
+    $tecninaIsLight = in_array($configuration['app_theme'], $tecninaLightThemes, true);
+
+    $tecninaLogo = $tecninaIsLight
+        ? 'logo-on-light.svg'
+        : 'logo-on-dark.svg';
+
+    $tecninaSymbol = $tecninaIsLight
+        ? 'simbolo-on-light.svg'
+        : 'simbolo-on-dark.svg';
+    ?>
+
+    <div id="newlog" class="tecnina-brand">
+        <div class="tecnina-brand-symbol">
+            <img src="<?= base_url(); ?>assets/tecnina/img/svg/<?= $tecninaSymbol ?>" alt="TECNINA">
         </div>
-        <div class="title1">
-            <?= $configuration['app_theme'] == 'white' ||  $configuration['app_theme'] == 'whitegreen' ? '<img src="' . base_url() . 'assets/img/logo-mapos.png">' : '<img src="' . base_url() . 'assets/img/logo-mapos-branco.png">'; ?>
+
+        <div class="tecnina-brand-logo">
+            <img src="<?= base_url(); ?>assets/tecnina/img/svg/<?= $tecninaLogo ?>" alt="TECNINA">
         </div>
     </div>
     <a href="#" class="visible-phone">
