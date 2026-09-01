@@ -30,5 +30,13 @@ $hook['pre_system'][] = [
     'params' => [],
 ];
 
+$hook['pre_controller'][] = [
+    'class' => 'PortalHost',
+    'function' => 'enforce',
+    'filename' => 'PortalHost.php',
+    'filepath' => 'hooks',
+    'params' => [],
+];
+
 /* End of file hooks.php */
 /* Location: ./application/config/hooks.php */

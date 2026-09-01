@@ -18,11 +18,11 @@ $totalProdutos = 0;
             <header>
                 <?php if ($emitente == null) : ?>
                     <div class="alert alert-danger" role="alert">
-                        Você precisa configurar os dados do emitente. >>> <a href="<?=base_url()?>index.php/mapos/emitente">Configurar</a>
+                        Os dados do emitente ainda não foram configurados.
                     </div>
                 <?php else : ?>
                     <div class="imgLogo" class="align-middle">
-                        <img src="<?= $emitente->url_logo ?>" class="img-fluid" style="width:140px;">
+                        <img src="<?= cliente_asset_url($emitente->url_logo) ?>" class="img-fluid" style="width:140px;">
                     </div>
                     <div class="emitente">
                         <span style="font-size: 16px;"><b><?= $emitente->nome ?></b></span></br>

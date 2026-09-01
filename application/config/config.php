@@ -44,7 +44,15 @@ date_default_timezone_set($_ENV['APP_TIMEZONE'] ?? 'America/Sao_Paulo');
 | a PHP script and you can easily do that on your own.
 |
 */
-$config['base_url'] = $_ENV['APP_BASEURL'] ?? 'http://localhost:8000/';
+require_once APPPATH . 'libraries/Portal.php';
+
+$portal = Portal::configuration($_ENV, $_SERVER, ENVIRONMENT);
+$config['portal_split_enabled'] = $portal['split_enabled'];
+$config['portal_current'] = $portal['current'];
+$config['portal_request_host'] = $portal['request_host'];
+$config['portal_management_base_url'] = $portal['management_base_url'];
+$config['portal_client_base_url'] = $portal['client_base_url'];
+$config['base_url'] = $portal['base_url'];
 
 /*
 |--------------------------------------------------------------------------
@@ -400,7 +408,16 @@ $config['encryption_key'] = $_ENV['APP_ENCRYPTION_KEY'];
 |
 */
 $config['sess_driver'] = $_ENV['APP_SESS_DRIVER'] ?? 'database';
-$config['sess_cookie_name'] = $_ENV['APP_SESS_COOKIE_NAME'] ?? 'app_session';
+$sessionCookieName = $_ENV['APP_SESS_COOKIE_NAME'] ?? 'app_session';
+if ($config['portal_split_enabled'] && in_array($config['portal_current'], ['management', 'client', 'unknown'], true)) {
+    $specificSessionCookieName = $config['portal_current'] === 'client'
+        ? ($_ENV['APP_SESS_COOKIE_NAME_CLIENTE'] ?? '')
+        : ($_ENV['APP_SESS_COOKIE_NAME_GESTAO'] ?? '');
+    $sessionCookieName = trim((string) $specificSessionCookieName) !== ''
+        ? $specificSessionCookieName
+        : $sessionCookieName . ($config['portal_current'] === 'client' ? '_cliente' : '_gestao');
+}
+$config['sess_cookie_name'] = $sessionCookieName;
 $config['sess_expiration'] = $_ENV['APP_SESS_EXPIRATION'] ?? 7200;
 $config['sess_save_path'] = $_ENV['APP_SESS_SAVE_PATH'] ?? 'ci_sessions';
 $config['sess_match_ip'] = isset($_ENV['APP_SESS_MATCH_IP']) ? filter_var($_ENV['APP_SESS_MATCH_IP'], FILTER_VALIDATE_BOOLEAN) : false;
@@ -423,7 +440,7 @@ $config['sess_regenerate_destroy'] = isset($_ENV['APP_SESS_REGENERATE_DESTROY'])
 |
 */
 $config['cookie_prefix'] = $_ENV['APP_COOKIE_PREFIX'] ?? '';
-$config['cookie_domain'] = $_ENV['APP_COOKIE_DOMAIN'] ?? '';
+$config['cookie_domain'] = $config['portal_split_enabled'] ? '' : ($_ENV['APP_COOKIE_DOMAIN'] ?? '');
 $config['cookie_path'] = $_ENV['APP_COOKIE_PATH'] ?? '/';
 $config['cookie_secure'] = isset($_ENV['APP_COOKIE_SECURE']) ? filter_var($_ENV['APP_COOKIE_SECURE'], FILTER_VALIDATE_BOOLEAN) : false;
 $config['cookie_httponly'] = isset($_ENV['APP_COOKIE_HTTPONLY']) ? filter_var($_ENV['APP_COOKIE_HTTPONLY'], FILTER_VALIDATE_BOOLEAN) : false;
@@ -444,7 +461,16 @@ $config['cookie_httponly'] = isset($_ENV['APP_COOKIE_HTTPONLY']) ? filter_var($_
 */
 $config['csrf_protection'] = isset($_ENV['APP_CSRF_PROTECTION']) ? filter_var($_ENV['APP_CSRF_PROTECTION'], FILTER_VALIDATE_BOOLEAN) : true;
 $config['csrf_token_name'] = $_ENV['APP_CSRF_TOKEN_NAME'] ?? 'MAPOS_TOKEN';
-$config['csrf_cookie_name'] = $_ENV['APP_CSRF_COOKIE_NAME'] ?? 'MAPOS_COOKIE';
+$csrfCookieName = $_ENV['APP_CSRF_COOKIE_NAME'] ?? 'MAPOS_COOKIE';
+if ($config['portal_split_enabled'] && in_array($config['portal_current'], ['management', 'client', 'unknown'], true)) {
+    $specificCsrfCookieName = $config['portal_current'] === 'client'
+        ? ($_ENV['APP_CSRF_COOKIE_NAME_CLIENTE'] ?? '')
+        : ($_ENV['APP_CSRF_COOKIE_NAME_GESTAO'] ?? '');
+    $csrfCookieName = trim((string) $specificCsrfCookieName) !== ''
+        ? $specificCsrfCookieName
+        : $csrfCookieName . ($config['portal_current'] === 'client' ? '_cliente' : '_gestao');
+}
+$config['csrf_cookie_name'] = $csrfCookieName;
 $config['csrf_expire'] = $_ENV['APP_CSRF_EXPIRE'] ?? 7200;
 $config['csrf_regenerate'] = isset($_ENV['APP_CSRF_REGENERATE']) ? filter_var($_ENV['APP_CSRF_REGENERATE'], FILTER_VALIDATE_BOOLEAN) : true;
 $config['csrf_exclude_uris'] = ['api.*+'];

@@ -21,7 +21,7 @@ class Mine extends CI_Controller
     public function sair()
     {
         $this->session->sess_destroy();
-        redirect('mine');
+        redirect(cliente_url('mine'));
     }
 
     public function resetarSenha()
@@ -36,7 +36,7 @@ class Mine extends CI_Controller
         $this->form_validation->set_rules('senha', 'Senha', 'required');
 
         if ($this->input->post('token') == null || $this->input->post('token') == '') {
-            return redirect('mine');
+            return redirect(cliente_url('mine'));
         }
         if ($this->form_validation->run() == false) {
             echo json_encode(['result' => false, 'message' => 'Por favor digite uma senha']);
@@ -96,7 +96,7 @@ class Mine extends CI_Controller
                 $this->session->set_flashdata(['error' => 'Token inválido ou expirado']);
                 log_info('Digitou Token. Porém, o token é inválido, expirado ou já utilizado.');
 
-                return redirect(base_url() . 'index.php/mine');
+                return redirect(cliente_url('mine'));
             }
 
             $cliente = $this->check_credentials($token->email);
@@ -105,7 +105,7 @@ class Mine extends CI_Controller
                 $this->session->set_flashdata(['error' => 'Token inválido ou expirado']);
                 log_info('Digitou Token. Porém, os dados de acesso estão incorretos.');
 
-                return redirect(base_url() . 'index.php/mine');
+                return redirect(cliente_url('mine'));
             }
 
             return $this->load->view('conecte/nova_senha', $token);
@@ -124,7 +124,7 @@ class Mine extends CI_Controller
             $this->session->set_flashdata(['error' => 'Token inválido ou expirado']);
             log_info('Acesso via link do email (Token). Porém, o token é inválido, expirado ou já utilizado.');
 
-            return redirect(base_url() . 'index.php/mine');
+            return redirect(cliente_url('mine'));
         }
 
         $cliente = $this->check_credentials($token->email);
@@ -133,7 +133,7 @@ class Mine extends CI_Controller
             $this->session->set_flashdata(['error' => 'Token inválido ou expirado']);
             log_info('Acesso via link do email (Token). Porém, os dados de acesso estão incorretos.');
 
-            return redirect(base_url() . 'index.php/mine');
+            return redirect(cliente_url('mine'));
         }
 
         return $this->load->view('conecte/nova_senha', $token);
@@ -148,7 +148,7 @@ class Mine extends CI_Controller
             // permitir enumeração de contas.
             log_info('Cliente solicitou alteração de senha para um e-mail inexistente.');
             $this->session->set_flashdata('success', 'Solicitação realizada com sucesso! <br> Um e-mail com as instruções será enviado para ' . html_escape($emailSolicitado));
-            redirect(base_url() . 'index.php/mine');
+            redirect(cliente_url('mine'));
         } else {
             $this->load->helper('string');
             $this->load->model('resetSenhas_model', '', true);
@@ -163,7 +163,7 @@ class Mine extends CI_Controller
                 $this->session->set_userdata($session_mine_data);
                 log_info('Cliente solicitou alteração de senha.');
                 $this->session->set_flashdata('success', 'Solicitação realizada com sucesso! <br> Um e-mail com as instruções será enviado para ' . $cliente->email);
-                redirect(base_url() . 'index.php/mine');
+                redirect(cliente_url('mine'));
             } else {
                 $this->session->set_flashdata('error', 'Falha ao realizar solicitação!');
                 $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
@@ -176,7 +176,7 @@ class Mine extends CI_Controller
 
     public function login()
     {
-        header('Access-Control-Allow-Origin: ' . base_url());
+        header('Access-Control-Allow-Origin: ' . rtrim(cliente_url(), '/'));
         header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
         header('Access-Control-Max-Age: 1000');
         header('Access-Control-Allow-Headers: Content-Type');
@@ -232,7 +232,7 @@ class Mine extends CI_Controller
     public function painel()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuPainel'] = 'painel';
@@ -245,7 +245,7 @@ class Mine extends CI_Controller
     public function conta()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuConta'] = 'conta';
@@ -258,7 +258,7 @@ class Mine extends CI_Controller
     public function editarDados()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuConta'] = 'conta';
@@ -308,7 +308,7 @@ class Mine extends CI_Controller
 
             if ($this->Conecte_model->edit('clientes', $data, 'idClientes', $this->session->userdata('cliente_id')) == true) {
                 $this->session->set_flashdata('success', 'Dados editados com sucesso!');
-                redirect(base_url() . 'index.php/mine/conta');
+                redirect(cliente_url('mine/conta'));
             } else {
             }
         }
@@ -322,13 +322,13 @@ class Mine extends CI_Controller
     public function compras()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuVendas'] = 'vendas';
         $this->load->library('pagination');
 
-        $config['base_url'] = base_url() . 'index.php/mine/compras/';
+        $config['base_url'] = cliente_url('mine/compras/');
         $config['total_rows'] = $this->Conecte_model->count('vendas', $this->session->userdata('cliente_id'));
         $config['per_page'] = 10;
         $config['next_link'] = 'Próxima';
@@ -361,7 +361,7 @@ class Mine extends CI_Controller
     public function cobrancas()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $this->load->library('pagination');
@@ -369,7 +369,7 @@ class Mine extends CI_Controller
 
         $data['menuCobrancas'] = 'cobrancas';
 
-        $config['base_url'] = base_url() . 'index.php/mine/cobrancas/';
+        $config['base_url'] = cliente_url('mine/cobrancas/');
         $config['total_rows'] = $this->Conecte_model->count('cobrancas', $this->session->userdata('cliente_id'));
         $config['per_page'] = 10;
         $config['next_link'] = 'Próxima';
@@ -402,58 +402,58 @@ class Mine extends CI_Controller
     public function atualizarcobranca($id = null)
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         if (! $this->uri->segment(3) || ! is_numeric($this->uri->segment(3))) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
-            redirect('mapos');
+            redirect(cliente_url('mine/cobrancas'));
         }
 
         if (! $this->permission->checkPermission($this->session->userdata('permissao'), 'eCobranca')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para atualizar cobrança.');
-            redirect(base_url());
+            redirect(cliente_url('mine/cobrancas'));
         }
 
         $this->load->model('cobrancas_model');
         $this->cobrancas_model->atualizarStatus($this->uri->segment(3));
 
-        redirect(site_url('mine/cobrancas/'));
+        redirect(cliente_url('mine/cobrancas/'));
     }
 
     public function enviarcobranca()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         if (! $this->uri->segment(3) || ! is_numeric($this->uri->segment(3))) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
-            redirect('mapos');
+            redirect(cliente_url('mine/cobrancas'));
         }
 
         if (! $this->permission->checkPermission($this->session->userdata('permissao'), 'eCobranca')) {
             $this->session->set_flashdata('error', 'Você não tem permissão para atualizar cobrança.');
-            redirect(base_url());
+            redirect(cliente_url('mine/cobrancas'));
         }
 
         $this->load->model('cobrancas_model');
         $this->cobrancas_model->enviarEmail($this->uri->segment(3));
         $this->session->set_flashdata('success', 'Email adicionado na fila.');
 
-        redirect(site_url('mine/cobrancas/'));
+        redirect(cliente_url('mine/cobrancas/'));
     }
 
     public function os()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuOs'] = 'os';
         $this->load->library('pagination');
 
-        $config['base_url'] = base_url() . 'index.php/mine/os/';
+        $config['base_url'] = cliente_url('mine/os/');
         $config['total_rows'] = $this->Conecte_model->count('os', $this->session->userdata('cliente_id'));
         $config['per_page'] = 10;
         $config['next_link'] = 'Próxima';
@@ -486,7 +486,7 @@ class Mine extends CI_Controller
     public function visualizarOs($id = null)
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuOs'] = 'os';
@@ -511,7 +511,7 @@ class Mine extends CI_Controller
 
         if ($data['result']->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta OS não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $data['output'] = 'conecte/visualizar_os';
@@ -596,7 +596,7 @@ class Mine extends CI_Controller
     public function imprimirOs($id = null)
     {
         if (!session_id() || !$this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuOs'] = 'os';
@@ -617,7 +617,7 @@ class Mine extends CI_Controller
 
         if ($data['result']->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta OS não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->load->view('conecte/imprimirOs', $data);
@@ -626,7 +626,7 @@ class Mine extends CI_Controller
     public function visualizarCompra($id = null)
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuVendas'] = 'vendas';
@@ -650,7 +650,7 @@ class Mine extends CI_Controller
         
         if ($data['result']->clientes_id != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta OS não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $data['output'] = 'conecte/visualizar_compra';
@@ -661,7 +661,7 @@ class Mine extends CI_Controller
     public function imprimirCompra($id = null)
     {
         if (!session_id() || !$this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         $data['menuVendas'] = 'vendas';
@@ -683,7 +683,7 @@ class Mine extends CI_Controller
 
         if ($data['result']->clientes_id != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta venda não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->load->view('conecte/imprimirVenda', $data);
@@ -695,12 +695,12 @@ class Mine extends CI_Controller
         // (y = 7653 * ID + 44023), portanto não pode ser tratado como segredo.
         // O cliente precisa estar autenticado e a OS precisa ser dele.
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         if (($y == null) || (! is_numeric($y))) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $y = intval($y);
@@ -708,7 +708,7 @@ class Mine extends CI_Controller
 
         if ($id <= 0 || floor($id) != $id) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $data['menuOs'] = 'os';
@@ -719,12 +719,12 @@ class Mine extends CI_Controller
 
         if ($data['result'] == null) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         if ($data['result']->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta OS não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $data['produtos'] = $this->os_model->getProdutos((int) $id);
@@ -737,7 +737,7 @@ class Mine extends CI_Controller
     public function adicionarOs()
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
         $this->load->library('form_validation');
 
@@ -757,7 +757,7 @@ class Mine extends CI_Controller
 
                 if ($usuario->idUsuarios == null) {
                     $this->session->set_flashdata('error', 'Ocorreu um erro ao cadastrar a ordem de serviço, por favor contate o administrador do sistema.');
-                    redirect('mine/os');
+                    redirect(cliente_url('mine/os'));
                 } else {
                     $id = $usuario->idUsuarios;
                 }
@@ -794,7 +794,7 @@ class Mine extends CI_Controller
 
                 $this->enviarOsPorEmail($idOs, $remetentes, 'Nova Ordem de Serviço #' . $idOs . ' - Criada pelo Cliente');
                 $this->session->set_flashdata('success', 'OS adicionada com sucesso!');
-                redirect('mine/detalhesOs/' . $id);
+                redirect(cliente_url('mine/detalhesOs/' . $id));
             } else {
                 $this->data['custom_error'] = '<div class="form_error"><p>Ocorreu um erro.</p></div>';
             }
@@ -807,12 +807,12 @@ class Mine extends CI_Controller
     public function detalhesOs($id = null)
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         if (! is_numeric($id) || $id == null) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->load->model('mapos_model');
@@ -823,7 +823,7 @@ class Mine extends CI_Controller
         // Sem OS, ou OS de outro cliente, o acesso é negado.
         if (! $this->data['result'] || $this->data['result']->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Esta OS não pertence ao cliente logado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->data['produtos'] = $this->os_model->getProdutos((int) $id);
@@ -880,7 +880,7 @@ class Mine extends CI_Controller
                 $this->enviarEmailBoasVindas($id);
                 $this->enviarEmailTecnicoNotificaClienteNovo($id);
                 $this->session->set_flashdata('success', 'Cadastro realizado com sucesso! <br> Um e-mail de boas vindas será enviado para ' . $data['email']);
-                redirect(base_url() . 'index.php/mine');
+                redirect(cliente_url('mine'));
             } else {
                 $this->session->set_flashdata('error', 'Falha ao realizar cadastro!');
             }
@@ -892,12 +892,12 @@ class Mine extends CI_Controller
     public function downloadanexo($id = null)
     {
         if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect('mine');
+            redirect(cliente_url('mine'));
         }
 
         if ($id == null || ! is_numeric($id)) {
             $this->session->set_flashdata('error', 'Anexo não encontrado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->db->where('idAnexos', (int) $id);
@@ -905,7 +905,7 @@ class Mine extends CI_Controller
 
         if (! $file) {
             $this->session->set_flashdata('error', 'Anexo não encontrado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         // O anexo precisa pertencer a uma OS do cliente autenticado.
@@ -914,7 +914,7 @@ class Mine extends CI_Controller
 
         if (! $os || $os->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Anexo não encontrado.');
-            redirect('mine/painel');
+            redirect(cliente_url('mine/painel'));
         }
 
         $this->load->library('zip');
@@ -978,7 +978,7 @@ class Mine extends CI_Controller
         if ($emitente == null) {
             $this->session->set_flashdata(['error' => 'Cadastrar Emitente.\n\n Por favor contate o administrador do sistema.']);
 
-            return redirect(base_url() . 'index.php/mine/resetarSenha');
+            return redirect(cliente_url('mine/resetarSenha'));
         }
 
         $headers = [

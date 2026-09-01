@@ -50,7 +50,7 @@
                 <div class="span12">
                     <div class="span6 offset3" style="display:flex;justify-content: center">
                         <button name="senhaClient" id="senhaClient" type="submit" class="button btn btn-success btn-large"><span class="button__icon"><i class='bx bx-lock-open'></i></span><span class="button__text2">Alterar</span></button>
-                        <a href="<?php echo base_url() ?>index.php/mine" id="" class="button btn btn-warning"><span class="button__icon"><i class='bx bx-lock-alt'></i></span><span class="button__text2">Acessar</span></a>
+                        <a href="<?php echo cliente_url('mine') ?>" id="" class="button btn btn-warning"><span class="button__icon"><i class='bx bx-lock-alt'></i></span><span class="button__text2">Acessar</span></a>
                     </div>
                 </div>
             </div>
@@ -69,7 +69,7 @@
 
                 $.ajax({
                     type: "POST",
-                    url: "<?php echo base_url() ?>index.php/mine/senhaSalvar",
+                    url: "<?php echo cliente_url('mine/senhaSalvar') ?>",
                     dataType: 'json',
                     data: {
                         token: token,
@@ -82,7 +82,7 @@
                                 title: "Salvo com Sucesso",
                                 text: data.message
                             });
-                            window.location.replace("<?php echo base_url() ?>index.php/mine/");
+                            window.location.replace("<?php echo cliente_url('mine') ?>");
                         } else {
                             Swal.fire({
                                 type: "error",

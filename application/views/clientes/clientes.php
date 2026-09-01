@@ -79,7 +79,7 @@
             echo '<td>';
             if ($this->permission->checkPermission($this->session->userdata('permissao'), 'vCliente')) {
                 echo '<a href="' . base_url() . 'index.php/clientes/visualizar/' . $r->idClientes . '" style="margin-right: 1%" class="btn-nwe" title="Ver mais detalhes"><i class="bx bx-show bx-xs"></i></a>';
-                echo '<a href="' . base_url() . 'index.php/mine?e=' . $r->email . '" target="new" style="margin-right: 1%" class="btn-nwe2" title="Área do cliente"><i class="bx bx-key bx-xs"></i></a>';
+                echo '<a href="' . html_escape(cliente_url('mine') . '?e=' . rawurlencode($r->email)) . '" target="new" style="margin-right: 1%" class="btn-nwe2" title="Área do cliente"><i class="bx bx-key bx-xs"></i></a>';
             }
             if ($this->permission->checkPermission($this->session->userdata('permissao'), 'eCliente')) {
                 echo '<a href="' . base_url() . 'index.php/clientes/editar/' . $r->idClientes . '" style="margin-right: 1%" class="btn-nwe3" title="Editar Cliente"><i class="bx bx-edit bx-xs"></i></a>';

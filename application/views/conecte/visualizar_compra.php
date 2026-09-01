@@ -9,7 +9,7 @@
                 <h5>Venda</h5>
                 <div class="buttons">
 
-                    <a id="imprimir" target="_blank" title="Imprimir" class="btn btn-mini btn-inverse" href="<?php echo site_url(); ?>/mine/imprimirCompra/<?php echo $result->idVendas; ?>"><i class="fas fa-print"></i> Imprimir</a>
+                    <a id="imprimir" target="_blank" title="Imprimir" class="btn btn-mini btn-inverse" href="<?php echo cliente_url('mine/imprimirCompra/' . $result->idVendas); ?>"><i class="fas fa-print"></i> Imprimir</a>
                 </div>
             </div>
             <div class="widget-content" id="printOs">
@@ -27,7 +27,7 @@
                                 } else { ?>
 
                                     <tr>
-                                        <td style="width: 25%"><img src=" <?php echo $emitente->url_logo; ?> "></td>
+                                        <td style="width: 25%"><img src=" <?php echo cliente_asset_url($emitente->url_logo); ?> "></td>
                                         <td> <span style="font-size: 20px; ">
                                                 <?php echo $emitente->nome; ?></span> </br><span>
                                                 <?php echo $emitente->cnpj; ?> </br>

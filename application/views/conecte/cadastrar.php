@@ -243,7 +243,7 @@
 
                 <div class="control-group span12" style="background-color:transparent;border:none;padding: 10px;margin-left: 0;margin-bottom: 0;">
                     <div style="display:flex; justify-content: center; flex-direction: column; align-items: center;">
-                        <img src="<?= base_url() ?>index.php/mine/captcha" alt="">
+                        <img src="<?= cliente_url('mine/captcha') ?>" alt="">
                         <div class="controls" style="margin-left: 0;">
                             <input id="captcha" type="text" placeholder="Digite o texto da imagem*" name="captcha" value="" />
                         </div>
@@ -254,7 +254,7 @@
                     <div class="span12">
                         <div class="span6 offset3" style="display:flex;justify-content: center">
                             <button type="submit" class="button btn btn-success btn-large"><span class="button__icon"><i class='bx bx-user-plus'></i></span><span class="button__text2">Cadastrar</span></button>
-                            <a href="<?= base_url() ?>index.php/mine" id="" class="button btn btn-warning"><span class="button__icon"><i class='bx bx-undo'></i></span><span class="button__text2">Voltar</span></a>
+                            <a href="<?= cliente_url('mine') ?>" id="" class="button btn btn-warning"><span class="button__icon"><i class='bx bx-undo'></i></span><span class="button__text2">Voltar</span></a>
                         </div>
                     </div>
                 </div>

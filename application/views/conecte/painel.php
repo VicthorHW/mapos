@@ -3,42 +3,42 @@
 <div class="quick-actions_homepage">
     <ul class="cardBox">
         <li class="card">
-            <a href="<?php echo base_url() ?>index.php/mine/os">
+            <a href="<?php echo cliente_url('mine/os') ?>">
                 <div class="lord-icon04">
                     <i class='bx bx-file iconBx04'></i>
                 </div>
             </a>
-            <a href="<?php echo base_url() ?>index.php/mine/os">
+            <a href="<?php echo cliente_url('mine/os') ?>">
                 <div style="font-size: 1.2em" class="numbers">Ordens de Serviço</div>
             </a>
         </li>
 
         <li class="card">
-            <a href="<?php echo base_url() ?>index.php/mine/compras">
+            <a href="<?php echo cliente_url('mine/compras') ?>">
                 <div class="lord-icon05">
                     <i class='bx bx-cart-alt iconBx05'></i>
                 </div>
             </a>
-            <a href="<?php echo base_url() ?>index.php/mine/compras">
+            <a href="<?php echo cliente_url('mine/compras') ?>">
                 <div style="font-size: 1.2em" class="numbers">Compras&nbsp;&nbsp;&nbsp;&nbsp;</div>
             </a>
         <li class="card">
-            <a href="<?php echo base_url() ?>index.php/mine/cobrancas">
+            <a href="<?php echo cliente_url('mine/cobrancas') ?>">
                 <div class="lord-icon05">
                     <i class='bx bx-credit-card-front iconBx05'></i>
                 </div>
             </a>
-            <a href="<?php echo base_url() ?>index.php/mine/cobrancas">
+            <a href="<?php echo cliente_url('mine/cobrancas') ?>">
                 <div style="font-size: 1.2em" class="numbers">Cobranças&nbsp;&nbsp;&nbsp;&nbsp;</div>
             </a>
         </li>
         <li class="card">
-            <a href="<?php echo base_url() ?>index.php/mine/conta">
+            <a href="<?php echo cliente_url('mine/conta') ?>">
                 <div class="lord-icon07">
                     <i class='bx bx-user-circle iconBx07'></i></span>
                 </div>
             </a>
-            <a href="<?php echo base_url() ?>index.php/mine/conta">
+            <a href="<?php echo cliente_url('mine/conta') ?>">
                 <div style="font-size: 1.2em" class="numbers">Minha Conta</div>
             </a>
         </li>
@@ -132,8 +132,8 @@
                             echo '<td><span class="badge" style="background-color: ' . $corGarantia . '; border-color: ' . $corGarantia . '">' . $vencGarantia . '</span> </td>';
                             echo '<td><span class="badge" style="background-color: ' . $cor . '; border-color: ' . $cor . '">' . $o->status . '</span> </td>';
                             echo '<td style="text-align:right">';
-                            echo '<a href="' . base_url() . 'index.php/mine/visualizarOs/' . $o->idOs . '" class="btn"> <i class="fas fa-eye" ></i></a> ';
-                            echo '<a href="' . base_url('index.php/mine/imprimirOs/' . $o->idOs) . '" class="btn" target="_blank"> <i class="fas fa-print"></i></a>';
+                            echo '<a href="' . cliente_url('mine/visualizarOs/' . $o->idOs) . '" class="btn"> <i class="fas fa-eye" ></i></a> ';
+                            echo '<a href="' . cliente_url('mine/imprimirOs/' . $o->idOs) . '" class="btn" target="_blank"> <i class="fas fa-print"></i></a>';
                             echo '</td>';
                             echo '</tr>';
                         }
@@ -238,8 +238,8 @@
                     echo '<td><span class="badge" style="background-color: ' . $corGarantia . '; border-color: ' . $corGarantia . '">' . $vencGarantia . '</span> </td>';
                     echo '<td><span class="badge" style="background-color: ' . $cor . '; border-color: ' . $cor . '">' . $c->status . '</span> </td>';
                     echo '<td style="text-align:right">';
-                    echo '<a href="' . base_url() . 'index.php/mine/visualizarCompra/' . $c->idVendas . '" class="btn"> <i class="fas fa-eye" ></i> </a> ';
-                    echo '<a href="' . base_url() . 'index.php/mine/imprimirCompra/' . $c->idVendas . '" class="btn"> <i class="fas fa-print" ></i> </a>';
+                    echo '<a href="' . cliente_url('mine/visualizarCompra/' . $c->idVendas) . '" class="btn"> <i class="fas fa-eye" ></i> </a> ';
+                    echo '<a href="' . cliente_url('mine/imprimirCompra/' . $c->idVendas) . '" class="btn"> <i class="fas fa-print" ></i> </a>';
                     echo '</td>';
                     echo '</tr>';
                 }

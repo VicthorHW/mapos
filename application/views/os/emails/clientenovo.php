@@ -113,7 +113,7 @@
                     <table>
                         <tr>
                             <td class="title">
-                                <img src="<?= $emitente->url_logo; ?>" style="width:100%; max-width:120px;">
+                                <img src="<?= cliente_asset_url($emitente->url_logo); ?>" style="width:100%; max-width:120px;">
                             </td>
                             <td style="text-align: right">
                                 <br>

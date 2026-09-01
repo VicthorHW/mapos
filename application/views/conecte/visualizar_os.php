@@ -9,7 +9,7 @@ $totalProdutos = 0; ?>
                 </span>
                 <h5>Ordem de Serviço</h5>
                 <div class="buttons" style=" padding-left:5px;">
-                    <a target="_blank" title="Imprimir Relatório" class="button btn btn-mini btn-inverse" href="<?php echo site_url() ?>/mine/imprimirOs/<?php echo $result->idOs; ?>">
+                    <a target="_blank" title="Imprimir Relatório" class="button btn btn-mini btn-inverse" href="<?php echo cliente_url('mine/imprimirOs/' . $result->idOs); ?>">
                         <span class="button__icon"><i class="bx bx-printer"></i></span> <span class="button__text">Imprimir Relatório</span></a>
                 </div>
             </div>
@@ -25,7 +25,7 @@ $totalProdutos = 0; ?>
                                     </tr>
                                 <?php } else { ?>
                                     <tr>
-                                        <td style="width: 25%"><img src=" <?php echo $emitente->url_logo; ?> " style="max-height: 100px"></td>
+                                        <td style="width: 25%"><img src=" <?php echo cliente_asset_url($emitente->url_logo); ?> " style="max-height: 100px"></td>
                                         <td>
                                             <span style="font-size: 20px;"><?php echo $emitente->nome; ?></span></br>
                                             <?php if ($emitente->cnpj != "00.000.000/0000-00") { ?><span class="icon"><i class="fas fa-fingerprint" style="margin:5px 1px"></i> <?php echo $emitente->cnpj; ?></span></br><?php } ?>
@@ -138,8 +138,8 @@ $totalProdutos = 0; ?>
                                             $thumb = base_url() . 'assets/img/icon-file.png';
                                             $link = base_url() . 'assets/img/icon-file.png';
                                         } else {
-                                            $thumb = $a->url . '/thumbs/' . $a->thumb;
-                                            $link = $a->url . '/' . $a->anexo;
+                                            $thumb = cliente_asset_url($a->url . '/thumbs/' . $a->thumb);
+                                            $link = cliente_asset_url($a->url . '/' . $a->anexo);
                                         }
                                         echo '<div class="span3" style="min-height: 150px; margin-left: 0"><a style="min-height: 150px;" href="#modal-anexo" imagem="' . $a->idAnexos . '" link="' . $link . '" role="button" class="btn anexo span12" data-toggle="modal"><img src="' . $thumb . '" alt=""></a></div>';
                                     } ?>
@@ -269,9 +269,8 @@ $totalProdutos = 0; ?>
             event.preventDefault();
             var link = $(this).attr('link');
             var id = $(this).attr('imagem');
-            var url = '<?php echo base_url(); ?>index.php/os/excluirAnexo/';
             $("#div-visualizar-anexo").html('<img src="' + link + '" alt="">');
-            $("#download").attr('href', "<?php echo base_url(); ?>index.php/os/downloadanexo/" + id);
+            $("#download").attr('href', "<?php echo cliente_url('mine/downloadanexo/'); ?>" + id);
         });
     });
 </script>

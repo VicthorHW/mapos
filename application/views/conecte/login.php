@@ -51,7 +51,7 @@ $parse_email = $this->input->get('e');
         </div>
 
         <div id="loginbox">
-            <form class="form-vertical" id="formLogin" method="post" action="<?php echo site_url() ?>/mine/login">
+            <form class="form-vertical" id="formLogin" method="post" action="<?php echo cliente_url('mine/login') ?>">
                 <input type="hidden" name="<?= $this->security->get_csrf_token_name(); ?>" value="<?= $this->security->get_csrf_hash(); ?>">
                 <div class="d-flex flex-column">
                     <div class="right-login">
@@ -80,8 +80,8 @@ $parse_email = $this->input->get('e');
                                     </div>
 
                                     <button style="margin: 0" class="btn btn-info btn-large"> Acessar</button>
-                                    <a href="<?= site_url('mine/cadastrar') ?>" class="btn btn-success btn-large tecnina-register-button">Cadastrar-me</a>
-                                    <div class="links-uteis"><a href="<?= site_url('mine/resetarSenha') ?>">
+                                    <a href="<?= cliente_url('mine/cadastrar') ?>" class="btn btn-success btn-large tecnina-register-button">Cadastrar-me</a>
+                                    <div class="links-uteis"><a href="<?= cliente_url('mine/resetarSenha') ?>">
                                             <p style="margin:0px 0 18px">Esqueceu a senha?</p>
                                         </a></div>
                                     <div class="links-uteis"><p>&copy; <?= date('Y'); ?> TecNina</p></div>
@@ -148,12 +148,12 @@ $parse_email = $this->input->get('e');
 
                     $.ajax({
                         type: "POST",
-                        url: "<?php echo base_url(); ?>index.php/mine/login?ajax=true",
+                        url: "<?php echo cliente_url('mine/login'); ?>?ajax=true",
                         data: dados,
                         dataType: 'json',
                         success: function(data) {
                             if (data.result == true) {
-                                window.location.href = "<?php echo base_url(); ?>index.php/mine/painel";
+                                window.location.href = "<?php echo cliente_url('mine/painel'); ?>";
                             } else {
                                 Swal.fire({
                                     position: 'center',

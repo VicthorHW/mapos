@@ -24,6 +24,9 @@
     "scripts": {
         "format": [
             "application/vendor/bin/php-cs-fixer fix"
+        ],
+        "test": [
+            "php tests/PortalTest.php"
         ]
     },
     "config": {

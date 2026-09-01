@@ -205,8 +205,8 @@ foreach ($servicos as $s) {
                                             $thumb = base_url() . 'assets/img/icon-file.png';
                                             $link = base_url() . 'assets/img/icon-file.png';
                                         } else {
-                                            $thumb = $a->url . '/thumbs/' . $a->thumb;
-                                            $link = $a->url . '/' . $a->anexo;
+                                            $thumb = cliente_asset_url($a->url . '/thumbs/' . $a->thumb);
+                                            $link = cliente_asset_url($a->url . '/' . $a->anexo);
                                         }
                                         echo '<div class="span3" style="min-height: 150px; margin-left: 0">
                                             <a style="min-height: 150px;" href="#modal-anexo" imagem="' . $a->idAnexos . '" link="' . $link . '" role="button" class="btn anexo span12" data-toggle="modal">
@@ -348,6 +348,6 @@ foreach ($servicos as $s) {
         var link = $(this).attr('link');
         var id = $(this).attr('imagem');
         $("#div-visualizar-anexo").html('<img src="' + link + '" alt="">');
-        $("#download").attr('href', "<?php echo base_url(); ?>index.php/mine/downloadanexo/" + id);
+        $("#download").attr('href', "<?php echo cliente_url('mine/downloadanexo/'); ?>" + id);
     });
 </script>
