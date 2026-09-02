@@ -836,6 +836,9 @@ class Mine extends CI_Controller
 
     public function cadastrar()
     {
+        // O cadastro de clientes deve ser realizado somente pela gestão.
+        return redirect(cliente_url('mine'));
+
         $this->load->model('clientes_model', '', true);
         $this->load->library('form_validation');
         $this->data['custom_error'] = '';
