@@ -2,7 +2,7 @@
 <html lang="pt-br">
 
 <head>
-    <title>Área do Cliente | TecNina</title>
+    <title>TecNina | Área do Cliente</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="<?php echo $this->config->item('app_name') . ' - ' . $this->config->item('app_subname') ?>">
@@ -38,7 +38,7 @@
 
     <!--Header-part-->
     <div id="header">
-        <h1><a href="dashboard.html">TecNina</a></h1>
+        <h1><a href="<?= cliente_url('mine/painel') ?>">TecNina</a></h1>
     </div>
     <!--close-Header-part-->
 
@@ -81,7 +81,7 @@
                     }; ?>"><a class="tip-bottom" title="" href="<?php echo cliente_url('mine/painel') ?>"><i class='bx bx-home-alt iconX'></i> <span class="title">Painel</span></a></li>
                     <li class="<?php if (isset($menuConta)) {
                         echo 'active';
-                    }; ?>"><a class="tip-bottom" title="" href="<?php echo cliente_url('mine/conta') ?>"><i class="bx bx-user-circle iconX"></i> <span class="title">Minha Contas</span></a></li>
+                    }; ?>"><a class="tip-bottom" title="" href="<?php echo cliente_url('mine/conta') ?>"><i class="bx bx-user-circle iconX"></i> <span class="title">Minha Conta</span></a></li>
                     <li class="<?php if (isset($menuOs)) {
                         echo 'active';
                     }; ?>"><a class="tip-bottom" title="" href="<?php echo cliente_url('mine/os') ?>"><i class='bx bx-spreadsheet iconX'></i> <span class="title">Ordens de Serviço</span></a></li>

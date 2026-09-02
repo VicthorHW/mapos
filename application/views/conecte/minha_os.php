@@ -2,7 +2,7 @@
 <html lang="pt-br">
 
 <head>
-    <title>Área do Cliente | TecNina</title>
+    <title>TecNina | Área do Cliente</title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="<?php echo $this->config->item('app_name') . ' - ' . $this->config->item('app_subname') ?>">
@@ -211,7 +211,7 @@
 
                         function Popup(data) {
                             var mywindow = window.open('', 'MapOs', 'height=600,width=800');
-                            mywindow.document.write('<html><head><title>Map Os</title>');
+                            mywindow.document.write('<html><head><title>TecNina | Área do Cliente</title>');
                             mywindow.document.write("<link rel='stylesheet' href='<?php echo base_url(); ?>assets/css/bootstrap.min.css' /><link rel='stylesheet' href='<?php echo base_url(); ?>assets/css/bootstrap-responsive.min.css' />");
                             mywindow.document.write("<link rel='stylesheet' href='<?php echo base_url(); ?>assets/css/matrix-style.css' /> <link rel='stylesheet' href='<?php echo base_url(); ?>assets/css/matrix-media.css' />");
 
@@ -236,7 +236,7 @@
     </div>
     <!--Footer-part-->
     <div class="row-fluid">
-        <div id="footer" class="span12"> <?= date('Y') ?> &copy; <?php echo $this->config->item('app_name'); ?> - Versão <?php echo $this->config->item('app_version'); ?></div>
+        <div id="footer" class="span12"> <?= date('Y') ?> &copy; TecNina - Versão <?php echo $this->config->item('app_version'); ?></div>
     </div>
 
     <!-- javascript

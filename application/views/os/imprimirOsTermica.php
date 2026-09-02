@@ -4,7 +4,7 @@ $totalProdutos = 0; ?>
 <html lang="pt-br">
 
 <head>
-    <title>Map_OS_<?php echo $result->idOs ?>_<?php echo $result->nomeCliente ?></title>
+    <title>TecNina | Administração - OS #<?php echo $result->idOs ?> - <?php echo $result->nomeCliente ?></title>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="<?php echo base_url(); ?>assets/css/bootstrap.min.css" />

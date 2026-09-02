@@ -5,7 +5,7 @@ $totalProdutos = 0;
 <html lang="pt-br">
 
 <head>
-    <title><?= $this->config->item('app_name') ?> - Venda Nº#<?= $result->idVendas ?> - <?= $result->nomeCliente ?></title>
+    <title>TecNina | Administração - Venda #<?= $result->idVendas ?> - <?= $result->nomeCliente ?></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="<?= base_url() ?>assets/css/bootstrap5.3.2.min.css" />
     <link rel="stylesheet" href="<?= base_url() ?>assets/font-awesome/css/font-awesome.css" />

@@ -1,8 +1,8 @@
 <div class="row-fluid">
     <div id="footer" class="span12">
-        <a class="pecolor" href="https://github.com/RamonSilva20/mapos" target="_blank">
-            <?= date('Y') ?> &copy; Ramon Silva - Map-OS - Versão: <?= $this->config->item('app_version') ?>
-        </a>
+        <span class="pecolor">
+            <?= date('Y') ?> &copy; TecNina - Versão: <?= $this->config->item('app_version') ?>
+        </span>
     </div>
 </div>
 <!--end-Footer-part-->
