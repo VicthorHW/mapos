@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="<?= $this->config->item('app_name') . ' - ' . $this->config->item('app_subname') ?>">
     <meta name="csrf-token-name" content="<?= config_item("csrf_token_name") ?>">
+    <meta name="csrf-token" content="<?= html_escape($this->security->get_csrf_hash()) ?>">
     <meta name="csrf-cookie-name" content="<?= config_item("csrf_cookie_name") ?>">
     <link rel="icon" type="image/x-icon" href="<?= base_url(); ?>assets/tecnina/img/favicon/favicon.ico">
     <link rel="stylesheet" href="<?= base_url() ?>assets/css/bootstrap.min.css" />
