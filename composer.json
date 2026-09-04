@@ -27,7 +27,9 @@
         ],
         "test": [
             "php tests/PortalTest.php",
-            "php tests/PublicRegistrationTest.php"
+            "php tests/PublicRegistrationTest.php",
+            "php tests/DeviceCredentialTest.php",
+            "php tests/DeviceCredentialPrivacyTest.php"
         ]
     },
     "config": {

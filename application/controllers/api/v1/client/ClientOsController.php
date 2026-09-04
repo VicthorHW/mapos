@@ -67,7 +67,7 @@ class ClientOsController extends REST_Controller
         $osId = (int) $id;
 
         $data['pix_key'] = $this->CI->db->get_where('configuracoes', ['config' => 'pix_key'])->row_object()->valor;
-        $data['result'] = $this->os_model->getById($osId);
+        $data['result'] = $this->Conecte_model->getById($osId);
         if (empty($data['result'])) {
             $this->response([
                 'status' => false,

@@ -497,7 +497,7 @@ class Mine extends CI_Controller
         $this->CI->load->database();
 
         $data['pix_key'] = $this->CI->db->get_where('configuracoes', ['config' => 'pix_key'])->row_object()->valor;
-        $data['result'] = $this->os_model->getById($this->uri->segment(3));
+        $data['result'] = $this->Conecte_model->getById($this->uri->segment(3));
         $data['produtos'] = $this->os_model->getProdutos($this->uri->segment(3));
         $data['servicos'] = $this->os_model->getServicos($this->uri->segment(3));
         $data['anexos'] = $this->os_model->getAnexos($this->uri->segment(3));
@@ -603,7 +603,7 @@ class Mine extends CI_Controller
         $this->data['custom_error'] = '';
         $this->load->model('mapos_model');
         $this->load->model('os_model');
-        $data['result'] = $this->os_model->getById($this->uri->segment(3));
+        $data['result'] = $this->Conecte_model->getById($this->uri->segment(3));
         $data['produtos'] = $this->os_model->getProdutos($this->uri->segment(3));
         $data['servicos'] = $this->os_model->getServicos($this->uri->segment(3));
         $data['emitente'] = $this->mapos_model->getEmitente();
@@ -715,7 +715,7 @@ class Mine extends CI_Controller
         $this->data['custom_error'] = '';
         $this->load->model('mapos_model');
         $this->load->model('os_model');
-        $data['result'] = $this->os_model->getById((int) $id);
+        $data['result'] = $this->Conecte_model->getById((int) $id);
 
         if ($data['result'] == null) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
@@ -818,7 +818,7 @@ class Mine extends CI_Controller
         $this->load->model('mapos_model');
         $this->load->model('os_model');
 
-        $this->data['result'] = $this->os_model->getById((int) $id);
+        $this->data['result'] = $this->Conecte_model->getById((int) $id);
 
         // Sem OS, ou OS de outro cliente, o acesso é negado.
         if (! $this->data['result'] || $this->data['result']->idClientes != $this->session->userdata('cliente_id')) {
@@ -913,7 +913,7 @@ class Mine extends CI_Controller
 
         // O anexo precisa pertencer a uma OS do cliente autenticado.
         $this->load->model('os_model');
-        $os = $this->os_model->getById($file->os_id);
+        $os = $this->Conecte_model->getById($file->os_id);
 
         if (! $os || $os->idClientes != $this->session->userdata('cliente_id')) {
             $this->session->set_flashdata('error', 'Anexo não encontrado.');
@@ -1006,7 +1006,7 @@ class Mine extends CI_Controller
 
         $this->load->model('mapos_model');
         $this->load->model('os_model');
-        $dados['result'] = $this->os_model->getById($idOs);
+        $dados['result'] = $this->Conecte_model->getById($idOs);
         if (! isset($dados['result']->email)) {
             return false;
         }

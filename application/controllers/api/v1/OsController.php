@@ -12,6 +12,7 @@ class OsController extends REST_Controller
 
         $this->load->model('os_model');
         $this->load->model('Api_model');
+        $this->load->library('device_credential');
     }
 
     public function index_get($id = '')
@@ -64,6 +65,7 @@ class OsController extends REST_Controller
                 $perPage,
                 $page
             );
+            $oss = array_map([Device_credential::class, 'withoutCredentialFields'], $oss);
 
             $this->response([
                 'status' => true,
@@ -72,7 +74,7 @@ class OsController extends REST_Controller
             ], REST_Controller::HTTP_OK);
         }
 
-        $os = $this->os_model->getById($id);
+        $os = Device_credential::withoutCredentialFields($this->os_model->getById($id));
         $os->produtos = $this->os_model->getProdutos($id);
         $os->servicos = $this->os_model->getServicos($id);
         $os->anexos = $this->os_model->getAnexos($id);
@@ -110,11 +112,12 @@ class OsController extends REST_Controller
         $_POST = (array) json_decode(file_get_contents('php://input'), true);
 
         $this->load->library('form_validation');
+        $credential = $this->device_credential->prepareForStorage($_POST, true, false);
 
-        if ($this->form_validation->run('os') == false) {
+        if ($this->form_validation->run('os') == false || ! $credential['valid']) {
             $this->response([
                 'status' => false,
-                'message' => validation_errors(),
+                'message' => validation_errors() ?: $credential['error'],
             ], REST_Controller::HTTP_BAD_REQUEST);
         }
 
@@ -153,6 +156,7 @@ class OsController extends REST_Controller
             'laudoTecnico' => $this->post('laudoTecnico', true),
             'faturado' => 0,
         ];
+        $data = array_merge($data, $credential['data']);
 
         if (is_numeric($id = $this->os_model->add('os', $data, true))) {
             $this->load->model('mapos_model');
@@ -193,7 +197,7 @@ class OsController extends REST_Controller
             $this->response([
                 'status' => true,
                 'message' => 'OS adicionada com sucesso!',
-                'result' => $os,
+                'result' => Device_credential::withoutCredentialFields($os),
             ], REST_Controller::HTTP_CREATED);
         }
 
@@ -223,6 +227,11 @@ class OsController extends REST_Controller
         }
 
         $_POST = (array) json_decode(file_get_contents('php://input'), true);
+        $credential = $this->device_credential->prepareForStorage(
+            $_POST,
+            true,
+            Device_credential::hasStoredCredential($os)
+        );
 
         if (! isset($_POST['dataInicial']) ||
            ! isset($_POST['dataFinal']) ||
@@ -233,6 +242,13 @@ class OsController extends REST_Controller
             $this->response([
                 'status' => false,
                 'message' => 'Preencha os campos obrigatórios',
+            ], REST_Controller::HTTP_BAD_REQUEST);
+        }
+
+        if (! $credential['valid']) {
+            $this->response([
+                'status' => false,
+                'message' => $credential['error'],
             ], REST_Controller::HTTP_BAD_REQUEST);
         }
 
@@ -271,6 +287,9 @@ class OsController extends REST_Controller
             'laudoTecnico' => $this->put('laudoTecnico', true),
             'faturado' => 0,
         ];
+        if (! $credential['keep']) {
+            $data = array_merge($data, $credential['data']);
+        }
 
         if (strtolower($this->put('status')) == 'cancelado' && strtolower($os->status) != 'cancelado') {
             $this->devolucaoEstoque($id);
@@ -318,7 +337,7 @@ class OsController extends REST_Controller
             $this->response([
                 'status' => true,
                 'message' => 'OS editada com sucesso!',
-                'result' => $os,
+                'result' => Device_credential::withoutCredentialFields($os),
             ], REST_Controller::HTTP_OK);
         }
 
@@ -1002,7 +1021,8 @@ class OsController extends REST_Controller
         $dados = [];
 
         $this->load->model('mapos_model');
-        $dados['result'] = $this->os_model->getById($idOs);
+        $this->load->model('Conecte_model');
+        $dados['result'] = $this->Conecte_model->getById($idOs);
         if (! isset($dados['result']->email)) {
             return false;
         }

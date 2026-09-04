@@ -123,6 +123,10 @@ $totalProdutos = 0;
                     </div>
                 <?php endif; ?>
 
+                <?php if (! empty($imprimirCredencial) && ! $configuration['control_2vias']) : ?>
+                    <?php $this->load->view('os/_deviceCredentialPrint'); ?>
+                <?php endif; ?>
+
                 <?php if ($result->laudoTecnico) : ?>
 					<div class="subtitle">PARECER TÉCNICO</div>
                     <div class="dados">
@@ -376,6 +380,10 @@ $totalProdutos = 0; ?>
                                 <?= printSafeHtml($result->observacoes) ?>
                             </div>
                         </div>
+                    <?php endif; ?>
+
+                    <?php if (! empty($imprimirCredencial)) : ?>
+                        <?php $this->load->view('os/_deviceCredentialPrint'); ?>
                     <?php endif; ?>
 
                     <?php if ($result->laudoTecnico) : ?>

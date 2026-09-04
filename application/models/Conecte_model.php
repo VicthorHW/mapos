@@ -7,6 +7,23 @@ if (! defined('BASEPATH')) {
 class Conecte_model extends CI_Model
 {
     /**
+     * Colunas de OS permitidas no portal e na API do cliente.
+     *
+     * Esta lista deve ser explicita: `os.*` faria qualquer novo campo sensivel
+     * aparecer automaticamente nas respostas publicas.
+     */
+    private const OS_CAMPOS_PUBLICOS = 'os.idOs, os.dataInicial, os.dataFinal, os.garantia,
+        os.descricaoProduto, os.defeito, os.status, os.observacoes, os.laudoTecnico,
+        os.valorTotal, os.desconto, os.valor_desconto, os.tipo_desconto, os.clientes_id,
+        os.usuarios_id, os.lancamento, os.faturado, os.garantias_id';
+
+    private const CLIENTE_CAMPOS_PUBLICOS = 'clientes.idClientes, clientes.nomeCliente,
+        clientes.documento, clientes.telefone, clientes.celular, clientes.email,
+        clientes.dataCadastro, clientes.rua, clientes.numero, clientes.bairro,
+        clientes.cidade, clientes.estado, clientes.cep, clientes.contato,
+        clientes.contato as contato_cliente, clientes.complemento';
+
+    /**
      * Colunas de `usuarios` que podem ser expostas na área do cliente.
      *
      * As consultas desta model fazem join com `usuarios`; um `SELECT *` traria
@@ -30,7 +47,7 @@ class Conecte_model extends CI_Model
 
     public function getLastOs($cliente)
     {
-        $this->db->select('os.*, ' . self::USUARIO_CAMPOS_PUBLICOS);
+        $this->db->select(self::OS_CAMPOS_PUBLICOS . ', ' . self::USUARIO_CAMPOS_PUBLICOS);
         $this->db->from('os');
         $this->db->join('usuarios', 'os.usuarios_id = usuarios.idUsuarios', 'left');
         $this->db->where('clientes_id', $cliente);
@@ -101,8 +118,8 @@ class Conecte_model extends CI_Model
 
     public function getOs($table, $fields, $where, $perpage, $start, $one, $array, $cliente)
     {
-        // $fields costuma vir como '*', o que traria usuarios.senha pelo join.
-        $this->db->select($fields === '*' ? 'os.*, ' . self::USUARIO_CAMPOS_PUBLICOS : $fields);
+        // Este metodo e exclusivo do cliente; nunca aceite `os.*` do chamador.
+        $this->db->select(self::OS_CAMPOS_PUBLICOS . ', ' . self::USUARIO_CAMPOS_PUBLICOS);
         $this->db->from($table);
         $this->db->join('usuarios', 'os.usuarios_id = usuarios.idUsuarios', 'left');
         $this->db->where('clientes_id', $cliente);
@@ -121,7 +138,12 @@ class Conecte_model extends CI_Model
 
     public function getById($id)
     {
-        $this->db->select('os.*, clientes.*, clientes.celular as celular_cliente, garantias.refGarantia, garantias.textoGarantia, usuarios.telefone as telefone_usuario, usuarios.email as email_usuario, usuarios.nome');
+        $this->db->select(
+            self::OS_CAMPOS_PUBLICOS . ', ' . self::CLIENTE_CAMPOS_PUBLICOS . ',
+            clientes.celular as celular_cliente, clientes.telefone as telefone_cliente,
+            garantias.refGarantia, garantias.textoGarantia,
+            usuarios.telefone as telefone_usuario, usuarios.email as email_usuario, usuarios.nome'
+        );
         $this->db->from('os');
         $this->db->join('clientes', 'clientes.idClientes = os.clientes_id');
         $this->db->join('usuarios', 'usuarios.idUsuarios = os.usuarios_id');

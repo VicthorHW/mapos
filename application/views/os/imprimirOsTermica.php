@@ -171,6 +171,9 @@ if (!empty($result->cidade) || !empty($result->estado) || !empty($result->cep)) 
                                         <td colspan="5"><b>Observações: </b><?php echo printSafeHtml($result->observacoes) ?></td>
                                     </tr>
                                 <?php } ?>
+                                <?php if (! empty($imprimirCredencial) && ! $configuration['control_2vias']) {
+                                    $this->load->view('os/_deviceCredentialPrintThermal');
+                                } ?>
                                 <?php if ($result->status != 'Aberto') { ?>
                                     <?php if ($result->laudoTecnico != null) { ?>
                                         <tr>
@@ -393,6 +396,9 @@ if (!empty($result->cidade) || !empty($result->estado) || !empty($result->cep)) 
                                                 </td>
                                             </tr>
                                         <?php } ?>
+                                    <?php if (! empty($imprimirCredencial)) {
+                                        $this->load->view('os/_deviceCredentialPrintThermal');
+                                    } ?>
                                     <?php if ($result->status != 'Aberto') { ?>
                                         <?php if ($result->laudoTecnico != null) { ?>
                                             <tr>

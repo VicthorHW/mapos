@@ -1,4 +1,7 @@
 <link href="<?= base_url('assets/css/custom.css'); ?>" rel="stylesheet">
+<link href="<?= base_url('assets/css/device-credential.css'); ?>" rel="stylesheet">
+<script src="<?= base_url('assets/js/device-pattern.js'); ?>"></script>
+<script src="<?= base_url('assets/js/device-credential-display.js'); ?>"></script>
 <div class="row-fluid" style="margin-top: 0">
     <div class="span12">
         <div class="widget-box">
@@ -18,6 +21,9 @@
                             </a>
                             <a target="_blank" title="Impressão Cupom Não Fical" class="button btn btn-mini btn-inverse" href="<?php echo site_url() ?>/os/imprimirTermica/<?php echo $result->idOs; ?>">
                                 <span class="button__icon"><i class='bx bx-receipt'></i></span> <span class="button__text">Cupom 80mm</span>
+                            </a>
+                            <a target="_blank" title="Imprimir via técnica com credencial" class="button btn btn-mini btn-info" href="<?php echo site_url() ?>/os/imprimir/<?php echo $result->idOs; ?>?incluirCredencial=1">
+                                <span class="button__icon"><i class='bx bx-lock-open-alt'></i></span> <span class="button__text">Via técnica</span>
                             </a>
                             <?php if ($result->garantias_id) { ?>
                                 <a target="_blank" title="Imprimir Termo de Garantia" class="button btn btn-mini btn-inverse" href="<?php echo site_url() ?>/garantias/imprimirGarantiaOs/<?php echo $result->idOs; ?>">
@@ -185,6 +191,8 @@ if (!empty($result->cidade) || !empty($result->estado) || !empty($result->cep)) 
                                         </td>
                                     </tr>
                                 <?php } ?>
+
+                                <?php $this->load->view('os/_deviceCredentialDisplay'); ?>
 
                                 <?php if ($result->laudoTecnico != null) { ?>
                                     <tr>

@@ -1,0 +1,35 @@
+{
+    "feature": "device-credential",
+    "version": "1.0.0",
+    "tested_mapos_versions": [
+        "4.54.0"
+    ],
+    "migration": "20260904150000_add_device_credentials_to_os",
+    "owned_files": [
+        "application/controllers/Device_credential_setup.php",
+        "application/database/migrations/20260904150000_add_device_credentials_to_os.php",
+        "application/libraries/Device_credential.php",
+        "application/views/os/_deviceCredentialForm.php",
+        "application/views/os/_deviceCredentialDisplay.php",
+        "application/views/os/_deviceCredentialPrint.php",
+        "application/views/os/_deviceCredentialPrintThermal.php",
+        "assets/css/device-credential.css",
+        "assets/js/device-pattern.js",
+        "assets/js/device-credential-display.js"
+    ],
+    "integration_files": [
+        "application/.env.example",
+        "application/controllers/Mine.php",
+        "application/controllers/Os.php",
+        "application/controllers/api/v1/OsController.php",
+        "application/controllers/api/v1/client/ClientOsController.php",
+        "application/models/Conecte_model.php",
+        "application/views/os/adicionarOs.php",
+        "application/views/os/editarOs.php",
+        "application/views/os/visualizarOs.php",
+        "application/views/os/imprimirOs.php",
+        "application/views/os/imprimirOsTermica.php",
+        "banco.sql",
+        "composer.json"
+    ]
+}

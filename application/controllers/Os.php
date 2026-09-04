@@ -11,6 +11,7 @@ class Os extends MY_Controller
         parent::__construct();
         $this->load->helper('form');
         $this->load->model('os_model');
+        $this->load->library('device_credential');
         $this->data['menuOs'] = 'OS';
     }
 
@@ -93,9 +94,20 @@ class Os extends MY_Controller
 
         $this->load->library('form_validation');
         $this->data['custom_error'] = '';
+        $this->data['credential_error'] = '';
 
-        if ($this->form_validation->run('os') == false) {
-            $this->data['custom_error'] = (validation_errors() ? true : false);
+        $isSubmitted = strtolower($this->input->method()) === 'post';
+        $credential = $isSubmitted
+            ? $this->device_credential->prepareForStorage((array) $this->input->post(null, false), true, false)
+            : null;
+        $formIsValid = $this->form_validation->run('os');
+        $credentialIsValid = ! $isSubmitted || $credential['valid'];
+
+        if (! $formIsValid || ! $credentialIsValid) {
+            $this->data['custom_error'] = (validation_errors() || ! $credentialIsValid);
+            if (! $credentialIsValid) {
+                $this->data['credential_error'] = $credential['error'];
+            }
         } else {
             $dataInicial = $this->input->post('dataInicial');
             $dataFinal = $this->input->post('dataFinal');
@@ -134,6 +146,7 @@ class Os extends MY_Controller
                 'laudoTecnico' => $this->input->post('laudoTecnico'),
                 'faturado' => 0,
             ];
+            $data = array_merge($data, $credential['data']);
 
             if (is_numeric($id = $this->os_model->add('os', $data, true))) {
                 $this->load->model('mapos_model');
@@ -185,7 +198,10 @@ class Os extends MY_Controller
 
     public function editar()
     {
-        if (! $this->uri->segment(3) || ! is_numeric($this->uri->segment(3)) || ! $this->os_model->getById($this->uri->segment(3))) {
+        $existingOs = $this->uri->segment(3) && is_numeric($this->uri->segment(3))
+            ? $this->os_model->getById($this->uri->segment(3))
+            : null;
+        if (! $existingOs) {
             $this->session->set_flashdata('error', 'OS não encontrada ou parâmetro inválido.');
             redirect('os/gerenciar');
         }
@@ -197,6 +213,7 @@ class Os extends MY_Controller
 
         $this->load->library('form_validation');
         $this->data['custom_error'] = '';
+        $this->data['credential_error'] = '';
         $this->data['texto_de_notificacao'] = $this->data['configuration']['notifica_whats'];
 
         $this->data['editavel'] = $this->os_model->isEditable($this->input->post('idOs'));
@@ -206,8 +223,24 @@ class Os extends MY_Controller
             redirect(site_url('os'));
         }
 
-        if ($this->form_validation->run('os') == false) {
+        $isSubmitted = strtolower($this->input->method()) === 'post';
+        $canKeepCredential = Device_credential::hasStoredCredential($existingOs);
+        $credential = $isSubmitted
+            ? $this->device_credential->prepareForStorage(
+                (array) $this->input->post(null, false),
+                true,
+                $canKeepCredential
+            )
+            : null;
+        $formIsValid = $this->form_validation->run('os');
+        $credentialIsValid = ! $isSubmitted || $credential['valid'];
+
+        if (! $formIsValid || ! $credentialIsValid) {
             $this->data['custom_error'] = (validation_errors() ? '<div class="form_error">' . validation_errors() . '</div>' : false);
+            if (! $credentialIsValid) {
+                $this->data['custom_error'] = true;
+                $this->data['credential_error'] = $credential['error'];
+            }
         } else {
             $dataInicial = $this->input->post('dataInicial');
             $dataFinal = $this->input->post('dataFinal');
@@ -236,6 +269,9 @@ class Os extends MY_Controller
                 'usuarios_id' => $this->input->post('usuarios_id'),
                 'clientes_id' => $this->input->post('clientes_id'),
             ];
+            if (! $credential['keep']) {
+                $data = array_merge($data, $credential['data']);
+            }
             $os = $this->os_model->getById($this->input->post('idOs'));
 
             //Verifica para poder fazer a devolução do produto para o estoque caso OS seja cancelada.
@@ -358,6 +394,61 @@ class Os extends MY_Controller
         return $this->layout();
     }
 
+    /**
+     * Revela a credencial apenas sob demanda no painel interno.
+     */
+    public function credencial($id = null)
+    {
+        $response = [
+            'result' => false,
+            'csrfHash' => $this->security->get_csrf_hash(),
+        ];
+
+        if (strtolower($this->input->method()) !== 'post') {
+            return $this->output
+                ->set_status_header(405)
+                ->set_content_type('application/json')
+                ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                ->set_output(json_encode($response + ['message' => 'Método não permitido.']));
+        }
+
+        if (! $this->permission->checkPermission($this->session->userdata('permissao'), 'vOs')) {
+            return $this->output
+                ->set_status_header(403)
+                ->set_content_type('application/json')
+                ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                ->set_output(json_encode($response + ['message' => 'Você não tem permissão para visualizar esta credencial.']));
+        }
+
+        if (! is_numeric($id) || ! ($os = $this->os_model->getById((int) $id))) {
+            return $this->output
+                ->set_status_header(404)
+                ->set_content_type('application/json')
+                ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                ->set_output(json_encode($response + ['message' => 'OS não encontrada.']));
+        }
+
+        $credential = $this->device_credential->decodeRecord($os);
+        if (! $credential['valid']) {
+            return $this->output
+                ->set_status_header(422)
+                ->set_content_type('application/json')
+                ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+                ->set_output(json_encode($response + ['message' => $credential['error']]));
+        }
+
+        log_info('Visualizou a credencial da OS. ID: ' . (int) $id);
+
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+            ->set_output(json_encode([
+                'result' => true,
+                'credencial' => $credential['data'],
+                'csrfHash' => $this->security->get_csrf_hash(),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
     public function validarCPF($cpf)
     {
         $cpf = preg_replace('/[^0-9]/', '', $cpf);
@@ -440,6 +531,17 @@ class Os extends MY_Controller
         $this->data['servicos'] = $this->os_model->getServicos($this->uri->segment(3));
         $this->data['anexos'] = $this->os_model->getAnexos($this->uri->segment(3));
         $this->data['emitente'] = $this->mapos_model->getEmitente();
+        $this->data['imprimirCredencial'] = filter_var(
+            $this->input->get('incluirCredencial'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $this->data['deviceCredential'] = $this->data['imprimirCredencial']
+            ? $this->device_credential->decodeRecord($this->data['result'])
+            : null;
+        if ($this->data['imprimirCredencial']) {
+            log_info('Imprimiu a via tecnica com credencial da OS. ID: ' . $this->uri->segment(3));
+            $this->output->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        }
         if ($this->data['configuration']['pix_key']) {
             $this->data['qrCode'] = $this->os_model->getQrCode(
                 $this->uri->segment(3),
@@ -472,6 +574,17 @@ class Os extends MY_Controller
         $this->data['produtos'] = $this->os_model->getProdutos($this->uri->segment(3));
         $this->data['servicos'] = $this->os_model->getServicos($this->uri->segment(3));
         $this->data['emitente'] = $this->mapos_model->getEmitente();
+        $this->data['imprimirCredencial'] = filter_var(
+            $this->input->get('incluirCredencial'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $this->data['deviceCredential'] = $this->data['imprimirCredencial']
+            ? $this->device_credential->decodeRecord($this->data['result'])
+            : null;
+        if ($this->data['imprimirCredencial']) {
+            log_info('Imprimiu a via tecnica termica com credencial da OS. ID: ' . $this->uri->segment(3));
+            $this->output->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        }
         $this->data['qrCode'] = $this->os_model->getQrCode(
             $this->uri->segment(3),
             $this->data['configuration']['pix_key'],
@@ -1171,7 +1284,8 @@ class Os extends MY_Controller
         $dados = [];
 
         $this->load->model('mapos_model');
-        $dados['result'] = $this->os_model->getById($idOs);
+        $this->load->model('Conecte_model');
+        $dados['result'] = $this->Conecte_model->getById($idOs);
         if (! isset($dados['result']->email)) {
             return false;
         }
