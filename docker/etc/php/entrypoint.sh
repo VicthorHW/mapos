@@ -22,21 +22,33 @@ if [ ! -L "${APP_ENV}" ]; then
     ln -s "${CONFIG_ENV}" "${APP_ENV}"
 fi
 
-# Diretórios em que o MapOS realmente precisa escrever
-WRITABLE_DIRS="
+# Diretórios de runtime acessíveis somente pelo PHP.
+PRIVATE_WRITABLE_DIRS="
 /var/www/html/application/logs
 /var/www/html/application/cache
+/var/www/html/updates
+"
+
+# O PHP grava estes arquivos, mas o nginx precisa conseguir lê-los nos
+# volumes compartilhados para servir logos, imagens e anexos.
+PUBLIC_WRITABLE_DIRS="
 /var/www/html/assets/anexos
 /var/www/html/assets/arquivos
 /var/www/html/assets/uploads
 /var/www/html/assets/userImage
-/var/www/html/updates
 "
 
-for DIR in ${WRITABLE_DIRS}; do
+for DIR in ${PRIVATE_WRITABLE_DIRS}; do
     mkdir -p "${DIR}"
     chown -R www-data:www-data "${DIR}"
     chmod -R u+rwX,g+rwX,o-rwx "${DIR}"
+done
+
+for DIR in ${PUBLIC_WRITABLE_DIRS}; do
+    mkdir -p "${DIR}"
+    chown -R www-data:www-data "${DIR}"
+    find "${DIR}" -type d -exec chmod 0755 {} \;
+    find "${DIR}" -type f -exec chmod 0644 {} \;
 done
 
 # Protege o .env quando já existir
@@ -46,5 +58,9 @@ if [ -f "${CONFIG_ENV}" ]; then
 fi
 
 echo "[MapOS] Armazenamento pronto."
+
+# Arquivos e diretórios criados futuramente pelo PHP permanecem legíveis
+# pelo nginx, sem conceder escrita a outros usuários.
+umask 0022
 
 exec "$@"
