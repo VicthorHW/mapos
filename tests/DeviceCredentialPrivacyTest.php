@@ -72,4 +72,13 @@ expectContainsCredential(
     'A API administrativa deve remover a credencial de suas respostas comuns.'
 );
 
+$postDeploy = file_get_contents($root . '/tools/device-credential/post-deploy.sh');
+expectContainsCredential('set -eu', $postDeploy, 'O post-deploy deve interromper em erros e variaveis ausentes.');
+expectContainsCredential('trap cleanup EXIT', $postDeploy, 'O post-deploy deve limpar o lock e relatar falhas.');
+expectContainsCredential(
+    'tools/device-credential/install.php',
+    $postDeploy,
+    'O post-deploy deve reutilizar o instalador idempotente da feature.'
+);
+
 echo "DeviceCredentialPrivacyTest: {$assertions} assertions passed." . PHP_EOL;

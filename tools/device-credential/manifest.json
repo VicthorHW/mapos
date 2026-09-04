@@ -1,6 +1,6 @@
 {
     "feature": "device-credential",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "tested_mapos_versions": [
         "4.54.0"
     ],
@@ -15,7 +15,8 @@
         "application/views/os/_deviceCredentialPrintThermal.php",
         "assets/css/device-credential.css",
         "assets/js/device-pattern.js",
-        "assets/js/device-credential-display.js"
+        "assets/js/device-credential-display.js",
+        "tools/device-credential/post-deploy.sh"
     ],
     "integration_files": [
         "application/.env.example",

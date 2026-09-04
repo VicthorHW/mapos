@@ -52,6 +52,37 @@ php tools/device-credential/install.php --skip-key
 php tools/device-credential/install.php --skip-tests
 ```
 
+### Post-deploy no Coolify
+
+Para esta stack Docker Compose, o post-deploy e adequado porque o instalador e
+idempotente e o `php-fpm` depende do Composer concluido e do MySQL saudavel.
+Configure no Coolify:
+
+- container do comando: `php-fpm`;
+- comando de post-deploy:
+
+  ```sh
+  sh /var/www/html/tools/device-credential/post-deploy.sh
+  ```
+
+O script valida PHP, raiz do projeto, `.env` persistente, dependencias, lock de
+execucao e parametros de retry. Em seguida, executa o instalador com novas
+tentativas para absorver uma indisponibilidade curta do banco. Para verificar
+somente os arquivos e testes, sem alterar chave ou banco, use:
+
+```sh
+sh /var/www/html/tools/device-credential/post-deploy.sh --verify-only
+```
+
+Os limites podem ser ajustados no ambiente do container com
+`MAPOS_POST_DEPLOY_ATTEMPTS` e `MAPOS_POST_DEPLOY_RETRY_DELAY`. O padrao e 12
+tentativas com intervalo de 5 segundos.
+
+Importante: o Coolify pode registrar uma falha do post-deploy no log depois de
+o deploy ja ter sido marcado como concluido. Portanto, confira o resultado do
+comando no log do deploy; este script retorna codigo diferente de zero em
+qualquer falha, mas nao executa rollback automatico do container.
+
 O instalador e idempotente: nao troca uma chave ja configurada e so adiciona
 colunas ausentes. Alem da migration normal, ele executa um verificador de
 schema independente da ordem cronologica das migrations. Nunca substitua

@@ -43,6 +43,7 @@ function verifyFeatureSource($root)
         'assets/js/device-pattern.js',
         'assets/js/device-credential-display.js',
         'assets/css/device-credential.css',
+        'tools/device-credential/post-deploy.sh',
         'tools/device-credential/manifest.json',
     ];
 
