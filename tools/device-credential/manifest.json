@@ -1,6 +1,6 @@
 {
     "feature": "device-credential",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "tested_mapos_versions": [
         "4.54.0"
     ],

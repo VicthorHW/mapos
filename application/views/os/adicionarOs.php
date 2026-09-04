@@ -24,7 +24,22 @@
                         <div class="tab-pane active" id="tab1">
                             <div class="span12" id="divCadastrarOs">
                                 <?php if ($custom_error == true) { ?>
-                                    <div class="span12 alert alert-danger" id="divInfo" style="padding: 1%;">Dados incompletos, verifique os campos com asterisco ou se selecionou corretamente cliente, responsável e garantia.<br />Ou se tem um cliente e um termo de garantia cadastrado.</div>
+                                    <div class="span12 alert alert-danger" id="divInfo" style="padding: 1%;">
+                                        <strong>Não foi possível cadastrar a OS.</strong>
+                                        <?php if (! empty($form_errors)) : ?>
+                                            <ul style="margin-top: 8px; margin-bottom: 0">
+                                                <?php foreach ($form_errors as $formError) : ?>
+                                                    <li><?= html_escape($formError) ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php endif; ?>
+                                        <?php if (! empty($credential_schema_error)) : ?>
+                                            <div style="margin-top: 8px"><?= html_escape($credential_schema_error) ?></div>
+                                        <?php endif; ?>
+                                        <?php if (! empty($persistence_error)) : ?>
+                                            <div style="margin-top: 8px"><?= html_escape($persistence_error) ?></div>
+                                        <?php endif; ?>
+                                    </div>
                                 <?php
                                 } ?>
                                 <form action="<?php echo current_url(); ?>" method="post" id="formOs">
@@ -139,13 +154,19 @@
             }
         });
 
+        $.validator.addMethod('idSelecionado', function(value, element, selector) {
+            return $.trim($(selector).val()) !== '';
+        }, 'Selecione uma opção da lista.');
+
         $("#formOs").validate({
             rules: {
                 cliente: {
-                    required: true
+                    required: true,
+                    idSelecionado: '#clientes_id'
                 },
                 tecnico: {
-                    required: true
+                    required: true,
+                    idSelecionado: '#usuarios_id'
                 },
                 dataInicial: {
                     required: true
@@ -157,10 +178,12 @@
             },
             messages: {
                 cliente: {
-                    required: 'Campo Requerido.'
+                    required: 'Campo Requerido.',
+                    idSelecionado: 'Selecione o cliente na lista de resultados.'
                 },
                 tecnico: {
-                    required: 'Campo Requerido.'
+                    required: 'Campo Requerido.',
+                    idSelecionado: 'Selecione um responsável válido.'
                 },
                 dataInicial: {
                     required: 'Campo Requerido.'

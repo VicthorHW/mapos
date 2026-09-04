@@ -201,11 +201,10 @@ if (! $skipKey) {
 }
 
 if (! $skipMigration) {
-    runPhpCommand($root, ['index.php', 'tools', 'migrate'], 'Executando migrations do MAP-OS');
     runPhpCommand(
         $root,
         ['index.php', 'device_credential_setup', 'install'],
-        'Verificando schema independente da ordem das migrations'
+        'Aplicando schema exclusivo da credencial'
     );
 }
 

@@ -189,6 +189,31 @@ class Device_credential
     }
 
     /**
+     * Confere se a instalacao no banco esta pronta sem alterar o schema.
+     */
+    public function databaseSchemaStatus()
+    {
+        $requiredColumns = [
+            'credencial_tipo',
+            'credencial_dados',
+            'credencial_grade',
+            'credencial_atualizada_em',
+        ];
+        $missingColumns = [];
+
+        foreach ($requiredColumns as $column) {
+            if (! $this->CI->db->field_exists($column, 'os')) {
+                $missingColumns[] = $column;
+            }
+        }
+
+        return [
+            'ready' => empty($missingColumns),
+            'missing' => $missingColumns,
+        ];
+    }
+
+    /**
      * Remove todos os metadados da credencial de um objeto devolvido por API.
      */
     public static function withoutCredentialFields($record)

@@ -95,16 +95,31 @@ class Os extends MY_Controller
         $this->load->library('form_validation');
         $this->data['custom_error'] = '';
         $this->data['credential_error'] = '';
+        $this->data['credential_schema_error'] = '';
+        $this->data['form_errors'] = [];
+        $this->data['persistence_error'] = '';
 
         $isSubmitted = strtolower($this->input->method()) === 'post';
+        $schemaStatus = $this->device_credential->databaseSchemaStatus();
+        if (! $schemaStatus['ready']) {
+            $this->data['credential_schema_error'] = sprintf(
+                'A estrutura da credencial ainda não foi instalada no banco (colunas ausentes: %s). '
+                . 'Execute o instalador de post-deploy e tente novamente.',
+                implode(', ', $schemaStatus['missing'])
+            );
+        }
         $credential = $isSubmitted
             ? $this->device_credential->prepareForStorage((array) $this->input->post(null, false), true, false)
             : null;
         $formIsValid = $this->form_validation->run('os');
         $credentialIsValid = ! $isSubmitted || $credential['valid'];
+        $schemaIsValid = $schemaStatus['ready'];
 
-        if (! $formIsValid || ! $credentialIsValid) {
-            $this->data['custom_error'] = (validation_errors() || ! $credentialIsValid);
+        if (! $formIsValid || ! $credentialIsValid || ! $schemaIsValid) {
+            $this->data['form_errors'] = $this->form_validation->error_array();
+            $this->data['custom_error'] = ! empty($this->data['form_errors'])
+                || ! $credentialIsValid
+                || ! $schemaIsValid;
             if (! $credentialIsValid) {
                 $this->data['credential_error'] = $credential['error'];
             }
@@ -187,7 +202,18 @@ class Os extends MY_Controller
                 log_info('Adicionou uma OS. ID: ' . $id);
                 redirect(site_url('os/editar/') . $id);
             } else {
-                $this->data['custom_error'] = '<div class="alert">Ocorreu um erro.</div>';
+                $databaseError = $this->db->error();
+                log_message(
+                    'error',
+                    sprintf(
+                        'Falha ao cadastrar OS no banco. Codigo: %s. Mensagem: %s.',
+                        $databaseError['code'] ?? 'desconhecido',
+                        $databaseError['message'] ?? 'nao informada'
+                    )
+                );
+                $this->data['custom_error'] = true;
+                $this->data['persistence_error'] = 'Os campos foram validados, mas o banco não conseguiu gravar a OS. '
+                    . 'Confira o log da aplicação e a execução do post-deploy.';
             }
         }
 

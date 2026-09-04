@@ -38,10 +38,21 @@ class DeviceCredentialFakeEncryption
     }
 }
 
+class DeviceCredentialFakeDatabase
+{
+    public $missing = [];
+
+    public function field_exists($column, $table)
+    {
+        return $table === 'os' && ! in_array($column, $this->missing, true);
+    }
+}
+
 $deviceCredentialFakeCI = (object) [
     'config' => new DeviceCredentialFakeConfig(),
     'load' => new DeviceCredentialFakeLoader(),
     'encryption' => new DeviceCredentialFakeEncryption(),
+    'db' => new DeviceCredentialFakeDatabase(),
 ];
 
 function &get_instance()
@@ -96,6 +107,14 @@ $invalidGrid = Device_credential::normalizePatternSequence(7, [1, 2, 3, 4]);
 expectSameCredential(false, $invalidGrid['valid'], 'Grades maiores que 6x6 devem ser rejeitadas.');
 
 $service = new Device_credential();
+
+$schemaReady = $service->databaseSchemaStatus();
+expectSameCredential(true, $schemaReady['ready'], 'O schema completo deve ser reconhecido.');
+$deviceCredentialFakeCI->db->missing = ['credencial_grade'];
+$schemaMissing = $service->databaseSchemaStatus();
+expectSameCredential(false, $schemaMissing['ready'], 'Uma coluna ausente deve bloquear o cadastro.');
+expectSameCredential(['credencial_grade'], $schemaMissing['missing'], 'A coluna ausente deve ser identificada.');
+$deviceCredentialFakeCI->db->missing = [];
 
 $none = $service->prepareForStorage([
     'credencial_sem_senha' => '1',

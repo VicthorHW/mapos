@@ -81,4 +81,16 @@ expectContainsCredential(
     'O post-deploy deve reutilizar o instalador idempotente da feature.'
 );
 
+$installer = file_get_contents($root . '/tools/device-credential/install.php');
+expectContainsCredential(
+    "['index.php', 'device_credential_setup', 'install']",
+    $installer,
+    'O instalador deve aplicar diretamente o schema exclusivo da feature.'
+);
+expectNotContainsCredential(
+    "['index.php', 'tools', 'migrate']",
+    $installer,
+    'O instalador nao pode depender do Tools, que carrega o Faker removido por --no-dev.'
+);
+
 echo "DeviceCredentialPrivacyTest: {$assertions} assertions passed." . PHP_EOL;

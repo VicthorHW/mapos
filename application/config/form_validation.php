@@ -180,12 +180,12 @@ $config = [
     'os' => [
         [
             'field' => 'dataInicial',
-            'label' => 'DataInicial',
+            'label' => 'Data inicial',
             'rules' => 'required|trim',
         ],
         [
             'field' => 'dataFinal',
-            'label' => 'DataFinal',
+            'label' => 'Data final',
             'rules' => 'trim|required',
         ],
         [
@@ -223,12 +223,12 @@ $config = [
         ],
         [
             'field' => 'clientes_id',
-            'label' => 'clientes',
+            'label' => 'Cliente',
             'rules' => 'trim|required',
         ],
         [
             'field' => 'usuarios_id',
-            'label' => 'usuarios_id',
+            'label' => 'Técnico / responsável',
             'rules' => 'trim|required',
         ],
         [

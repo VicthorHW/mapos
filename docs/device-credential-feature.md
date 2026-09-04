@@ -84,8 +84,10 @@ comando no log do deploy; este script retorna codigo diferente de zero em
 qualquer falha, mas nao executa rollback automatico do container.
 
 O instalador e idempotente: nao troca uma chave ja configurada e so adiciona
-colunas ausentes. Alem da migration normal, ele executa um verificador de
-schema independente da ordem cronologica das migrations. Nunca substitua
+colunas ausentes. Ele chama o setup CLI exclusivo da feature, sem depender do
+controller `Tools` ou do Faker, que nao e instalado nas imagens de producao com
+Composer `--no-dev`. A migration normal permanece disponivel para os fluxos
+gerais do MAP-OS. Nunca substitua
 `DEVICE_CREDENTIAL_KEY` em uma
 base que ja possua credenciais; isso tornaria os registros anteriores
 ilegíveis. Guarde essa chave no backup seguro da instalacao, separada do banco.
