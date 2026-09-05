@@ -27,6 +27,11 @@ idempotente da outbox. Para apenas verificar:
 sh /var/www/html/tools/tecnina-post-deploy.sh --verify-only
 ```
 
+Durante a transição, o comando já configurado
+`tools/device-credential/post-deploy.sh` também encadeia o novo instalador. Isso
+faz com que o primeiro deploy desta versão instale a outbox mesmo antes da
+troca do lifecycle; instalações novas devem usar o orquestrador acima.
+
 O instalador:
 
 - resolve o `DB_PREFIX` efetivo;

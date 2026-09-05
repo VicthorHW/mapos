@@ -11,6 +11,7 @@ reaplicação após atualizações do MapOS upstream.
 | --- | --- | --- | --- |
 | `application/.env.example` | Documentar o token interno e TTL do claim | Evitar configuração implícita ou secret versionado | Documentação separada não informa novas instalações durante o setup |
 | `composer.json` | Incluir o teste estrutural na suíte padrão | Impedir regressão silenciosa no CI | Executar manualmente; rejeitado por ser fácil esquecer |
+| `tools/device-credential/post-deploy.sh` | Encadear a outbox no lifecycle já configurado | Garantir atualização automática da instalação existente | Alteração manual imediata no Coolify; mantido apenas como ponte de compatibilidade |
 
 Nenhum controller ou model existente do MapOS foi alterado. A captura de todas
 as mudanças de status é feita pela trigger MySQL instalada separadamente.

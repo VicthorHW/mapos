@@ -164,4 +164,11 @@ if [ "$last_status" -ne 0 ]; then
 fi
 
 CURRENT_STEP="finalizacao"
+INTEGRATION_POST_DEPLOY="$APP_ROOT/tools/tecnina-integration/post-deploy.sh"
+if [ -f "$INTEGRATION_POST_DEPLOY" ]; then
+    CURRENT_STEP="integracao TecNina"
+    "$INTEGRATION_POST_DEPLOY"
+fi
+
+CURRENT_STEP="finalizacao"
 log "Post-deploy concluido com sucesso."
