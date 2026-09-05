@@ -112,6 +112,7 @@
           <a href="#" class="tip-right dropdown-toggle" data-toggle="dropdown" title="Configurações"><i class='bx bx-cog iconN'></i><span class="text"></span></a>
           <ul class="dropdown-menu">
             <li><a href="<?= site_url('mapos/configurar') ?>">Sistema</a></li>
+            <li><a href="<?= site_url('tecnina_whatsapp') ?>">WhatsApp</a></li>
             <li><a href="<?= site_url('usuarios') ?>">Usuários</a></li>
             <li><a href="<?= site_url('mapos/emitente') ?>">Emitente</a></li>
             <li><a href="<?= site_url('permissoes') ?>">Permissões</a></li>

@@ -58,3 +58,23 @@ rejeitados no envio para evitar inferência que possa alcançar outro titular.
 - `application/libraries/Tecnina_phone.php`
 - `application/models/Tecnina_integration_context_model.php`
 - `tests/TecninaIntegrationContextTest.php`
+
+## Integração WhatsApp — Fase 5
+
+### Arquivos upstream alterados
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `application/.env.example` | Documentar `TECNINA_BOT_BASE_URL` | Configurar o cliente interno sem deixar URL implícita | Colocar a URL na view; rejeitado por expor detalhe operacional ao navegador |
+| `application/views/tema/topo.php` | Incluir Configurações → WhatsApp | Tornar o painel administrativo acessível ao operador com `cSistema` | Link externo direto ao Gateway; rejeitado porque exporia o token e quebraria a separação de responsabilidades |
+
+### Arquivos novos TecNina
+
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/libraries/Tecnina_bot_gateway.php`
+- `application/views/tecnina_whatsapp/index.php`
+
+O painel não acessa o banco do Gateway. Cada requisição é autenticada no
+servidor MapOS e encaminhada ao contrato `/admin/*`; o token nunca é enviado ao
+navegador. O Gateway mascara JIDs/telefones nas listagens e não retorna corpos
+de mensagens nos logs operacionais.
