@@ -165,9 +165,9 @@ fi
 
 CURRENT_STEP="finalizacao"
 INTEGRATION_POST_DEPLOY="$APP_ROOT/tools/tecnina-integration/post-deploy.sh"
-if [ -f "$INTEGRATION_POST_DEPLOY" ]; then
+if [ "${TECNINA_SKIP_INTEGRATION_CHAIN:-0}" != "1" ] && [ -f "$INTEGRATION_POST_DEPLOY" ]; then
     CURRENT_STEP="integracao TecNina"
-    "$INTEGRATION_POST_DEPLOY"
+    sh "$INTEGRATION_POST_DEPLOY"
 fi
 
 CURRENT_STEP="finalizacao"
