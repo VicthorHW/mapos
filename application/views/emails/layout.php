@@ -10,6 +10,26 @@ $emailPreheader = isset($preheader) ? (string) $preheader : $emailTitle;
 $emailLogoUrl = isset($logo_url) && $logo_url !== ''
     ? (string) $logo_url
     : base_url('assets/tecnina/img/email/tecnina-logo-email.png');
+$emailEmitente = isset($emitente) ? $emitente : null;
+
+$emailEmitentePhone = '';
+if (is_object($emailEmitente) && isset($emailEmitente->telefone)) {
+    $emailEmitentePhone = (string) $emailEmitente->telefone;
+} elseif (is_array($emailEmitente) && isset($emailEmitente['telefone'])) {
+    $emailEmitentePhone = (string) $emailEmitente['telefone'];
+}
+
+$emailWhatsappDigits = preg_replace('/\D+/', '', $emailEmitentePhone);
+if ($emailWhatsappDigits === '') {
+    $emailWhatsappDigits = '5541974035094';
+    $emailWhatsappDisplay = '41 97403-5094';
+} else {
+    if (strpos($emailWhatsappDigits, '55') !== 0) {
+        $emailWhatsappDigits = '55' . $emailWhatsappDigits;
+    }
+    $emailWhatsappDisplay = $emailEmitentePhone;
+}
+$emailWhatsappUrl = 'https://wa.me/' . $emailWhatsappDigits;
 
 $escapeEmailLayout = static function ($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -90,7 +110,23 @@ $escapeEmailLayout = static function ($value) {
                                     <td class="email-padding" style="padding:24px 40px 28px; background-color:#fafafa; border-top:1px solid #e5e7eb; color:#6b7280; font-size:13px; line-height:20px;">
                                         <strong style="color:#17191d;">TecNina Assistência Técnica</strong><br>
                                         A gente busca, resolve e devolve.<br>
-                                        Antonina-PR e região · <a href="https://tecnina.com" target="_blank" style="color:#f26a21; text-decoration:underline;">tecnina.com</a><br>
+                                        Antonina-PR e região · <a href="https://tecnina.com" target="_blank" style="color:#f26a21; text-decoration:underline;">tecnina.com</a>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="email-padding" style="padding:20px 40px 24px; background-color:#fafafa; color:#6b7280; font-size:13px; line-height:20px;">
+                                        <strong style="color:#17191d;">Precisa de ajuda?</strong><br>
+                                        Entre em contato diretamente com a nossa equipe pelo WhatsApp.
+                                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;">
+                                            <tr>
+                                                <td align="center" bgcolor="#25d366" style="border-radius:6px; background-color:#25d366;">
+                                                    <a href="<?= $escapeEmailLayout($emailWhatsappUrl) ?>" target="_blank" style="display:inline-block; padding:11px 16px; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:14px; font-weight:700; line-height:20px; text-decoration:none;">
+                                                        Falar pelo WhatsApp
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin:10px 0 0;">WhatsApp: <a href="<?= $escapeEmailLayout($emailWhatsappUrl) ?>" target="_blank" style="color:#f26a21; text-decoration:underline;"><?= $escapeEmailLayout($emailWhatsappDisplay) ?></a></p>
                                         <span style="color:#9ca3af;">Esta é uma mensagem automática. Por favor, não responda diretamente a este e-mail.</span>
                                     </td>
                                 </tr>

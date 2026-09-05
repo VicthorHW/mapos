@@ -93,8 +93,22 @@ class Clientes extends MY_Controller
                 'fornecedor' => $this->input->post('fornecedor') ? 1 : 0,
             ];
 
-                if ($this->clientes_model->add('clientes', $data) == true) {
-                    $this->session->set_flashdata('success', 'Cliente adicionado com sucesso!');
+                $clienteId = $this->clientes_model->add('clientes', $data);
+                if ($clienteId) {
+                    $emailBoasVindasEnfileirado = false;
+                    if (! $data['fornecedor'] && ! empty($data['email'])) {
+                        $this->load->library('customer_welcome_email');
+                        $emailBoasVindasEnfileirado = $this->customer_welcome_email->queue($clienteId);
+                    }
+
+                    $mensagemSucesso = 'Cliente adicionado com sucesso!';
+                    if ($emailBoasVindasEnfileirado) {
+                        $mensagemSucesso .= ' E-mail de boas-vindas adicionado à fila de envio.';
+                    } elseif (! $data['fornecedor'] && ! empty($data['email'])) {
+                        $mensagemSucesso .= ' O e-mail de boas-vindas não foi adicionado à fila; verifique o cadastro do emitente e os logs.';
+                    }
+
+                    $this->session->set_flashdata('success', $mensagemSucesso);
                     log_info('Adicionou um cliente.');
                     redirect(site_url('clientes/'));
                 } else {

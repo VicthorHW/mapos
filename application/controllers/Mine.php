@@ -1046,35 +1046,9 @@ class Mine extends CI_Controller
 
     private function enviarEmailBoasVindas($id)
     {
-        $dados = [];
-        $this->load->model('mapos_model');
-        $this->load->model('clientes_model', '', true);
+        $this->load->library('customer_welcome_email');
 
-        $dados['emitente'] = $this->mapos_model->getEmitente();
-        $dados['cliente'] = $this->clientes_model->getById($id);
-
-        $emitente = $dados['emitente'];
-        $remetente = $dados['cliente'];
-        $assunto = 'Bem-vindo!';
-
-        $html = $this->load->view('os/emails/clientenovo', $dados, true);
-
-        $this->load->model('email_model');
-
-        $headers = [
-            'From' => "\"$emitente->nome\" <$emitente->email>",
-            'Subject' => $assunto,
-            'Return-Path' => '',
-        ];
-        $email = [
-            'to' => $remetente->email,
-            'message' => $html,
-            'status' => 'pending',
-            'date' => date('Y-m-d H:i:s'),
-            'headers' => json_encode($headers),
-        ];
-
-        return $this->email_model->add('email_queue', $email);
+        return $this->customer_welcome_email->queue($id);
     }
 
     private function enviarEmailTecnicoNotificaClienteNovo($id)

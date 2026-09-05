@@ -164,6 +164,7 @@ try {
             'view' => 'conecte/emails/clientenovasenha',
             'data' => [
                 'cliente' => $cliente,
+                'emitente' => $emitente,
                 'resets_de_senha' => object(['token' => 'token-de-teste-sem-validade-real']),
             ],
         ],
@@ -196,6 +197,8 @@ try {
         assertPreview(stripos($html, '<!doctype html>') !== false, $name . ': documento HTML não foi renderizado.');
         assertPreview(strpos($html, 'https://gestao.exemplo.test/assets/tecnina/img/email/tecnina-logo-email.png') !== false, $name . ': logo absoluta não foi encontrada.');
         assertPreview(strpos($html, 'assets/tecnina/img/email/tecnina-logo-email.png') !== false, $name . ': caminho da logo não foi encontrado.');
+        assertPreview(strpos($html, 'https://wa.me/5541999990000') !== false, $name . ': link do WhatsApp do emitente não foi encontrado.');
+        assertPreview(strpos($html, '(41) 99999-0000') !== false, $name . ': telefone do emitente não foi encontrado no rodapé.');
 
         preg_match_all('/\\s(?:src|href)="([^"]+)"/i', $html, $urls);
         foreach ($urls[1] as $url) {
@@ -211,6 +214,13 @@ try {
             throw new RuntimeException('Não foi possível gravar a prévia: ' . $filename);
         }
     }
+
+    $fallbackFooter = $renderer->render('emails/layout', [
+        'title' => 'Teste de contato',
+        'content' => '<p>Prévia do contato padrão.</p>',
+    ]);
+    assertPreview(strpos($fallbackFooter, 'https://wa.me/5541974035094') !== false, 'Fallback do WhatsApp não foi aplicado.');
+    assertPreview(strpos($fallbackFooter, '41 97403-5094') !== false, 'Telefone de fallback não foi aplicado.');
 
     echo 'Prévia gerada em: ' . realpath($outputDirectory) . PHP_EOL;
     echo count($templates) . ' templates renderizados sem envio de e-mail.' . PHP_EOL;

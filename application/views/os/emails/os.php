@@ -145,4 +145,5 @@ $this->load->view('emails/layout', [
     'title' => 'Atualização do seu reparo',
     'preheader' => 'Confira o status e os detalhes atualizados do seu atendimento.',
     'content' => $emailContent,
+    'emitente' => $emitente,
 ]);

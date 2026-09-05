@@ -45,4 +45,5 @@ $this->load->view('emails/layout', [
     'title' => 'Novo cliente cadastrado',
     'preheader' => 'Um novo cliente realizou cadastro no sistema.',
     'content' => $emailContent,
+    'emitente' => $emitente,
 ]);

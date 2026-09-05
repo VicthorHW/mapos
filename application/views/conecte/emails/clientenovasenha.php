@@ -29,4 +29,5 @@ $this->load->view('emails/layout', [
     'cta_label' => 'Redefinir minha senha',
     'cta_url' => $resetUrl,
     'secondary_content' => $emailSecondaryContent,
+    'emitente' => $emitente,
 ]);

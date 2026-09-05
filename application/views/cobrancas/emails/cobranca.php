@@ -49,4 +49,5 @@ $this->load->view('emails/layout', [
     'content' => $emailContent,
     'cta_label' => $paymentUrl ? $paymentLabel : '',
     'cta_url' => $paymentUrl,
+    'emitente' => $emitente,
 ]);
