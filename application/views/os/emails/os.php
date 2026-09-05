@@ -1,305 +1,148 @@
-<?php $totalServico = 0;
-$totalProdutos = 0; ?>
+<?php
 
-<!doctype html>
-<html>
+$totalServico = 0;
+$totalProdutos = 0;
+$escapeOsEmail = static function ($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+};
 
-<head>
-    <meta charset="utf-8">
-    <style>
-        .invoice-box {
-            max-width: 1100px;
-            margin: auto;
-            padding: 10px;
-            border: 1px solid #eee;
-            box-shadow: 0 0 10px rgba(0, 0, 0, .15);
-            font-size: 16px;
-            line-height: 24px;
-            font-family: 'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;
-            color: #555;
-        }
+ob_start();
+?>
+<p style="margin:0 0 20px;">Olá, <strong><?= $escapeOsEmail($result->nomeCliente) ?></strong>.</p>
+<p style="margin:0 0 20px;">Confira as informações atualizadas do seu reparo.</p>
 
-        .invoice-box table {
-            width: 100%;
-            line-height: inherit;
-            text-align: left;
-        }
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin:0 0 20px; border:1px solid #e5e7eb; border-collapse:collapse; color:#3f424a; font-size:14px; line-height:20px;">
+    <tr>
+        <td style="width:42%; padding:10px 12px; border-bottom:1px solid #e5e7eb; background-color:#fafafa;"><strong>Atendimento</strong></td>
+        <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">#<?= $escapeOsEmail($result->idOs) ?></td>
+    </tr>
+    <tr>
+        <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; background-color:#fafafa;"><strong>Status</strong></td>
+        <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;"><strong style="color:#f26a21;"><?= $escapeOsEmail($result->status) ?></strong></td>
+    </tr>
+    <tr>
+        <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; background-color:#fafafa;"><strong>Data de entrada</strong></td>
+        <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;"><?= date('d/m/Y', strtotime($result->dataInicial)) ?></td>
+    </tr>
+    <?php if ($result->dataFinal) : ?>
+        <tr>
+            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; background-color:#fafafa;"><strong>Previsão / conclusão</strong></td>
+            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;"><?= date('d/m/Y', strtotime($result->dataFinal)) ?></td>
+        </tr>
+    <?php endif; ?>
+    <?php if ($result->garantia) : ?>
+        <tr>
+            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; background-color:#fafafa;"><strong>Garantia</strong></td>
+            <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;"><?= $escapeOsEmail($result->garantia) ?></td>
+        </tr>
+    <?php endif; ?>
+    <?php if ($result->nome) : ?>
+        <tr>
+            <td style="padding:10px 12px; background-color:#fafafa;"><strong>Responsável</strong></td>
+            <td style="padding:10px 12px;"><?= $escapeOsEmail($result->nome) ?></td>
+        </tr>
+    <?php endif; ?>
+</table>
 
-        .invoice-box table td {
-            padding: 5px;
-            vertical-align: top;
-        }
-
-        .invoice-box table tr td:nth-child(2) {
-            text-align: right;
-        }
-
-        .invoice-box table tr.top table td {
-            padding-bottom: 20px;
-        }
-
-        .invoice-box table tr.top table td.title {
-            font-size: 45px;
-            line-height: 45px;
-            color: #333;
-        }
-
-        .invoice-box table tr.information table td {
-            padding-bottom: 40px;
-        }
-
-        .invoice-box table tr.heading td {
-            background: #eee;
-            border-bottom: 1px solid #ddd;
-            font-weight: bold;
-        }
-
-        .invoice-box table tr.details td {
-            padding-bottom: 20px;
-        }
-
-        .invoice-box table tr.item td {
-            border-bottom: 1px solid #eee;
-        }
-
-        .invoice-box table tr.item.last td {
-            border-bottom: none;
-        }
-
-        .invoice-box table tr.total td:nth-child(2) {
-            border-top: 2px solid #eee;
-            font-weight: bold;
-        }
-
-        @media only screen and (max-width: 600px) {
-            .invoice-box table tr.top table td {
-                width: 100%;
-                display: block;
-                text-align: center;
-            }
-
-            .invoice-box table tr.information table td {
-                width: 100%;
-                display: block;
-                text-align: center;
-            }
-        }
-
-        /** RTL **/
-        .rtl {
-            direction: rtl;
-            font-family: Tahoma, 'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;
-        }
-
-        .rtl table {
-            text-align: right;
-        }
-
-        .rtl table tr td:nth-child(2) {
-            text-align: left;
-        }
-
-        .justify {
-            text-align: justify;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="invoice-box">
-        <table cellpadding="0" cellspacing="0">
-            <tr class="top">
-                <td colspan="4">
-                    <table>
-                        <tr>
-                            <td class="title">
-                                <img src="<?= cliente_asset_url($emitente->url_logo); ?>" style="width:100%; max-width:120px;">
-                            </td>
-                            <td style="text-align: right">
-                                OS #: <?= $result->idOs ?><br>
-                                Data Inicial: <?= date('d/m/Y', strtotime($result->dataInicial)); ?> <br>
-                                Data Final: <?= $result->dataFinal ? date('d/m/Y', strtotime($result->dataFinal)) : ''; ?>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
+<?php foreach ([
+    'Descrição do equipamento' => $result->descricaoProduto,
+    'Defeito informado' => $result->defeito,
+    'Observações' => $result->observacoes,
+    'Laudo técnico' => $result->laudoTecnico,
+] as $sectionTitle => $sectionContent) : ?>
+    <?php if ($sectionContent) : ?>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin:0 0 16px; border:1px solid #e5e7eb; border-collapse:collapse;">
+            <tr>
+                <td style="padding:10px 12px; background-color:#fafafa; color:#17191d; font-size:14px;"><strong><?= $escapeOsEmail($sectionTitle) ?></strong></td>
             </tr>
-
-            <tr class="information">
-                <td colspan="4">
-                    <table>
-                        <tr>
-                            <td>
-                                Cliente: <?= $result->nomeCliente ?><br>
-                                <?= $result->rua ?>, <?= $result->numero ?>, <?= $result->bairro ?><br>
-                                <?= $result->cidade ?> - <?= $result->estado ?> <br>
-                                <?= $result->email ?> <br>
-                                <?= $result->celular_cliente ?>
-                            </td>
-
-                            <td style="text-align: right">
-                                <?= $emitente->nome; ?> <br>
-                                <?= $emitente->rua ?>, <?= $emitente->numero ?>, <?= $emitente->bairro ?><br>
-                                <?= $emitente->cidade ?> - <?= $emitente->uf ?> CEP: <?= $emitente->cep ?> <br>
-                                Responsável: <?= $result->nome ?>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
+            <tr>
+                <td style="padding:12px; color:#3f424a; font-size:14px; line-height:21px;"><?= printSafeHtml($sectionContent) ?></td>
             </tr>
-
-            <tr class="heading">
-                <td colspan="2">
-                    Status
-                </td>
-                <td colspan="2" style="text-align: center">
-                    <?= $result->status ?>
-                </td>
-            </tr>
-
-            <?php if ($result->garantia) { ?>
-                <tr class="details">
-                    <td colspan="2">
-                        Garantia
-                    </td>
-
-                    <td colspan="2" style="text-align: center">
-                        <?= $result->garantia ?>
-                    </td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($result->descricaoProduto) { ?>
-                <tr class="heading">
-                    <td colspan="4">
-                        <b>Descrição</b>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="justify" colspan="4">
-                        <?= printSafeHtml($result->descricaoProduto) ?>
-                    </td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($result->defeito) { ?>
-                <tr class="heading">
-                    <td colspan="4">
-                        <b>Defeito Apresentado</b>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="justify" colspan="4">
-                        <?= printSafeHtml($result->defeito) ?>
-                    </td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($result->observacoes) { ?>
-                <tr class="heading">
-                    <td colspan="4">
-                        <b>Observações</b>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="justify" colspan="4">
-                        <?= printSafeHtml($result->observacoes) ?>
-                    </td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($result->laudoTecnico) { ?>
-                <tr class="heading">
-                    <td colspan="4">
-                        <b>Laudo Técnico</b>
-                    </td>
-                </tr>
-                <tr>
-                    <td class="justify" colspan="4">
-                        <?= printSafeHtml($result->laudoTecnico) ?>
-                    </td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($produtos) { ?>
-
-                <tr class="heading">
-                    <td>Produto</td>
-                    <td>Quantidade</td>
-                    <td>Preço unit.</td>
-                    <td style="text-align: center">Sub-total</td>
-                </tr>
-
-                <?php foreach ($produtos as $p) {
-                    $totalProdutos = $totalProdutos + $p->subTotal;
-                    echo '<tr class="item">';
-                    echo '<td>' . $p->descricao . '</td>';
-                    echo '<td>' . $p->quantidade . '</td>';
-                    echo '<td>' . $p->preco ?: $p->precoVenda . '</td>';
-                    echo '<td style="text-align: center">R$ ' . number_format($p->subTotal, 2, ',', '.') . '</td>';
-                    echo '</tr>';
-                } ?>
-
-                <tr class="item">
-                    <td colspan="3"></td>
-                    <td style="text-align: center"><strong>Total em Produtos: R$ <?= number_format($totalProdutos, 2, ',', '.'); ?></strong></td>
-                </tr>
-            <?php } ?>
-
-            <?php if ($servicos) { ?>
-
-                <tr class="heading">
-                    <td>Serviço</td>
-                    <td>Quantidade</td>
-                    <td>Preço unit.</td>
-                    <td style="text-align: center">Sub-total</td>
-                </tr>
-
-                <?php foreach ($servicos as $s) {
-                    $preco = $s->preco ?: $s->precoVenda;
-                    $subtotal = $preco * ($s->quantidade ?: 1);
-                    $totalServico = $totalServico + $subtotal;
-                    echo '<tr class="item">';
-                    echo '<td>' . $s->nome . '</td>';
-                    echo '<td>' . ($s->quantidade ?: 1) . '</td>';
-                    echo '<td>' . $preco . '</td>';
-                    echo '<td>R$ ' . number_format($subtotal, 2, ',', '.') . '</td>';
-                    echo '</tr>';
-                } ?>
-
-                <tr class="item">
-                    <td colspan="3"></td>
-                    <td style="text-align: center"><strong>Total em Serviços: R$ <?= number_format($totalServico, 2, ',', '.'); ?></strong></td>
-                </tr>
-            <?php } ?>
-            <tr class="heading">
-                <td colspan="4">
-                    <br>
-                </td>
-            </tr>
-
-            <tr class="heading">
-                <td colspan="3"></td>
-                <td style="text-align: center">
-                    <strong>Total: R$ <?= number_format($totalProdutos + $totalServico, 2, ',', '.') ?></strong>
-                </td>
-            </tr>
-            <?php if ($result->desconto != 0 && $result->valor_desconto != 0) { ?>
-                <tr class="heading">
-                    <td colspan="3"></td>
-                    <td style="text-align: center">
-                        <strong>Desconto: R$ <?= number_format($result->valor_desconto - ($totalProdutos + $totalServico), 2, ',', '.') ?></strong>
-                    </td>
-                </tr>
-                <tr class="heading">
-                    <td colspan="3"></td>
-                    <td style="text-align: center">
-                        <strong>Total com Desconto: R$ <?= number_format($result->valor_desconto, 2, ',', '.') ?></strong>
-                    </td>
-                </tr>
-            <?php } ?>
         </table>
-    </div>
-</body>
+    <?php endif; ?>
+<?php endforeach; ?>
 
-</html>
+<?php if ($produtos) : ?>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin:0 0 16px; border:1px solid #e5e7eb; border-collapse:collapse; color:#3f424a; font-size:13px; line-height:19px;">
+        <tr>
+            <td colspan="4" style="padding:10px 12px; background-color:#fafafa; color:#17191d;"><strong>Produtos</strong></td>
+        </tr>
+        <tr>
+            <td style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Produto</strong></td>
+            <td align="center" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Qtd.</strong></td>
+            <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Unitário</strong></td>
+            <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Subtotal</strong></td>
+        </tr>
+        <?php foreach ($produtos as $p) : ?>
+            <?php
+            $totalProdutos += $p->subTotal;
+            $precoProduto = $p->preco ?: $p->precoVenda;
+            ?>
+            <tr>
+                <td style="padding:9px 10px; border-top:1px solid #e5e7eb;"><?= $escapeOsEmail($p->descricao) ?></td>
+                <td align="center" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><?= $escapeOsEmail($p->quantidade) ?></td>
+                <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;">R$ <?= number_format($precoProduto, 2, ',', '.') ?></td>
+                <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;">R$ <?= number_format($p->subTotal, 2, ',', '.') ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <tr>
+            <td colspan="3" align="right" style="padding:10px; border-top:1px solid #e5e7eb;"><strong>Total em produtos</strong></td>
+            <td align="right" style="padding:10px; border-top:1px solid #e5e7eb;"><strong>R$ <?= number_format($totalProdutos, 2, ',', '.') ?></strong></td>
+        </tr>
+    </table>
+<?php endif; ?>
+
+<?php if ($servicos) : ?>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin:0 0 16px; border:1px solid #e5e7eb; border-collapse:collapse; color:#3f424a; font-size:13px; line-height:19px;">
+        <tr>
+            <td colspan="4" style="padding:10px 12px; background-color:#fafafa; color:#17191d;"><strong>Serviços</strong></td>
+        </tr>
+        <tr>
+            <td style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Serviço</strong></td>
+            <td align="center" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Qtd.</strong></td>
+            <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Unitário</strong></td>
+            <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><strong>Subtotal</strong></td>
+        </tr>
+        <?php foreach ($servicos as $s) : ?>
+            <?php
+            $precoServico = $s->preco ?: $s->precoVenda;
+            $quantidadeServico = $s->quantidade ?: 1;
+            $subtotalServico = $precoServico * $quantidadeServico;
+            $totalServico += $subtotalServico;
+            ?>
+            <tr>
+                <td style="padding:9px 10px; border-top:1px solid #e5e7eb;"><?= $escapeOsEmail($s->nome) ?></td>
+                <td align="center" style="padding:9px 10px; border-top:1px solid #e5e7eb;"><?= $escapeOsEmail($quantidadeServico) ?></td>
+                <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;">R$ <?= number_format($precoServico, 2, ',', '.') ?></td>
+                <td align="right" style="padding:9px 10px; border-top:1px solid #e5e7eb;">R$ <?= number_format($subtotalServico, 2, ',', '.') ?></td>
+            </tr>
+        <?php endforeach; ?>
+        <tr>
+            <td colspan="3" align="right" style="padding:10px; border-top:1px solid #e5e7eb;"><strong>Total em serviços</strong></td>
+            <td align="right" style="padding:10px; border-top:1px solid #e5e7eb;"><strong>R$ <?= number_format($totalServico, 2, ',', '.') ?></strong></td>
+        </tr>
+    </table>
+<?php endif; ?>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin:0 0 4px; border-collapse:collapse; color:#3f424a; font-size:14px; line-height:20px;">
+    <?php if ($result->desconto != 0 && $result->valor_desconto != 0) : ?>
+        <tr>
+            <td align="right" style="padding:4px 0;">Desconto: R$ <?= number_format($result->valor_desconto - ($totalProdutos + $totalServico), 2, ',', '.') ?></td>
+        </tr>
+        <tr>
+            <td align="right" style="padding:8px 0; color:#9a3412; font-size:16px;"><strong>Total com desconto: R$ <?= number_format($result->valor_desconto, 2, ',', '.') ?></strong></td>
+        </tr>
+    <?php else : ?>
+        <tr>
+            <td align="right" style="padding:8px 0; color:#9a3412; font-size:16px;"><strong>Total: R$ <?= number_format($totalProdutos + $totalServico, 2, ',', '.') ?></strong></td>
+        </tr>
+    <?php endif; ?>
+</table>
+<?php
+$emailContent = ob_get_clean();
+
+$this->load->view('emails/layout', [
+    'title' => 'Atualização do seu reparo',
+    'preheader' => 'Confira o status e os detalhes atualizados do seu atendimento.',
+    'content' => $emailContent,
+]);
