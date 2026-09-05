@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../tecnina-bot"
+		},
+		{
+			"path": "../tecnina-whatsapp-infra"
+		}
+	],
+	"settings": {}
+}
