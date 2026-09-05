@@ -4227,6 +4227,9 @@ Critério:
 
 # 84. Fase 3 — Eventos MapOS / Outbox
 
+**Status: concluída e validada em produção em 2026-09-05.** Evidência
+sanitizada no repositório `tecnina-bot`, em `docs/PHASE_3_VALIDATION.md`.
+
 Criar:
 
 - estratégia escolhida na Fase 0;
