@@ -28,6 +28,7 @@ $model = sourceFile($root, 'application/models/Tecnina_outbox_model.php');
 $controller = sourceFile($root, 'application/controllers/api/bot/Outbox.php');
 $auth = sourceFile($root, 'application/libraries/Tecnina_bot_auth.php');
 $postDeploy = sourceFile($root, 'tools/tecnina-integration/post-deploy.sh');
+$compose = sourceFile($root, 'docker/docker-compose.yml');
 
 expectOutbox(strpos($setup, "physicalName('os')") !== false, 'Instalador deve resolver DB_PREFIX para OS.');
 expectOutbox(
@@ -58,6 +59,10 @@ expectOutbox(strpos($auth, 'hash_equals') !== false, 'Token interno deve usar co
 expectOutbox(strpos($auth, 'API_ENABLED') !== false, 'API desabilitada deve ser tratada.');
 expectOutbox(strpos($postDeploy, 'set -eu') !== false, 'Post-deploy deve falhar em erros.');
 expectOutbox(strpos($postDeploy, '--verify-only') !== false, 'Instalador deve possuir verificacao sem escrita.');
+expectOutbox(
+    strpos($compose, '--log-bin-trust-function-creators=1') !== false,
+    'MySQL com binary log deve permitir trigger sem conceder SUPER ao usuario da aplicacao.'
+);
 
 require_once $root . '/application/libraries/Tecnina_bot_auth.php';
 $botAuth = new Tecnina_bot_auth();

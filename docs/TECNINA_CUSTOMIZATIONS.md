@@ -12,6 +12,7 @@ reaplicação após atualizações do MapOS upstream.
 | `application/.env.example` | Documentar o token interno e TTL do claim | Evitar configuração implícita ou secret versionado | Documentação separada não informa novas instalações durante o setup |
 | `composer.json` | Incluir o teste estrutural na suíte padrão | Impedir regressão silenciosa no CI | Executar manualmente; rejeitado por ser fácil esquecer |
 | `tools/device-credential/post-deploy.sh` | Encadear a outbox no lifecycle já configurado | Garantir atualização automática da instalação existente | Alteração manual imediata no Coolify; mantido apenas como ponte de compatibilidade |
+| `docker/docker-compose.yml` | Permitir criação de trigger com binary logging no MySQL 8.4 | Evitar conceder privilégio global `SUPER` ao usuário do MapOS | Criar a trigger como root manualmente; rejeitado por não ser repetível no deploy |
 
 Nenhum controller ou model existente do MapOS foi alterado. A captura de todas
 as mudanças de status é feita pela trigger MySQL instalada separadamente.

@@ -85,6 +85,9 @@ services:
   mysql:
     image: 'mysql:${MYSQL_MAPOS_VERSION:-8.4}'
     restart: unless-stopped
+    # Permite que o usuario do schema, que ja possui TRIGGER, instale a outbox
+    # mesmo com binary logging ativo sem conceder privilegio global SUPER.
+    command: ['--log-bin-trust-function-creators=1']
 
     environment:
       MYSQL_DATABASE: '${MYSQL_MAPOS_DATABASE}'

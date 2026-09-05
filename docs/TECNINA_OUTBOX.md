@@ -42,6 +42,11 @@ O instalador:
 - aceita execuções repetidas;
 - rejeita uma trigger homônima com definição conflitante.
 
+O compose do MapOS inicia o MySQL com
+`--log-bin-trust-function-creators=1`. No MySQL 8.4 com binary logging, essa
+opção permite criar a trigger usando o privilégio restrito ao schema, sem
+conceder o privilégio global `SUPER` ao usuário da aplicação.
+
 ## Contrato interno
 
 Todos os endpoints exigem `Authorization: Bearer <MAPOS_BOT_TOKEN>` e só ficam
