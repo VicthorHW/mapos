@@ -56,6 +56,7 @@ disponíveis com `API_ENABLED=true`.
 GET  /api/bot/health
 POST /api/bot/outbox/claim
 POST /api/bot/outbox/ack
+GET  /api/bot/integration-context/{os_id}
 ```
 
 Claim:
@@ -77,6 +78,23 @@ O payload de evento possui somente `event_id`, `event_type`, `os_id`,
 `client_id`, `old_status`, `new_status` e `created_at`. Não inclui nome,
 telefone, CPF, endereço, credencial do aparelho, anexos ou secrets.
 
+O contexto da Fase 4 é consultado somente após uma regra conhecida de status.
+Sua resposta usa whitelist explícita:
+
+```json
+{
+  "status": true,
+  "os_id": 42,
+  "client_id": 7,
+  "recipient_phone": "55XXXXXXXXXXX",
+  "portal_url": "https://cliente.example.invalid/"
+}
+```
+
+O telefone prioriza o campo celular e só é retornado quando já pode ser
+normalizado com segurança. Número ausente, fixo ou legado ambíguo resulta em
+`recipient_phone: null` e não gera envio.
+
 ## Garantias
 
 - status inalterado não gera evento;
@@ -87,6 +105,5 @@ telefone, CPF, endereço, credencial do aparelho, anexos ou secrets.
 - o Gateway persiste antes do ACK;
 - reentrega é deduplicada no Gateway por `event_id` único.
 
-Nesta fase os eventos são apenas persistidos. A Fase 4 aplicará regras e
-produzirá notificações, portanto nenhuma mensagem WhatsApp é enviada pela
-outbox da Fase 3.
+A Fase 4 aplica regras, templates e fila no Gateway. O envio permanece sob a
+chave global `STATUS_NOTIFICATIONS_ENABLED`, desligada por padrão.

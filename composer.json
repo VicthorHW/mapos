@@ -30,7 +30,8 @@
             "php tests/PublicRegistrationTest.php",
             "php tests/DeviceCredentialTest.php",
             "php tests/DeviceCredentialPrivacyTest.php",
-            "php tests/TecninaOutboxTest.php"
+            "php tests/TecninaOutboxTest.php",
+            "php tests/TecninaIntegrationContextTest.php"
         ]
     },
     "config": {
