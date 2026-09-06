@@ -342,7 +342,7 @@ class Os extends MY_Controller
                             array_push($remetentes, $os->email);
                             break;
                     }
-                    $this->enviarOsPorEmail($idOs, $remetentes, 'Ordem de Serviço - Editada');
+                    $this->enviarOsPorEmail($idOs, $remetentes, 'Ordem de Serviço - Atualizada');
                 }
 
                 $this->session->set_flashdata('success', 'Os editada com sucesso!');

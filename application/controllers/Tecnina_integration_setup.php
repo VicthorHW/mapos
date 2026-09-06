@@ -4,7 +4,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Tecnina_integration_setup extends CI_Controller
 {
-    const SCHEMA_VERSION = 2;
+    const SCHEMA_VERSION = 3;
 
     private $outboxTable;
 
@@ -13,6 +13,8 @@ class Tecnina_integration_setup extends CI_Controller
     private $approvalTable;
 
     private $triggerName;
+
+    private $creationTriggerName;
 
     public function __construct()
     {
@@ -29,6 +31,10 @@ class Tecnina_integration_setup extends CI_Controller
         $this->triggerName = strlen($candidate) <= 64
             ? $candidate
             : 'trg_tecnina_status_' . substr(hash('sha256', $this->osTable), 0, 20);
+        $creationCandidate = 'trg_' . $this->osTable . '_tecnina_created_outbox';
+        $this->creationTriggerName = strlen($creationCandidate) <= 64
+            ? $creationCandidate
+            : 'trg_tecnina_created_' . substr(hash('sha256', $this->osTable), 0, 20);
     }
 
     public function index()
@@ -39,12 +45,13 @@ class Tecnina_integration_setup extends CI_Controller
     public function install()
     {
         $this->validateSourceTable();
-        if (! $this->triggerExists()) {
+        if (! $this->triggerExists($this->triggerName)
+            || ! $this->triggerExists($this->creationTriggerName)) {
             $this->validateTriggerPrivilege();
         }
         $this->createOrRepairOutbox();
         $this->createOrRepairApprovals();
-        $this->createOrValidateTrigger();
+        $this->createOrValidateTriggers();
         $this->verifyState();
         echo 'Integracao TecNina schema v' . self::SCHEMA_VERSION . ' instalada e verificada.' . PHP_EOL;
     }
@@ -115,11 +122,17 @@ class Tecnina_integration_setup extends CI_Controller
         }
     }
 
-    private function createOrValidateTrigger()
+    private function createOrValidateTriggers()
     {
-        $trigger = $this->triggerMetadata();
+        $this->createOrValidateStatusTrigger();
+        $this->createOrValidateCreationTrigger();
+    }
+
+    private function createOrValidateStatusTrigger()
+    {
+        $trigger = $this->triggerMetadata($this->triggerName);
         if ($trigger !== null) {
-            if (! $this->validTriggerMetadata($trigger)) {
+            if (! $this->validStatusTriggerMetadata($trigger)) {
                 $this->fail('Trigger com nome reservado existe, mas possui definicao conflitante: ' . $this->triggerName);
             }
 
@@ -136,6 +149,28 @@ class Tecnina_integration_setup extends CI_Controller
             . '(`event_id`, `event_type`, `os_id`, `client_id`, `old_status`, `new_status`, `state`) '
             . "VALUES (UUID(), 'os.status_changed', NEW.`idOs`, NEW.`clientes_id`, OLD.`status`, NEW.`status`, 'PENDING'); "
             . 'END IF; END'
+        );
+    }
+
+    private function createOrValidateCreationTrigger()
+    {
+        $trigger = $this->triggerMetadata($this->creationTriggerName);
+        if ($trigger !== null) {
+            if (! $this->validCreationTriggerMetadata($trigger)) {
+                $this->fail('Trigger com nome reservado existe, mas possui definicao conflitante: ' . $this->creationTriggerName);
+            }
+
+            return;
+        }
+
+        $triggerName = $this->quote($this->creationTriggerName);
+        $osTable = $this->quote($this->osTable);
+        $outboxTable = $this->quote($this->outboxTable);
+        $this->mustQuery(
+            "CREATE TRIGGER {$triggerName} AFTER INSERT ON {$osTable} FOR EACH ROW "
+            . "INSERT INTO {$outboxTable} "
+            . '(`event_id`, `event_type`, `os_id`, `client_id`, `old_status`, `new_status`, `state`) '
+            . "VALUES (UUID(), 'os.created', NEW.`idOs`, NEW.`clientes_id`, NULL, NEW.`status`, 'PENDING')"
         );
     }
 
@@ -201,13 +236,17 @@ class Tecnina_integration_setup extends CI_Controller
         $this->validateColumnShapes();
         $this->validateIndexShapes();
         $this->verifyApprovals();
-        $trigger = $this->triggerMetadata();
-        if ($trigger === null || ! $this->validTriggerMetadata($trigger)) {
+        $trigger = $this->triggerMetadata($this->triggerName);
+        if ($trigger === null || ! $this->validStatusTriggerMetadata($trigger)) {
             $this->fail('Trigger da outbox ausente ou conflitante: ' . $this->triggerName);
+        }
+        $creationTrigger = $this->triggerMetadata($this->creationTriggerName);
+        if ($creationTrigger === null || ! $this->validCreationTriggerMetadata($creationTrigger)) {
+            $this->fail('Trigger de criacao de OS ausente ou conflitante: ' . $this->creationTriggerName);
         }
     }
 
-    private function validTriggerMetadata(array $trigger)
+    private function validStatusTriggerMetadata(array $trigger)
     {
         $statement = strtolower(preg_replace('/\s+/', ' ', $trigger['ACTION_STATEMENT']));
         $markers = [
@@ -229,18 +268,39 @@ class Tecnina_integration_setup extends CI_Controller
             && $trigger['EVENT_OBJECT_TABLE'] === $this->osTable;
     }
 
-    private function triggerExists()
+    private function validCreationTriggerMetadata(array $trigger)
     {
-        return $this->triggerMetadata() !== null;
+        $statement = strtolower(preg_replace('/\s+/', ' ', $trigger['ACTION_STATEMENT']));
+        $markers = [
+            strtolower($this->outboxTable),
+            'new.`idos`',
+            'new.`clientes_id`',
+            'new.`status`',
+            'os.created',
+        ];
+        foreach ($markers as $marker) {
+            if (strpos($statement, $marker) === false) {
+                return false;
+            }
+        }
+
+        return strtoupper($trigger['ACTION_TIMING']) === 'AFTER'
+            && strtoupper($trigger['EVENT_MANIPULATION']) === 'INSERT'
+            && $trigger['EVENT_OBJECT_TABLE'] === $this->osTable;
     }
 
-    private function triggerMetadata()
+    private function triggerExists($triggerName)
+    {
+        return $this->triggerMetadata($triggerName) !== null;
+    }
+
+    private function triggerMetadata($triggerName)
     {
         $query = $this->db->query(
             'SELECT `TRIGGER_NAME`, `EVENT_MANIPULATION`, `EVENT_OBJECT_TABLE`, '
             . '`ACTION_TIMING`, `ACTION_STATEMENT` FROM information_schema.TRIGGERS '
             . 'WHERE `TRIGGER_SCHEMA` = DATABASE() AND `TRIGGER_NAME` = ?',
-            [$this->triggerName]
+            [$triggerName]
         );
 
         return $query->num_rows() === 1 ? $query->row_array() : null;

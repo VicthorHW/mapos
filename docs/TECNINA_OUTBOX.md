@@ -1,8 +1,8 @@
 # Outbox MapOS → TecNina Bot
 
-A Fase 3 publica mudanças de status de OS sem depender do caminho que realizou
-o `UPDATE`. Painel, faturamento, APIs e Área do Cliente passam pela mesma
-trigger do MySQL.
+A outbox publica criações e mudanças de status de OS sem depender do caminho
+que realizou a operação. Painel, faturamento, APIs e Área do Cliente passam
+pelas triggers do MySQL.
 
 ## Instalação
 
@@ -37,6 +37,8 @@ O instalador:
 - resolve o `DB_PREFIX` efetivo;
 - valida a tabela e as colunas da OS;
 - verifica o privilégio MySQL `TRIGGER` antes de criar a trigger;
+- instala uma trigger `AFTER INSERT` para `os.created` e outra `AFTER UPDATE`
+  para `os.status_changed`;
 - cria ou repara colunas e índices ausentes da outbox;
 - não remove dados;
 - aceita execuções repetidas;
@@ -97,6 +99,7 @@ normalizado com segurança. Número ausente, fixo ou legado ambíguo resulta em
 
 ## Garantias
 
+- a criação de uma OS gera exatamente um evento `os.created`;
 - status inalterado não gera evento;
 - mudança de status gera exatamente um evento por `UPDATE`;
 - claim expirado pode ser recuperado;
@@ -107,3 +110,11 @@ normalizado com segurança. Número ausente, fixo ou legado ambíguo resulta em
 
 A Fase 4 aplica regras, templates e fila no Gateway. O envio permanece sob a
 chave global `STATUS_NOTIFICATIONS_ENABLED`, desligada por padrão.
+
+## Entrega pendente de validação
+
+Em 2026-09-06 foi adicionada a emissão de `os.created` e o Gateway passou a
+enfileirar a mensagem transacional de abertura com o número da OS. Esta
+alteração foi publicada a pedido operacional sem execução de testes nesta
+entrega; valide a primeira criação de OS após o deploy e consulte a fila de
+notificações caso não haja destinatário válido.
