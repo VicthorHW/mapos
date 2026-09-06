@@ -36,15 +36,32 @@
 (function ($) {
     'use strict';
     var base = <?= json_encode(site_url('tecnina_whatsapp')) ?>;
+    var osEditBase = <?= json_encode(site_url('os/editar')) ?>;
     var csrfName = <?= json_encode($csrfName) ?>, csrfHash = <?= json_encode($csrfHash) ?>;
     var runtimeNotifications = false;
     function esc(value) { return $('<div>').text(value == null ? '' : value).html(); }
     function error(message) { $('#wa-error').text(message || 'Não foi possível comunicar com o Gateway.').show(); }
+    function reasonMessage(reason) {
+        var messages = {
+            intake_review_conflict: 'Este pré-atendimento foi alterado. Reabra a revisão e tente novamente.',
+            existing_client_required: 'Informe o ID do cliente existente.',
+            client_name_required: 'Informe o nome antes de criar um cliente.',
+            incomplete_intake: 'Revise e salve todos os campos obrigatórios antes de aprovar.',
+            invalid_operator: 'O usuário atual não pode ser vinculado à OS.',
+            ambiguous_client: 'Há mais de um cliente com este telefone. Localize o cadastro correto e informe seu ID.',
+            client_match_changed: 'O cadastro correspondente ao telefone mudou. Reabra a revisão.',
+            duplicate_client_requires_decision: 'Já existe um cliente com este telefone. Vincule o cadastro existente ou confirme a criação duplicada.',
+            approval_in_progress: 'Esta aprovação já está em processamento. Aguarde e atualize a lista.',
+            mapos_unavailable: 'O MapOS não respondeu à aprovação. Tente novamente.',
+            approval_unavailable: 'Não foi possível criar a OS. Nenhum cadastro parcial foi mantido.'
+        };
+        return messages[reason] || 'Não foi possível concluir a operação.';
+    }
     function request(path, method, data, done) {
         data = data || {}; if (method !== 'GET') { data[csrfName] = csrfHash; }
-        $.ajax({url: base + path, method: method, data: data, dataType: 'json'})
-            .done(function (response) { if (response.csrf) { csrfHash = response.csrf; } if (!response.ok) { error(); return; } done(response.data); })
-            .fail(function () { error(); });
+        return $.ajax({url: base + path, method: method, data: data, dataType: 'json'})
+            .done(function (response) { if (response.csrf) { csrfHash = response.csrf; } if (!response.ok) { error(reasonMessage(response.reason)); return; } $('#wa-error').hide(); done(response.data); })
+            .fail(function (xhr) { var response=xhr.responseJSON || {}; if (response.csrf) { csrfHash=response.csrf; } error(reasonMessage(response.reason)); });
     }
     function loadOverview() { request('/dados/overview', 'GET', null, function (d) {
         var c = d.components || {}, q = d.queue || {};
@@ -67,6 +84,9 @@
     }); }
     function loadIntake(id) { request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (d) {
         var pickup = d.service_mode === 'PICKUP_REQUESTED';
+        var existingId = d.possible_mapos_client_id || '';
+        var linkChecked = existingId ? ' checked' : '';
+        var createChecked = existingId ? '' : ' checked';
         var h = '<div class="well wa-intake-form" data-id="' + esc(d.id) + '" data-version="' + esc(d.review_version) + '">' +
             '<h5>Pré-atendimento ' + esc(d.id) + '</h5><p><strong>WhatsApp:</strong> ' + esc(d.phone_display) + '</p>' +
             '<div class="row-fluid"><div class="span6"><label>Nome</label><input class="input-block-level wa-i-name" maxlength="120" value="' + esc(d.name || '') + '"></div>' +
@@ -77,8 +97,13 @@
             '<label>Problema informado</label><textarea class="input-block-level wa-i-problem" maxlength="2000" rows="4">' + esc(d.problem_description || '') + '</textarea>' +
             '<label>Forma de atendimento</label><select class="wa-i-mode"><option value="DROP_OFF"' + (!pickup ? ' selected' : '') + '>Cliente traz o equipamento</option><option value="PICKUP_REQUESTED"' + (pickup ? ' selected' : '') + '>Solicitação de coleta</option></select>' +
             '<label>Observações internas</label><textarea class="input-block-level wa-i-notes" maxlength="2000" rows="3">' + esc(d.notes || '') + '</textarea>' +
-            '<div class="alert alert-info">A criação de cliente e OS será habilitada somente após a validação do contrato de aprovação.</div>' +
-            '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-danger wa-intake-reject">Descartar</button> <button class="btn wa-intake-close">Fechar</button></div>';
+            '<div class="well well-small"><strong>Destino no MapOS</strong>' +
+            '<label class="radio"><input type="radio" name="wa-client-action" value="LINK_EXISTING"' + linkChecked + '> Vincular cliente existente</label>' +
+            '<label>ID do cliente</label><input class="input-small wa-i-client-id" type="number" min="1" value="' + esc(existingId) + '">' +
+            '<label class="radio"><input type="radio" name="wa-client-action" value="CREATE_NEW"' + createChecked + '> Criar novo cliente</label>' +
+            '<label class="checkbox"><input class="wa-i-force-create" type="checkbox"> Confirmo criar mesmo se o telefone já estiver cadastrado</label>' +
+            '<p class="muted">Salve eventuais alterações acima antes de aprovar. A credencial do aparelho ficará como não informada para coleta na triagem física.</p></div>' +
+            '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-success wa-intake-approve">Aprovar e criar OS</button> <button class="btn btn-danger wa-intake-reject">Descartar</button> <button class="btn wa-intake-close">Fechar</button></div>';
         $('#wa-intake-detail').html(h);
     }); }
     function loadQueue() { request('/dados/queue', 'GET', null, function (rows) {
@@ -108,6 +133,7 @@
     $(document).on('click', '.wa-intake-open', function () { loadIntake($(this).data('id')); });
     $(document).on('click', '.wa-intake-close', function () { $('#wa-intake-detail').empty(); });
     $(document).on('click', '.wa-intake-save', function () { var form=$(this).closest('.wa-intake-form'); request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/save', 'POST', {review_version: form.data('version'), name: form.find('.wa-i-name').val(), city: form.find('.wa-i-city').val(), device_type: form.find('.wa-i-device').val(), brand: form.find('.wa-i-brand').val(), model: form.find('.wa-i-model').val(), problem_description: form.find('.wa-i-problem').val(), service_mode: form.find('.wa-i-mode').val(), notes: form.find('.wa-i-notes').val()}, function (d) { loadIntakes(); loadIntake(d.id); }); });
+    $(document).on('click', '.wa-intake-approve', function () { var button=$(this), form=button.closest('.wa-intake-form'), action=form.find('input[name="wa-client-action"]:checked').val(), force=form.find('.wa-i-force-create').is(':checked'); if (action === 'CREATE_NEW' && force && !window.confirm('Confirma a criação de um cliente duplicado com o mesmo telefone?')) { return; } button.prop('disabled',true); request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/approve', 'POST', {review_version: form.data('version'), client_action: action, client_id: form.find('.wa-i-client-id').val(), force_create_new: force}, function (d) { $('#wa-intake-detail').html('<div class="alert alert-success">OS #' + esc(d.mapos_os_id) + ' criada com sucesso. <a href="' + esc(osEditBase + '/' + d.mapos_os_id) + '">Abrir OS</a></div>'); loadIntakes(); }).always(function () { button.prop('disabled',false); }); });
     $(document).on('click', '.wa-intake-reject', function () { var form=$(this).closest('.wa-intake-form'), reason=window.prompt('Informe o motivo do descarte:'); if (reason === null) { return; } request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/reject', 'POST', {review_version: form.data('version'), reason: reason}, function () { $('#wa-intake-detail').empty(); loadIntakes(); }); });
     $(document).on('change', '#wa-notifications', function () { request('/notificacoes', 'POST', {enabled: $(this).is(':checked')}, loadSettings); });
     loadOverview(); loadConversations(); loadIntakes(); loadQueue(); loadLogs(); loadRules(); loadTemplates();

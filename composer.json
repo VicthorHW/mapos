@@ -33,7 +33,8 @@
             "php tests/TecninaOutboxTest.php",
             "php tests/TecninaIntegrationContextTest.php",
             "php tests/TecninaClientByPhoneTest.php",
-            "php tests/TecninaIntakeReviewPanelTest.php"
+            "php tests/TecninaIntakeReviewPanelTest.php",
+            "php tests/TecninaIntakeApprovalTest.php"
         ]
     },
     "config": {

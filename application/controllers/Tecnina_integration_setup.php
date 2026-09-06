@@ -4,11 +4,13 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Tecnina_integration_setup extends CI_Controller
 {
-    const SCHEMA_VERSION = 1;
+    const SCHEMA_VERSION = 2;
 
     private $outboxTable;
 
     private $osTable;
+
+    private $approvalTable;
 
     private $triggerName;
 
@@ -21,6 +23,7 @@ class Tecnina_integration_setup extends CI_Controller
 
         $this->load->database();
         $this->outboxTable = $this->physicalName('tecnina_integration_outbox');
+        $this->approvalTable = $this->physicalName('tecnina_intake_approvals');
         $this->osTable = $this->physicalName('os');
         $candidate = 'trg_' . $this->osTable . '_tecnina_status_outbox';
         $this->triggerName = strlen($candidate) <= 64
@@ -40,6 +43,7 @@ class Tecnina_integration_setup extends CI_Controller
             $this->validateTriggerPrivilege();
         }
         $this->createOrRepairOutbox();
+        $this->createOrRepairApprovals();
         $this->createOrValidateTrigger();
         $this->verifyState();
         echo 'Integracao TecNina schema v' . self::SCHEMA_VERSION . ' instalada e verificada.' . PHP_EOL;
@@ -135,6 +139,56 @@ class Tecnina_integration_setup extends CI_Controller
         );
     }
 
+    private function createOrRepairApprovals()
+    {
+        $table = $this->quote($this->approvalTable);
+        $this->mustQuery(
+            "CREATE TABLE IF NOT EXISTS {$table} ("
+            . '`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,'
+            . '`intake_id` CHAR(36) NOT NULL,'
+            . '`request_hash` CHAR(64) NOT NULL,'
+            . "`state` VARCHAR(24) NOT NULL DEFAULT 'PROCESSING',"
+            . '`client_id` INT NULL,'
+            . '`os_id` INT NULL,'
+            . '`client_created` TINYINT(1) NOT NULL DEFAULT 0,'
+            . '`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            . '`completed_at` DATETIME NULL,'
+            . 'PRIMARY KEY (`id`),'
+            . 'UNIQUE KEY `uq_tecnina_intake_approval` (`intake_id`)'
+            . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $definitions = $this->approvalColumnDefinitions();
+        $existing = array_keys($this->approvalColumnMetadata());
+        foreach ($definitions as $name => $definition) {
+            if (! in_array($name, $existing, true)) {
+                $this->mustQuery("ALTER TABLE {$table} ADD COLUMN " . $this->quote($name) . ' ' . $definition);
+            }
+        }
+        if (! in_array('uq_tecnina_intake_approval', $this->approvalIndexNames(), true)) {
+            $this->mustQuery("ALTER TABLE {$table} ADD UNIQUE KEY `uq_tecnina_intake_approval` (`intake_id`)");
+        }
+    }
+
+    private function verifyApprovals()
+    {
+        if (! $this->db->table_exists('tecnina_intake_approvals')) {
+            $this->fail('Tabela de idempotencia de intake ausente: ' . $this->approvalTable);
+        }
+        $missing = array_diff(
+            array_keys($this->approvalColumnDefinitions()),
+            array_keys($this->approvalColumnMetadata())
+        );
+        if ($missing !== []) {
+            $this->fail('Tabela de idempotencia incompleta; colunas ausentes: ' . implode(', ', $missing));
+        }
+        if (! in_array('uq_tecnina_intake_approval', $this->approvalIndexNames(), true)) {
+            $this->fail('Indice unico de idempotencia de intake ausente.');
+        }
+        $this->validateApprovalColumnShapes();
+        $this->validateApprovalIndexShapes();
+    }
+
     private function verifyState()
     {
         if (! $this->db->table_exists('tecnina_integration_outbox')) {
@@ -146,6 +200,7 @@ class Tecnina_integration_setup extends CI_Controller
         }
         $this->validateColumnShapes();
         $this->validateIndexShapes();
+        $this->verifyApprovals();
         $trigger = $this->triggerMetadata();
         if ($trigger === null || ! $this->validTriggerMetadata($trigger)) {
             $this->fail('Trigger da outbox ausente ou conflitante: ' . $this->triggerName);
@@ -316,6 +371,91 @@ class Tecnina_integration_setup extends CI_Controller
             if ($actual[$name]['unique'] !== $shape['unique']
                 || array_values($actual[$name]['columns']) !== $shape['columns']) {
                 $this->fail('Definicao conflitante no indice da outbox: ' . $name);
+            }
+        }
+    }
+
+    private function approvalColumnDefinitions()
+    {
+        return [
+            'id' => 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST',
+            'intake_id' => 'CHAR(36) NOT NULL',
+            'request_hash' => 'CHAR(64) NOT NULL',
+            'state' => "VARCHAR(24) NOT NULL DEFAULT 'PROCESSING'",
+            'client_id' => 'INT NULL',
+            'os_id' => 'INT NULL',
+            'client_created' => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
+            'completed_at' => 'DATETIME NULL',
+        ];
+    }
+
+    private function approvalColumnMetadata()
+    {
+        $rows = $this->db->query('SHOW COLUMNS FROM ' . $this->quote($this->approvalTable))->result_array();
+        $metadata = [];
+        foreach ($rows as $row) {
+            $metadata[$row['Field']] = $row;
+        }
+
+        return $metadata;
+    }
+
+    private function approvalIndexNames()
+    {
+        $rows = $this->db->query('SHOW INDEX FROM ' . $this->quote($this->approvalTable))->result_array();
+
+        return array_values(array_unique(array_column($rows, 'Key_name')));
+    }
+
+    private function validateApprovalColumnShapes()
+    {
+        $columns = $this->approvalColumnMetadata();
+        $expected = [
+            'id' => ['type' => 'bigint unsigned', 'null' => 'NO', 'extra' => 'auto_increment'],
+            'intake_id' => ['type' => 'char(36)', 'null' => 'NO'],
+            'request_hash' => ['type' => 'char(64)', 'null' => 'NO'],
+            'state' => ['type' => 'varchar(24)', 'null' => 'NO'],
+            'client_id' => ['type' => 'int', 'null' => 'YES'],
+            'os_id' => ['type' => 'int', 'null' => 'YES'],
+            'client_created' => ['type' => 'tinyint(1)', 'null' => 'NO'],
+            'created_at' => ['type' => 'datetime', 'null' => 'NO'],
+            'completed_at' => ['type' => 'datetime', 'null' => 'YES'],
+        ];
+        foreach ($expected as $name => $shape) {
+            $actualType = strtolower(preg_replace('/^(bigint|int)\([0-9]+\)/i', '$1', $columns[$name]['Type']));
+            if ($actualType !== $shape['type']
+                || strtoupper($columns[$name]['Null']) !== $shape['null']
+                || (isset($shape['extra']) && strtolower($columns[$name]['Extra']) !== $shape['extra'])) {
+                $this->fail('Definicao conflitante na coluna de aprovacao: ' . $name);
+            }
+        }
+        if ((string) $columns['state']['Default'] !== 'PROCESSING'
+            || (string) $columns['client_created']['Default'] !== '0') {
+            $this->fail('Defaults conflitantes na tabela de aprovacao de intake.');
+        }
+    }
+
+    private function validateApprovalIndexShapes()
+    {
+        $rows = $this->db->query('SHOW INDEX FROM ' . $this->quote($this->approvalTable))->result_array();
+        $actual = [];
+        foreach ($rows as $row) {
+            $actual[$row['Key_name']]['unique'] = (int) $row['Non_unique'] === 0;
+            $actual[$row['Key_name']]['columns'][(int) $row['Seq_in_index']] = $row['Column_name'];
+        }
+        $expected = [
+            'PRIMARY' => ['unique' => true, 'columns' => ['id']],
+            'uq_tecnina_intake_approval' => ['unique' => true, 'columns' => ['intake_id']],
+        ];
+        foreach ($expected as $name => $shape) {
+            if (! isset($actual[$name])) {
+                $this->fail('Tabela de aprovacao incompleta; indice ausente: ' . $name);
+            }
+            ksort($actual[$name]['columns']);
+            if ($actual[$name]['unique'] !== $shape['unique']
+                || array_values($actual[$name]['columns']) !== $shape['columns']) {
+                $this->fail('Definicao conflitante no indice de aprovacao: ' . $name);
             }
         }
     }

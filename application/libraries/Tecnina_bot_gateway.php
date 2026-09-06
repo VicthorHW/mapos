@@ -70,8 +70,29 @@ class Tecnina_bot_gateway
             return ['ok' => false, 'status' => $status ?: 502, 'reason' => 'invalid_gateway_response', 'data' => null];
         }
         if ($status < 200 || $status >= 300) {
-            // Do not pass through raw Gateway details, which can contain operational data.
-            return ['ok' => false, 'status' => $status, 'reason' => 'gateway_request_failed', 'data' => null];
+            // Only documented, non-sensitive contract errors may cross this boundary.
+            $safeReasons = [
+                'intake_not_found',
+                'intake_review_conflict',
+                'existing_client_required',
+                'client_name_required',
+                'incomplete_intake',
+                'invalid_client_action',
+                'invalid_operator',
+                'idempotency_conflict',
+                'approval_in_progress',
+                'ambiguous_client',
+                'client_match_changed',
+                'duplicate_client_requires_decision',
+                'approval_unavailable',
+                'mapos_unavailable',
+            ];
+            $detail = isset($decoded['detail']) && is_string($decoded['detail'])
+                ? $decoded['detail']
+                : '';
+            $reason = in_array($detail, $safeReasons, true) ? $detail : 'gateway_request_failed';
+
+            return ['ok' => false, 'status' => $status, 'reason' => $reason, 'data' => null];
         }
 
         return ['ok' => true, 'status' => $status, 'reason' => 'ok', 'data' => $decoded];

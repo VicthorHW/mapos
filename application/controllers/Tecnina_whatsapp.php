@@ -63,7 +63,7 @@ class Tecnina_whatsapp extends MY_Controller
             $result = $this->tecnina_bot_gateway->request('GET', '/admin/intakes/' . rawurlencode($intakeId));
             return $this->json($result, $result['status']);
         }
-        if ($method !== 'POST' || ! in_array($action, ['save', 'reject'], true)) {
+        if ($method !== 'POST' || ! in_array($action, ['save', 'reject', 'approve'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
         }
 
@@ -83,6 +83,39 @@ class Tecnina_whatsapp extends MY_Controller
             }
             $payload = ['review_version' => $version, 'operator_id' => $operatorId, 'reason' => $reason];
             $result = $this->tecnina_bot_gateway->request('POST', '/admin/intakes/' . rawurlencode($intakeId) . '/reject', $payload);
+            return $this->json($result, $result['status']);
+        }
+
+        if ($action === 'approve') {
+            $clientAction = (string) $this->input->post('client_action', true);
+            $clientId = $this->input->post('client_id', true);
+            if (! in_array($clientAction, ['LINK_EXISTING', 'CREATE_NEW'], true)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_client_decision'], 422);
+            }
+            if ($clientAction === 'LINK_EXISTING') {
+                $clientId = filter_var($clientId, FILTER_VALIDATE_INT);
+                if ($clientId === false || $clientId < 1) {
+                    return $this->json(['ok' => false, 'reason' => 'invalid_client_id'], 422);
+                }
+            } else {
+                $clientId = null;
+            }
+            $payload = [
+                'review_version' => $version,
+                'operator_id' => $operatorId,
+                'client_action' => $clientAction,
+                'client_id' => $clientId,
+                'force_create_new' => filter_var(
+                    $this->input->post('force_create_new'),
+                    FILTER_VALIDATE_BOOLEAN
+                ),
+            ];
+            $result = $this->tecnina_bot_gateway->request(
+                'POST',
+                '/admin/intakes/' . rawurlencode($intakeId) . '/approve',
+                $payload
+            );
+
             return $this->json($result, $result['status']);
         }
 

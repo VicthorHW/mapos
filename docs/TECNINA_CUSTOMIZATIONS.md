@@ -113,8 +113,38 @@ autenticação do cliente.
 - `application/views/tecnina_whatsapp/index.php`
 - `tests/TecninaIntakeReviewPanelTest.php`
 
-A aba lista somente drafts acionáveis e permite revisar ou rejeitar. O navegador
+A aba lista somente drafts acionáveis e permite revisar, rejeitar ou aprovar. O navegador
 nunca recebe o token do Gateway nem o JID. O ID do operador é obtido da sessão
 MapOS, e não de dados enviados pelo formulário. A gravação usa
-`review_version` para rejeitar edições concorrentes. A criação de cliente/OS
-permanece desabilitada até o contrato idempotente de aprovação ser concluído.
+`review_version` para rejeitar edições concorrentes.
+
+### Fase 8B — aprovação e criação transacional
+
+Arquivos novos TecNina:
+
+- `application/controllers/api/bot/Intake_approval.php`
+- `application/models/Tecnina_intake_approval_model.php`
+- `tests/TecninaIntakeApprovalTest.php`
+
+Arquivos TecNina atualizados:
+
+- `application/controllers/Tecnina_integration_setup.php`
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/libraries/Tecnina_bot_gateway.php`
+- `application/views/tecnina_whatsapp/index.php`
+- `tools/tecnina-integration/install.php`
+- `tests/TecninaIntakeReviewPanelTest.php`
+
+Arquivo upstream alterado:
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `application/config/routes.php` | Publicar o endpoint privado de aprovação | Manter o Gateway desacoplado do banco MapOS | SQL direto pelo Gateway; rejeitado por segurança e compatibilidade |
+| `composer.json` | Incluir o teste de contrato no conjunto padrão | Detectar regressões de segurança e idempotência | Teste manual; rejeitado por não ser repetível |
+
+A aprovação cria cliente, quando solicitado, e OS na mesma transação MySQL. Uma
+tabela própria, instalada de forma idempotente e respeitando `DB_PREFIX`, impede
+que reenvios criem outra OS. A correspondência por telefone é refeita no MapOS
+imediatamente antes da gravação. Duplicidades exigem decisão explícita. A OS é
+criada com `credencial_tipo = nao_informada`, sem PIN, senha ou desenho, para
+que a credencial seja coletada somente na triagem física.

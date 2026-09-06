@@ -46,6 +46,7 @@ $route['default_controller'] = 'mapos';
 $route['404_override'] = '';
 $route['api/bot/integration-context/(:num)'] = 'api/bot/integration_context/index/$1';
 $route['api/bot/client/by-phone'] = 'api/bot/client_by_phone/index';
+$route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 
 // Rotas da API
 if (filter_var($_ENV['API_ENABLED'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
