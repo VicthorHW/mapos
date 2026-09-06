@@ -12,6 +12,7 @@
                 <hr>
                 <ul class="nav nav-tabs">
                     <li class="active"><a href="#wa-conversas" data-toggle="tab">Conversas</a></li>
+                    <li><a href="#wa-intakes" data-toggle="tab">Pré-atendimentos</a></li>
                     <li><a href="#wa-fila" data-toggle="tab">Fila</a></li>
                     <li><a href="#wa-logs" data-toggle="tab">Logs</a></li>
                     <li><a href="#wa-regras" data-toggle="tab">Regras de status</a></li>
@@ -20,6 +21,7 @@
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane active" id="wa-conversas"><div id="wa-conversations">Carregando…</div></div>
+                    <div class="tab-pane" id="wa-intakes"><div id="wa-intakes-list">Carregando…</div><div id="wa-intake-detail"></div></div>
                     <div class="tab-pane" id="wa-fila"><div id="wa-queue">Carregando…</div></div>
                     <div class="tab-pane" id="wa-logs"><div id="wa-logs-list">Carregando…</div></div>
                     <div class="tab-pane" id="wa-regras"><div id="wa-rules">Carregando…</div></div>
@@ -58,6 +60,27 @@
         $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.phone_tail) + '</td><td>' + esc(r.state) + '</td><td>' + esc(r.human_until || '—') + '</td><td><button class="btn btn-mini wa-lock" data-id="' + r.id + '">Pausar bot</button> <button class="btn btn-mini wa-resume" data-id="' + r.id + '">Retomar</button></td></tr>'; });
         $('#wa-conversations').html(h + '</tbody></table>');
     }); }
+    function loadIntakes() { request('/dados/intakes', 'GET', null, function (rows) {
+        var h = '<table class="table table-bordered"><thead><tr><th>Recebido</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th>Cidade</th><th>Status</th><th></th></tr></thead><tbody>';
+        $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.ready_at || '—') + '</td><td>' + esc(r.phone_display) + '</td><td>' + esc(r.name || 'Cliente já cadastrado') + '</td><td>' + esc(r.equipment) + '</td><td>' + esc(r.city) + '</td><td>' + esc(r.status) + '</td><td><button class="btn btn-mini btn-primary wa-intake-open" data-id="' + esc(r.id) + '">Revisar</button></td></tr>'; });
+        $('#wa-intakes-list').html(rows.length ? h + '</tbody></table>' : '<p>Nenhum pré-atendimento aguardando revisão.</p>');
+    }); }
+    function loadIntake(id) { request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (d) {
+        var pickup = d.service_mode === 'PICKUP_REQUESTED';
+        var h = '<div class="well wa-intake-form" data-id="' + esc(d.id) + '" data-version="' + esc(d.review_version) + '">' +
+            '<h5>Pré-atendimento ' + esc(d.id) + '</h5><p><strong>WhatsApp:</strong> ' + esc(d.phone_display) + '</p>' +
+            '<div class="row-fluid"><div class="span6"><label>Nome</label><input class="input-block-level wa-i-name" maxlength="120" value="' + esc(d.name || '') + '"></div>' +
+            '<div class="span6"><label>Cidade</label><input class="input-block-level wa-i-city" maxlength="80" value="' + esc(d.city || '') + '"></div></div>' +
+            '<div class="row-fluid"><div class="span4"><label>Equipamento</label><input class="input-block-level wa-i-device" maxlength="80" value="' + esc(d.device_type || '') + '"></div>' +
+            '<div class="span4"><label>Marca</label><input class="input-block-level wa-i-brand" maxlength="80" value="' + esc(d.brand || '') + '"></div>' +
+            '<div class="span4"><label>Modelo</label><input class="input-block-level wa-i-model" maxlength="120" value="' + esc(d.model || '') + '"></div></div>' +
+            '<label>Problema informado</label><textarea class="input-block-level wa-i-problem" maxlength="2000" rows="4">' + esc(d.problem_description || '') + '</textarea>' +
+            '<label>Forma de atendimento</label><select class="wa-i-mode"><option value="DROP_OFF"' + (!pickup ? ' selected' : '') + '>Cliente traz o equipamento</option><option value="PICKUP_REQUESTED"' + (pickup ? ' selected' : '') + '>Solicitação de coleta</option></select>' +
+            '<label>Observações internas</label><textarea class="input-block-level wa-i-notes" maxlength="2000" rows="3">' + esc(d.notes || '') + '</textarea>' +
+            '<div class="alert alert-info">A criação de cliente e OS será habilitada somente após a validação do contrato de aprovação.</div>' +
+            '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-danger wa-intake-reject">Descartar</button> <button class="btn wa-intake-close">Fechar</button></div>';
+        $('#wa-intake-detail').html(h);
+    }); }
     function loadQueue() { request('/dados/queue', 'GET', null, function (rows) {
         var h = '<table class="table table-bordered"><thead><tr><th>OS</th><th>Cliente</th><th>Status</th><th>Estado</th><th>Tentativas</th><th>Erro</th><th></th></tr></thead><tbody>';
         $.each(rows, function(_, r) { var retry = (r.state === 'FAILED' || r.state === 'RETRY' || r.state === 'DEFERRED') ? '<button class="btn btn-mini wa-retry" data-id="' + r.id + '">Tentar agora</button>' : '—'; h += '<tr><td>' + esc(r.os_id) + '</td><td>' + esc(r.client_id) + '</td><td>' + esc(r.mapos_status) + '</td><td>' + esc(r.state) + '</td><td>' + esc(r.attempts) + '</td><td>' + esc(r.last_error_code || '—') + '</td><td>' + retry + '</td></tr>'; });
@@ -82,7 +105,11 @@
     $(document).on('click', '.wa-retry', function () { request('/fila/' + $(this).data('id') + '/retry', 'POST', {}, loadQueue); });
     $(document).on('click', '.wa-rule-save', function () { var row=$(this).closest('tr'); request('/regra/' + row.data('id'), 'POST', {enabled: row.find('.wa-enabled').is(':checked'), public_label: row.find('.wa-label').val(), priority: row.find('.wa-priority').val()}, loadRules); });
     $(document).on('click', '.wa-template-save', function () { var key=$(this).data('key'), body=$(this).siblings('.wa-template-body').val(); request('/template/' + key, 'POST', {body: body, enabled: true}, loadTemplates); });
+    $(document).on('click', '.wa-intake-open', function () { loadIntake($(this).data('id')); });
+    $(document).on('click', '.wa-intake-close', function () { $('#wa-intake-detail').empty(); });
+    $(document).on('click', '.wa-intake-save', function () { var form=$(this).closest('.wa-intake-form'); request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/save', 'POST', {review_version: form.data('version'), name: form.find('.wa-i-name').val(), city: form.find('.wa-i-city').val(), device_type: form.find('.wa-i-device').val(), brand: form.find('.wa-i-brand').val(), model: form.find('.wa-i-model').val(), problem_description: form.find('.wa-i-problem').val(), service_mode: form.find('.wa-i-mode').val(), notes: form.find('.wa-i-notes').val()}, function (d) { loadIntakes(); loadIntake(d.id); }); });
+    $(document).on('click', '.wa-intake-reject', function () { var form=$(this).closest('.wa-intake-form'), reason=window.prompt('Informe o motivo do descarte:'); if (reason === null) { return; } request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/reject', 'POST', {review_version: form.data('version'), reason: reason}, function () { $('#wa-intake-detail').empty(); loadIntakes(); }); });
     $(document).on('change', '#wa-notifications', function () { request('/notificacoes', 'POST', {enabled: $(this).is(':checked')}, loadSettings); });
-    loadOverview(); loadConversations(); loadQueue(); loadLogs(); loadRules(); loadTemplates();
+    loadOverview(); loadConversations(); loadIntakes(); loadQueue(); loadLogs(); loadRules(); loadTemplates();
 }(jQuery));
 </script>

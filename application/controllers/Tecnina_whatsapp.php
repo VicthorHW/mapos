@@ -34,6 +34,7 @@ class Tecnina_whatsapp extends MY_Controller
         $paths = [
             'overview' => '/admin/overview',
             'conversations' => '/admin/conversations',
+            'intakes' => '/admin/intakes',
             'queue' => '/admin/queue',
             'logs' => '/admin/logs',
             'status-rules' => '/admin/status-rules',
@@ -45,6 +46,64 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         $result = $this->tecnina_bot_gateway->request('GET', $paths[$resource]);
+        return $this->json($result, $result['status']);
+    }
+
+    public function pre_atendimento($intakeId = '', $action = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $method = $this->input->method(true);
+        if ($method === 'GET' && $action === '') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/intakes/' . rawurlencode($intakeId));
+            return $this->json($result, $result['status']);
+        }
+        if ($method !== 'POST' || ! in_array($action, ['save', 'reject'], true)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+        }
+
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($operatorId <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
+        }
+        $version = filter_var($this->input->post('review_version'), FILTER_VALIDATE_INT);
+        if ($version === false || $version < 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_review_version'], 422);
+        }
+
+        if ($action === 'reject') {
+            $reason = trim((string) $this->input->post('reason', true));
+            if (mb_strlen($reason) < 3 || mb_strlen($reason) > 500) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_rejection_reason'], 422);
+            }
+            $payload = ['review_version' => $version, 'operator_id' => $operatorId, 'reason' => $reason];
+            $result = $this->tecnina_bot_gateway->request('POST', '/admin/intakes/' . rawurlencode($intakeId) . '/reject', $payload);
+            return $this->json($result, $result['status']);
+        }
+
+        $serviceMode = (string) $this->input->post('service_mode', true);
+        $required = [
+            'device_type' => trim((string) $this->input->post('device_type', true)),
+            'brand' => trim((string) $this->input->post('brand', true)),
+            'problem_description' => trim((string) $this->input->post('problem_description', true)),
+            'city' => trim((string) $this->input->post('city', true)),
+        ];
+        if (in_array('', $required, true) || ! in_array($serviceMode, ['DROP_OFF', 'PICKUP_REQUESTED'], true)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_fields'], 422);
+        }
+        $payload = array_merge($required, [
+            'review_version' => $version,
+            'name' => trim((string) $this->input->post('name', true)),
+            'model' => trim((string) $this->input->post('model', true)),
+            'service_mode' => $serviceMode,
+            'notes' => trim((string) $this->input->post('notes', true)),
+        ]);
+        $result = $this->tecnina_bot_gateway->request('PUT', '/admin/intakes/' . rawurlencode($intakeId), $payload);
         return $this->json($result, $result['status']);
     }
 

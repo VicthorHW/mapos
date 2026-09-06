@@ -98,3 +98,23 @@ O endpoint aceita apenas a identificação normalizada e responde `none`,
 `unique` com `client_id`, ou `ambiguous`. Ele nunca devolve nome, CPF, e-mail,
 endereço, senha, hash ou telefone. A consulta é identificação operacional, não
 autenticação do cliente.
+
+## Integração WhatsApp — Fase 8 (revisão de intake)
+
+### Arquivos upstream alterados
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `composer.json` | Executar o teste estrutural do painel de revisão | Evitar regressão na autorização, whitelist e proxy server-side | Teste manual; rejeitado por ser fácil esquecer |
+
+### Arquivos TecNina atualizados
+
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/views/tecnina_whatsapp/index.php`
+- `tests/TecninaIntakeReviewPanelTest.php`
+
+A aba lista somente drafts acionáveis e permite revisar ou rejeitar. O navegador
+nunca recebe o token do Gateway nem o JID. O ID do operador é obtido da sessão
+MapOS, e não de dados enviados pelo formulário. A gravação usa
+`review_version` para rejeitar edições concorrentes. A criação de cliente/OS
+permanece desabilitada até o contrato idempotente de aprovação ser concluído.
