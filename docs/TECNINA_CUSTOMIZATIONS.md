@@ -148,3 +148,24 @@ que reenvios criem outra OS. A correspondência por telefone é refeita no MapOS
 imediatamente antes da gravação. Duplicidades exigem decisão explícita. A OS é
 criada com `credencial_tipo = nao_informada`, sem PIN, senha ou desenho, para
 que a credencial seja coletada somente na triagem física.
+
+## Integração WhatsApp — Fase 8.1 (painel logístico)
+
+### Arquivo upstream alterado
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `composer.json` | Incluir o teste estrutural do painel logístico na suíte padrão | Detectar regressões de autorização, whitelist e privacidade | Execução manual; rejeitada por não ser repetível |
+
+### Arquivos TecNina atualizados
+
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/libraries/Tecnina_bot_gateway.php`
+- `application/views/tecnina_whatsapp/index.php`
+- `tests/TecninaLogisticsPanelTest.php`
+
+O MapOS atua somente como interface e proxy autenticado para a Admin API do
+Gateway. Zona, rota, capacidade, perfil e appointment permanecem no banco
+`tecnina_bot`. O operador vem da sessão `cSistema`; o navegador não recebe o
+token interno, JID, coordenadas exatas ou acesso SQL ao Gateway. Nenhum status
+logístico ou coluna de agenda foi acrescentado à OS.

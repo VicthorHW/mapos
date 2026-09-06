@@ -40,6 +40,12 @@ class Tecnina_whatsapp extends MY_Controller
             'status-rules' => '/admin/status-rules',
             'templates' => '/admin/templates',
             'settings' => '/admin/settings/status-notifications',
+            'logistics-overview' => '/admin/logistics/overview',
+            'logistics-zones' => '/admin/logistics/zones',
+            'logistics-routes' => '/admin/logistics/routes',
+            'logistics-capacity-rules' => '/admin/logistics/capacity-rules',
+            'logistics-equipment-profiles' => '/admin/logistics/equipment-profiles',
+            'logistics-appointments' => '/admin/logistics/appointments',
         ];
         if (! isset($paths[$resource])) {
             return $this->json(['ok' => false, 'reason' => 'not_found'], 404);
@@ -207,6 +213,74 @@ class Tecnina_whatsapp extends MY_Controller
             'enabled' => filter_var($this->input->post('enabled'), FILTER_VALIDATE_BOOLEAN),
         ];
         $result = $this->tecnina_bot_gateway->request('POST', '/admin/templates/' . rawurlencode($templateKey) . '/versions', $payload);
+        return $this->json($result, $result['status']);
+    }
+
+    public function logistica_configuracao($resource = '', $resourceId = 0)
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $paths = [
+            'zones' => '/admin/logistics/zones',
+            'routes' => '/admin/logistics/routes',
+            'capacity-rules' => '/admin/logistics/capacity-rules',
+            'equipment-profiles' => '/admin/logistics/equipment-profiles',
+        ];
+        if (! isset($paths[$resource])) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_resource'], 400);
+        }
+
+        $rawPayload = (string) $this->input->post('payload', false);
+        if ($rawPayload === '' || strlen($rawPayload) > 20000) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_payload'], 422);
+        }
+        $payload = json_decode($rawPayload, true);
+        if (! is_array($payload)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_payload'], 422);
+        }
+
+        $method = 'POST';
+        $path = $paths[$resource];
+        if ((string) $resourceId !== '0') {
+            if (! ctype_digit((string) $resourceId) || (int) $resourceId < 1) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_logistics_resource_id'], 400);
+            }
+            $method = 'PUT';
+            $path .= '/' . (int) $resourceId;
+        }
+
+        $result = $this->tecnina_bot_gateway->request($method, $path, $payload);
+        return $this->json($result, $result['status']);
+    }
+
+    public function logistica_appointment($appointmentId = '', $action = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if (
+            $this->input->method(true) !== 'POST'
+            || ! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $appointmentId)
+            || ! in_array($action, ['confirm', 'cancel', 'complete', 'reschedule-required'], true)
+        ) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 400);
+        }
+        $version = filter_var($this->input->post('state_version'), FILTER_VALIDATE_INT);
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($version === false || $version < 0 || $operatorId < 1) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
+        }
+        $payload = ['expected_version' => $version, 'operator_id' => $operatorId];
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/logistics/appointments/' . rawurlencode($appointmentId) . '/' . $action,
+            $payload
+        );
         return $this->json($result, $result['status']);
     }
 
