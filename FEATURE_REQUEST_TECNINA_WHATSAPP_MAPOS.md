@@ -18,6 +18,8 @@ A integração deve permitir:
 - futura logística configurável de coleta e devolução, com agenda, capacidade e
   confirmação de localização, sem transformar movimentos logísticos em status
   da OS;
+- futura visualização, simulação e edição declarativa/versionada dos fluxos
+  realmente executados pelo Gateway por meio do **TecNina Flow Studio**;
 - painel administrativo dentro do MapOS para acompanhar e controlar a integração;
 - futura adição de NLU estatístico sem LLM, sem refazer a arquitetura;
 - futura substituição do provedor de WhatsApp ou até do MapOS sem reescrever toda a aplicação.
@@ -115,6 +117,14 @@ capacidade, confirmação humana e localização exata consentida.
 
 Essa prioridade não pode atrasar o primeiro MVP útil de notificações de OS.
 
+## P4.2 — Flow Studio / orquestração visual
+
+Depois que Intake e aprovação estiverem estáveis, criar progressivamente uma
+representação visual, versionada e validável dos fluxos reais do Gateway.
+Começar como observador read-only da FSM existente; edição estrutural só entra
+após versionamento, simulação, validação e publicação segura. O Flow Studio não
+pode virar ambiente de execução de código arbitrário.
+
 ## P5 — Autoatendimento determinístico
 
 Menus, regras, FSM e consultas simples.
@@ -154,6 +164,8 @@ O MapOS **não deve** concentrar:
 - lógica de sessão;
 - processamento de mensagens;
 - fluxo de pré-atendimento;
+- definições, versões, execução, simulação e auditoria de fluxos;
+- registries restritos de nodes, condições e ações;
 - agenda, zonas, rotas ou capacidade logística;
 - tokens e coordenadas de coleta/entrega.
 
@@ -191,6 +203,9 @@ Tudo isso deve permanecer no **TecNina Bot Gateway**.
 │ ├── filas / retries                                          │
 │ ├── audit/log                                                │
 │ ├── Intake / drafts                                          │
+│ ├── Flow definitions / versions / execution traces           │
+│ ├── ConditionRegistry / ActionRegistry                        │
+│ ├── Flow validation / simulation / publication               │
 │ ├── Logistics / appointments / capacity                      │
 │ ├── Location Requests                                        │
 │ ├── MapOSAdapter                                             │
@@ -420,6 +435,12 @@ status_rules
 audit_log
 intake_drafts
 bot_generated_messages
+flow_definitions
+flow_versions
+flow_layouts
+flow_execution_traces
+flow_audit_log
+flow_test_allowlist
 logistics_zones
 logistics_routes
 logistics_route_zones
@@ -838,6 +859,9 @@ Status "Teste bancada" não possui regra de WhatsApp.
 
 Templates devem ser editáveis e versionáveis.
 
+Nós `MESSAGE` do Flow Studio devem referenciar o sistema de templates já
+existente. Não criar um segundo repositório de mensagens dentro do grafo.
+
 Exemplo:
 
 ```text
@@ -1150,6 +1174,11 @@ BOT_RECOVERY
 ```
 
 A FSM deve ser determinística.
+
+O Flow Studio não substituirá esta FSM de uma vez. Inicialmente deverá gerar
+uma representação fiel dos estados/transições já executados. À medida que
+partes forem migradas para `FlowDefinition`, cada conversa deverá permanecer
+pinada à versão com que iniciou até um boundary seguro.
 
 Estados de conversa, estados do Intake, estados logísticos e status da OS são
 máquinas diferentes. `PENDING_CONFIRMATION` logístico, por exemplo, não deve
@@ -1970,6 +1999,29 @@ banco `tecnina_bot`.
 
 ---
 
+# 48.2. Aba — Fluxos
+
+Adicionar na Fase 8.2 dentro do mesmo painel central:
+
+```text
+Configurações → WhatsApp → Fluxos
+```
+
+A UI MapOS deverá funcionar somente como cliente administrativo:
+
+```text
+navegador MapOS
+→ controller MapOS com cSistema + CSRF
+→ Tecnina_bot_gateway server-side
+→ Gateway Admin API
+→ serviços/repositórios do Flow Studio
+```
+
+O navegador nunca acessa o banco `tecnina_bot`, nunca recebe o Bearer interno
+e nunca executa diretamente actions do provider ou do MapOS.
+
+---
+
 # 49. Aba — Regras de Status
 
 Permitir:
@@ -2127,6 +2179,19 @@ PUT  /admin/logistics/blackouts/{id}
 GET  /admin/logistics/capacity
 GET  /admin/logistics/availability
 GET  /admin/location-requests/{id}
+
+GET  /admin/flows
+GET  /admin/flows/{flow_key}
+GET  /admin/flows/{flow_key}/versions/{version}
+POST /admin/flows/{flow_key}/drafts
+PUT  /admin/flows/{flow_key}/drafts/{version}
+POST /admin/flows/{flow_key}/drafts/{version}/validate
+POST /admin/flows/{flow_key}/drafts/{version}/simulate
+POST /admin/flows/{flow_key}/drafts/{version}/publish
+POST /admin/flows/{flow_key}/rollback
+GET  /admin/flows/{flow_key}/history
+GET  /admin/conversations/{id}/flow-state
+GET  /admin/conversations/{id}/flow-trace
 ```
 
 Não expor publicamente.
@@ -2258,6 +2323,12 @@ correlation_id
 event_id
 conversation_id
 ```
+
+O Flow Studio poderá acrescentar `flow_key`, `flow_version`, `node_key` e
+`transition_result`, todos sem PII. Telefone, JID, cliente e OS não podem virar
+labels de métricas. Métricas previstas: `flow_started_total`,
+`flow_completed_total`, `flow_fallback_total`, `flow_handoff_total`,
+`flow_error_total` e `flow_transition_total` com labels de baixo risco.
 
 ---
 
@@ -2796,6 +2867,23 @@ geolocalização simulada:
 - ausência de PII no URL e de token/coordenadas em logs/referrer;
 - headers `no-store`, CSP e `no-referrer`;
 - rate limiting.
+
+---
+
+# 72.2. Testes integrados da Fase 8.2
+
+Executar a matriz detalhada da seção 89.2 com banco temporário, relógio
+controlável, `FakeMapOSServer` e `FakeEvolutionServer`. O simulador e todo
+`DRY_RUN` devem comprovar ausência de chamadas externas e de side effects.
+
+Adicionar testes de navegador para canvas/inspector, node atual, preview,
+validação, diff, conflito otimista, publicação e rollback. Test mode deve ser
+validado com identidade fictícia/allowlisted e com uma identidade não
+autorizada, garantindo que esta permaneça na versão publicada.
+
+Testes de contrato devem confirmar que Flow Conditions usam `MapOSAdapter`,
+Flow Messages usam `WhatsAppProvider` e a UI MapOS acessa apenas a Admin API do
+Gateway. Nenhum teste deve depender de telefone ou payload pessoal real.
 
 ---
 
@@ -4399,6 +4487,591 @@ Critério:
 
 ---
 
+# 89.2. Fase 8.2 — TecNina Flow Studio / orquestração visual do Bot
+
+## Objetivo e posição arquitetural
+
+O **TecNina Flow Studio**, exibido na UI simplesmente como **Fluxos**, será uma
+capacidade transversal posterior à base de Intake/Aprovação e anterior ao NLU
+avançado. Não será apenas um desenho ilustrativo: deverá representar, validar,
+versionar, simular e, progressivamente, configurar a lógica conversacional que
+o Gateway realmente executa.
+
+O diagrama é um **orquestrador visível**. Regras complexas continuam nos
+serviços responsáveis:
+
+```text
+[Cliente cadastrado?]       → CustomerMatchService / MapOSAdapter
+[Horário de atendimento?]   → BusinessHoursService
+[Human Lock ativo?]         → HumanTakeoverService
+[Elegibilidade logística?]  → LogisticsService
+[Enviar mensagem]           → WhatsAppProvider / EvolutionAdapter
+```
+
+O Flow Studio não duplica regras do MapOS, autenticação, dedupe, Human Lock,
+fila, logística, geocoding ou provider. Ele escolhe transições entre operações
+seguras registradas.
+
+## Migração incremental da FSM existente
+
+Não substituir a FSM atual por um graph engine em uma única mudança. A ordem é:
+
+1. observar e representar fielmente o fluxo atual;
+2. editar mensagens e parâmetros já suportados;
+3. tornar condições simples declarativas;
+4. migrar partes isoladas da FSM para `FlowDefinition`;
+5. liberar edição estrutural somente após validação e rollback maduros.
+
+A primeira versão deverá ser majoritariamente read-only quanto à semântica. É
+permitido mover nodes no canvas, editar templates versionados, alterar settings
+explicitamente permitidos, simular e inspecionar estado/trace. Robustez da FSM
+existente tem precedência sobre drag-and-drop.
+
+## Fluxos separados por responsabilidade
+
+Não criar um fluxograma monolítico. Prever inicialmente:
+
+| `flow_key` | Responsabilidade |
+| --- | --- |
+| `customer_service_main` | Entrada, menu, intenção, fallback e handoff |
+| `intake` | Coleta progressiva e confirmação do pré-atendimento |
+| `status_notifications` | Eventos MapOS, regras, latest-wins, fila e envio |
+| `logistics` | Futuro subflow de coleta, entrega e localização |
+| `verification` | Futuro subflow de autenticação proporcional ao risco |
+
+`customer_service_main` é orientado a mensagens/sessão;
+`status_notifications` é orientado a eventos e fila transacional. Não misturar
+as duas semânticas. `SUBFLOW` deverá encapsular Intake, status query, serviços,
+handoff, logística e verificação para evitar centenas de nodes numa única tela.
+
+O fluxo de status deve representar a cadeia real sem virar chat flow:
+
+```text
+MAPOS EVENT
+→ regra de status existe/habilitada?
+→ kill switch de notificações?
+→ Human Lock / latest-wins
+→ nível de detalhe permitido
+→ template
+→ notification queue
+→ WhatsAppProvider
+```
+
+Cada fluxo possui conceitualmente:
+
+```text
+key
+name
+description
+flow_type
+enabled
+draft_version nullable
+published_version nullable
+created_at
+updated_at
+```
+
+## Modelo declarativo restrito
+
+O editor aceita apenas:
+
+```text
+NODE TYPES registrados
++ ACTIONS registradas
++ CONDITIONS registradas
++ TEMPLATES e placeholders permitidos
+```
+
+É proibido armazenar ou executar no graph:
+
+- Python, PHP, JavaScript, SQL ou shell;
+- `eval` ou template expressions arbitrárias;
+- URL HTTP arbitrária;
+- acesso direto a banco;
+- chamada direta à Evolution ou ao MapOS;
+- secrets, tokens, IDs de clientes ou payloads pessoais.
+
+Tipos iniciais de node:
+
+| Tipo | Semântica |
+| --- | --- |
+| `START` | Único ponto inicial válido do flow |
+| `MESSAGE` | Referência a um `template_key` versionado |
+| `MENU` | Opções, aliases, fallback e próximo node |
+| `INPUT` | Campo, parser, validação, retry/fallback e destino |
+| `CONDITION` | Consulta uma condição registrada e produz saídas tipadas |
+| `ACTION` | Executa uma ação whitelisted com schema conhecido |
+| `SUBFLOW` | Invoca outro flow publicado compatível |
+| `HANDOFF` | Solicita Atendimento e aplica Business Hours/Human Lock |
+| `WAIT_INPUT` | Boundary assíncrono até nova mensagem/evento |
+| `END` | Encerra flow/sessão conforme política explícita |
+| `ERROR_FALLBACK` | Caminho seguro e observável de falha/fallback |
+
+Exemplos de actions permitidas, sempre implementadas no Gateway:
+
+```text
+START_INTAKE
+CANCEL_INTAKE
+LOOKUP_CLIENT
+LOOKUP_OS
+RESET_FALLBACK
+SET_SESSION_STATE
+REQUEST_LOCATION
+ACTIVATE_HUMAN_LOCK
+CLEAR_FLOW_STATE
+RETURN_MENU
+```
+
+Nenhuma action inexistente no `ActionRegistry` poderá ser salva/publicada. Cada
+registro declara `input_schema`, `output_schema`, side effects e classificação
+de risco/permissão.
+
+O `ConditionRegistry` declara `key`, label, descrição, operadores permitidos,
+tipo de resultado e contexto necessário. Exemplos:
+
+```text
+customer_match       → NONE | UNIQUE | AMBIGUOUS | UNAVAILABLE
+business_hours       → OPEN | CLOSED
+human_lock           → ACTIVE | INACTIVE
+recognized_intent    → IntentResult
+fallback_count       → inteiro limitado
+mapos_health         → AVAILABLE | UNAVAILABLE
+service_mode         → DROP_OFF | PICKUP_REQUESTED
+verification_level   → PUBLIC | VERIFIED | STRONG
+feature_flag         → ENABLED | DISABLED
+```
+
+Condições importantes devem ficar visíveis: grupo/individual, kill switches,
+sessão/draft ativo, cliente ausente/único/ambíguo, MapOS disponível, horário,
+intenção, fallback, modalidade, localização, autenticação, status/regra e
+privacidade. O operador nunca escreve SQL ou código de condição.
+
+Campos cadastrais ausentes também podem ser condições (`customer_missing_city`,
+`customer_missing_address` etc.), mas jamais disparam interrogatório por si
+sós. A regra de negócio deve exigir o dado para a operação atual; por exemplo,
+PICKUP com local ausente pode pedi-lo, enquanto um simples “oi” não pode.
+
+## FlowContext mínimo e seguro
+
+O runtime não expõe objetos arbitrários ao graph. O `FlowContext` é tipado e
+possui somente referências/dados necessários à execução atual:
+
+```text
+conversation
+session
+message sanitizada
+customer_match
+intake
+business_hours
+verification
+feature_flags
+mapos_health
+logistics_state
+```
+
+Dados sensíveis ficam fora do contexto visual sempre que possível. Nodes usam
+serviços/adapters e recebem resultados mínimos, não modelos internos completos.
+
+## Versões, publicação, rollback e sessão pinada
+
+Estados de versão:
+
+```text
+DRAFT
+PUBLISHED
+ARCHIVED
+```
+
+Versões `PUBLISHED` são imutáveis. Editar uma publicada cria a próxima DRAFT.
+Autosave modifica apenas DRAFT; somente **Publicar versão** muda o runtime. A
+publicação é atômica e registra:
+
+```text
+version
+flow_schema_version
+checksum
+published_at
+published_by
+changelog opcional
+```
+
+Antes da confirmação, mostrar diff semântico, por exemplo: template alterado,
+fallback máximo 2→3, branch desabilitado ou condição adicionada. Concorrência
+administrativa usa optimistic locking; tela antiga recebe conflito, nunca
+sobrescreve publicação recente.
+
+Rollback não apaga histórico nem modifica uma versão antiga. Ele cria/publica
+uma nova versão coerente baseada na última conhecida como boa.
+
+Uma conversa iniciada em determinada `flow_version` permanece pinada nela até
+um boundary seguro. Publicar v13 não pode mover silenciosamente uma sessão v12
+parada em `WAITING_MODEL`. Novas sessões usam a última publicada. A ação
+administrativa **Migrar para versão atual** só fica disponível quando o
+Gateway comprovar compatibilidade/segurança.
+
+## Modelo conceitual no banco `tecnina_bot`
+
+Os nomes finais serão refinados somente na implementação da Etapa A/B:
+
+| Entidade | Responsabilidade |
+| --- | --- |
+| `flow_definitions` | Identidade, tipo, enabled e ponteiros de versão |
+| `flow_versions` | Schema semântico imutável/versionado, checksum e estado |
+| `flow_layouts` | Coordenadas/agrupamento visual sem efeito semântico |
+| `flow_execution_traces` | Trace sanitizado e sujeito à retenção |
+| `flow_audit_log` | Criação, edição, validação, publicação, rollback e ações |
+| `flow_test_allowlist` | Identidades canônicas protegidas por HMAC/fingerprint para draft test mode |
+
+O schema semântico e o layout devem ser separados. Mover `x/y` de um node não
+altera comportamento, checksum semântico ou versão publicada.
+
+Formato exportável futuro:
+
+```json
+{
+  "schema_version": 1,
+  "flow_key": "intake",
+  "nodes": [],
+  "edges": [],
+  "settings": {},
+  "template_references": []
+}
+```
+
+Export não inclui secrets, tokens, clientes, credenciais ou IDs específicos.
+Import sempre cria DRAFT e nunca publica automaticamente. Schema desconhecido
+ou futuro deve ser rejeitado claramente, nunca executado silenciosamente.
+
+Para futura reutilização como produto, o engine não deve hardcodar TecNina,
+Antonina, horários, serviços, domínios, statuses ou nome de operador. Esses
+valores pertencem a settings, templates, adapters e flow definitions. A
+configuração TecNina será um conjunto de defaults, sem generalização prematura
+das regras que ainda não possuem caso real.
+
+## Runtime e proteção contra loops
+
+Grafos podem possuir ciclos conversacionais, como fallback → menu. Todo ciclo
+deve atravessar `WAIT_INPUT` ou outro boundary assíncrono real. A validação
+deve bloquear **zero-wait cycles** (`CONDITION → ACTION → CONDITION...`) e o
+runtime ainda impõe `max_steps_per_event` como fail-safe.
+
+O runtime carrega/cacheia uma versão publicada consistente durante toda a
+execução do evento; não reconstrói o graph a cada node. Publicação invalida o
+cache de modo atômico.
+
+Se o graph não puder ser carregado/validado, aplicar fail closed:
+
+```text
+fluxo conversacional → não improvisar resposta; permitir Atendimento
+notificação de status → não enviar
+```
+
+A última versão publicada válida continua ativa quando uma DRAFT ou publicação
+nova falhar. O Bot nunca fica sem flow por erro administrativo.
+
+Kill switches e controles de segurança são externos e soberanos:
+
+```text
+BOT_AUTO_REPLIES_ENABLED=false      → nenhuma resposta automática
+STATUS_NOTIFICATIONS_ENABLED=false → nenhuma notificação transacional
+Human Lock ativo                    → graph conversacional não responde
+```
+
+O graph não pode desabilitar autenticação de webhook, dedupe, autorização,
+Human Lock global, rate limit obrigatório, ownership, idempotência,
+sanitização, isolamento ou tratamento de secrets.
+
+Se um flow for desabilitado:
+
+- `customer_service_main`: ficar silencioso para auto replies;
+- `status_notifications`: não gerar/enviar novas notificações;
+- `intake`: remover a opção do menu ou encaminhar para Atendimento.
+
+Branch desabilitado precisa de fallback seguro e não pode criar dead-end.
+
+## Estado atual, node destacado e trace explicável
+
+Ao abrir uma conversa, a UI poderá exibir, com dados minimizados:
+
+```text
+Flow: customer_service_main
+Version: 12
+Current node: WAITING_DEVICE_MODEL
+State: ACTIVE
+Fallback count: 0
+Human Lock: OFF
+Intake: referência interna
+Customer match: UNIQUE
+Business hours: CLOSED
+Verification: UNVERIFIED
+```
+
+O canvas destaca o node atual e permite navegar ao subflow correspondente.
+Essa é uma capacidade central de diagnóstico.
+
+Execution trace sanitizado:
+
+```text
+13:42:01 inbound_received
+13:42:01 human_lock=INACTIVE
+13:42:01 active_intake=true
+13:42:01 current_node=WAITING_BRAND
+13:42:01 parser=free_text
+13:42:01 transition=WAITING_MODEL
+```
+
+O trace deve explicar por que um caminho foi escolhido, por exemplo:
+
+```text
+condition: customer_match
+result: UNIQUE
+reason: MapOSAdapter retornou match=unique
+transition: EXISTING_CUSTOMER_MENU
+```
+
+Não registrar SQL, texto pessoal por conveniência, telefone/JID completo,
+token, credencial, coordenadas ou payload bruto. Aplicar retenção configurável.
+
+## Simulador e dry-run
+
+**Testar fluxo** funciona sem WhatsApp real por padrão. O operador fornece
+mensagens fictícias e acompanha nodes/transições. Actions implementam modo
+`DRY_RUN`: send mostra preview, lookup usa cenário fake e nenhum side effect é
+executado.
+
+Cenários iniciais:
+
+```text
+NOVO_CLIENTE
+CLIENTE_EXISTENTE
+CLIENTE_AMBIGUO
+MAPOS_OFFLINE
+DENTRO_DO_HORARIO
+FORA_DO_HORARIO
+HUMAN_LOCK
+INTAKE_EXISTENTE
+FALLBACK_1 / FALLBACK_2 / FALLBACK_3
+COLETA / TRAZER_EQUIPAMENTO
+LOCALIZACAO_PENDENTE
+OS_UNICA / MULTIPLAS_OS
+```
+
+Dados de cenário são sempre fictícios. O preview WhatsApp mostra formatação,
+quebras, emoji e placeholders sem envio.
+
+Test mode real futuro permite uma DRAFT somente para número explicitamente
+allowlisted. Exige confirmação, audit log, identificação visual permanente de
+TEST MODE e isolamento rigoroso: números comuns continuam na versão publicada.
+
+## UI progressiva
+
+Lista inicial:
+
+```text
+Atendimento automático  Ativo  Published v12  Draft v13
+Pré-atendimento          Ativo  Published v7
+Notificações de status   Ativo  Published v5
+Logística                Planejado
+```
+
+Ações progressivas: abrir, testar, histórico, duplicar e exportar. O canvas
+deverá prever zoom, pan, fit-to-screen, busca, agrupamento, cores por tipo,
+enabled/disabled, erros, mudanças não publicadas e inspector lateral.
+
+Não transformar todo o MapOS em React/SPA. Avaliar biblioteca madura compatível
+com o ecossistema atual e isolá-la nos assets TecNina. Na primeira etapa,
+mover/organizar nodes é permitido; criar/excluir/conectar e editar condições ou
+actions entra somente após os controles semânticos.
+
+Inspector de `MESSAGE` reutiliza templates e suas versões. Ele não aceita HTML,
+JavaScript ou expressões arbitrárias; somente texto e placeholders whitelisted.
+
+Ações futuras na conversa possuem semânticas diferentes:
+
+```text
+Pausar Bot                 → Human Lock/manual pause
+Retomar Bot                → encerra pausa conforme regra
+Voltar ao menu             → altera somente estado conversacional
+Reiniciar fluxo            → reinicia sessão, sem apagar dados de negócio
+Migrar para versão atual   → somente em boundary seguro
+```
+
+Reiniciar nunca apaga cliente, OS, intake aprovado ou dados MapOS e exige
+confirmação explícita.
+
+## Business Hours e copy global
+
+Business Hours é um serviço central e uma condition tipada. Não duplicar
+cálculo de horário em template/nodes.
+
+Ao encaminhar para Atendimento:
+
+```text
+OPEN   → "Responderemos assim que possível."
+CLOSED → "Agora estamos fora do horário de atendimento. Sua mensagem ficou
+          registrada e será revisada assim que possível."
+```
+
+Preferir **Atendimento**, não “Atendimento humano”. Não informar
+automaticamente “amanhã”, próxima janela ou horário de retorno. Se o cliente
+perguntar, apresentar a tabela configurada. Horário informado não é SLA.
+
+## Fallback, cliente e NLU visíveis
+
+O fallback deverá aparecer explicitamente com contagem e transições para nova
+mensagem, menu ou Atendimento. Cliente NONE/UNIQUE/AMBIGUOUS deve possuir
+branches seguras; AMBIGUOUS nunca revela nomes nem escolhe cadastro sozinho.
+
+O futuro NLU produz somente um `IntentResult` tipado:
+
+```text
+intent + confidence
+→ flow decide executar, confirmar ou usar fallback
+```
+
+O NLU não modifica o graph e pode ser substituído sem redesenhá-lo. Confidence
+alta nunca contorna autorização ou ausência de entidade obrigatória.
+
+## Validation Engine
+
+Antes de publicar, bloquear obrigatoriamente:
+
+- ausência ou duplicidade de `START`;
+- edge pendente ou node inexistente;
+- template, condition, action ou subflow inexistente;
+- placeholder inválido;
+- caminho sem destino ou fallback obrigatório ausente;
+- node inalcançável não justificado;
+- zero-wait cycle;
+- `flow_schema_version` incompatível;
+- feature obrigatória ausente;
+- branch desabilitado que produza dead-end.
+
+Warnings separados podem cobrir mensagem longa, descrição ausente, versão de
+template antiga ou node intencionalmente desabilitado/inalcançável. Erro gera
+`PUBLICATION_BLOCKED`.
+
+Fluxo administrativo explícito:
+
+```text
+VALIDAR → SIMULAR → REVISAR DIFF → PUBLICAR
+```
+
+## Auditoria e segurança administrativa
+
+Registrar, sem secrets: flow/draft criado, edição, template alterado,
+validação, publicação, rollback, enable/disable, migração de sessão e test mode.
+Cada entrada contém timestamp, operador, flow e versão.
+
+Continuar protegido inicialmente por `cSistema`, CSRF no MapOS, Bearer apenas
+server-to-server, validação, sanitização e optimistic concurrency. Não devolver
+ao navegador Evolution API key, `MAPOS_BOT_TOKEN`, webhook token, database URL,
+JID completo desnecessário ou contexto sensível.
+
+## Etapas de implementação
+
+Cada etapa exige testes antes da seguinte:
+
+### Etapa A — Flow Observer
+
+- `FlowDefinition` e schema inicial;
+- representação read-only da FSM real;
+- canvas isolado;
+- node atual e trace sanitizado;
+- simulador básico com cenários fake.
+
+### Etapa B — Versionamento
+
+- DRAFT/PUBLISHED/ARCHIVED;
+- validação, checksum e publicação atômica;
+- rollback sem apagar histórico;
+- auditoria e optimistic concurrency;
+- sessão pinada à versão.
+
+### Etapa C — Message Editing
+
+- editar template existente a partir do node;
+- preview fictício;
+- placeholders e template security;
+- diff antes de publicar.
+
+### Etapa D — Config Editing
+
+- enable/disable apenas de branches suportados;
+- parâmetros e fallback settings;
+- Business Hours como condition central;
+- sem acesso a controles de segurança.
+
+### Etapa E — Structural Editing
+
+- criar/excluir nodes;
+- conectar edges;
+- condition/action inspectors restritos aos registries;
+- validação estrutural completa e zero-wait cycle.
+
+### Etapa F — Test Mode
+
+- DRAFT por identidade de teste allowlisted;
+- live trace controlado;
+- migração segura de sessão;
+- isolamento/auditoria completos.
+
+Não criar graph engine, migration, frontend, canvas, simulator, endpoints ou
+runtime durante a mera atualização documental que introduziu esta fase.
+
+## Testes obrigatórios da Fase 8.2
+
+Graph/versões:
+
+```text
+graph válido
+START ausente ou duplicado
+edge pendente
+condition/action/template inválido
+fallback ausente
+zero-wait cycle
+node inalcançável
+subflow ausente
+schema_version inválida
+DRAFT não altera PUBLISHED
+publicação atômica
+rollback preserva histórico
+sessão antiga permanece pinada
+nova sessão usa latest published
+concorrência de publicação retorna conflict
+```
+
+Simulador/sessão:
+
+```text
+novo, existente, ambíguo, MapOS offline
+horário, fallback, intake, handoff, cancelamento e menu
+Human Lock, restart, return menu, migrate version e sessão expirada
+DRY_RUN nunca envia mensagem nem grava side effect de negócio
+```
+
+Segurança:
+
+```text
+action não registrada e condition malformada → bloquear
+template injection, URL arbitrária, script ou secret no import → bloquear
+sem cSistema/CSRF/token interno válido → bloquear
+Human Lock e kill switch sempre vencem o graph
+nenhum secret/contexto sensível retorna ao browser
+MapOS não acessa SQL do Gateway
+```
+
+Telemetria não usa telefone, JID, client ID ou OS ID como label.
+
+Critério resumido:
+
+> O operador consegue entender onde a conversa está, por que uma transição foi
+> escolhida e testar mudanças sem WhatsApp real; versões inválidas nunca afetam
+> o runtime publicado, controles de segurança continuam soberanos e a UI MapOS
+> permanece desacoplada do banco/engine do Gateway.
+
+---
+
 # 90. Fase 9 — Autoatendimento determinístico
 
 Criar:
@@ -4569,6 +5242,39 @@ A fase logística estará concluída quando:
 
 ---
 
+# 96.2. Critérios de aceite da Fase 8.2
+
+O Flow Studio será considerado maduro quando:
+
+1. os fluxos principais puderem ser visualizados separadamente;
+2. atendimento conversacional e notificações mantiverem semânticas distintas;
+3. subflows forem suportados;
+4. o node atual de uma conversa puder ser destacado;
+5. trace sanitizado explicar cada transição relevante;
+6. o simulador funcionar sem WhatsApp real;
+7. cenários fictícios cobrirem os caminhos críticos;
+8. mensagens puderem ser editadas com segurança pelo template existente;
+9. templates e flows continuarem versionados;
+10. DRAFT nunca alterar o runtime PUBLISHED;
+11. publicação for explícita, validada, atômica e auditada;
+12. rollback preservar todo o histórico;
+13. Validation Engine impedir graph inválido;
+14. zero-wait cycles forem bloqueados e `max_steps_per_event` existir;
+15. Human Lock continuar soberano;
+16. kill switches continuarem soberanos;
+17. sessões permanecerem pinadas a uma versão coerente;
+18. edição/publicação concorrente usar optimistic locking;
+19. audit log cobrir todas as ações administrativas;
+20. import/export não transportar secrets nem dados de clientes;
+21. actions/conditions arbitrárias forem impossíveis;
+22. o painel MapOS não acessar o banco Gateway diretamente;
+23. nenhum token interno chegar ao navegador;
+24. testes funcionais, contratuais e de segurança passarem;
+25. a integração continuar dentro da meta de baixo acoplamento upstream;
+26. a arquitetura permitir futura reutilização sem hardcoding operacional.
+
+---
+
 # 97. Meta de longo prazo
 
 A arquitetura deve permitir:
@@ -4588,6 +5294,7 @@ Evolution
 WhatsApp
 Human Takeover
 FSM
+Flow Studio
 intake
 logística
 localização
@@ -4678,6 +5385,7 @@ DISCOVERY
 → INTAKE
 → APROVAÇÃO
 → LOGÍSTICA / LOCALIZAÇÃO / AGENDAMENTO
+→ FLOW STUDIO / ORQUESTRAÇÃO VISUAL
 → AUTOATENDIMENTO
 → AUTENTICAÇÃO
 → NLU
