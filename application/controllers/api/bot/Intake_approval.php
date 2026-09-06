@@ -105,7 +105,12 @@ class Intake_approval extends REST_Controller
         $serviceMode = (string) ($input['os']['service_mode'] ?? '');
         $osCity = $this->bounded($input['os']['city'] ?? null, 80, false);
         $notes = $this->bounded($input['os']['notes'] ?? null, 2000, true);
-        $intakeDate = $this->intakeDate($input['intake_created_at'] ?? null);
+        // Keep the private contract deployable in either order. Older Gateway
+        // versions do not send this field yet; once the new Gateway is live it
+        // always supplies the actual intake date.
+        $intakeDate = array_key_exists('intake_created_at', $input)
+            ? $this->intakeDate($input['intake_created_at'])
+            : date('Y-m-d');
         if ($phone === null || $clientCity === false || $deviceType === false || $brand === false
             || $problem === false || $osCity === false || $model === false || $notes === false
             || $intakeDate === null
