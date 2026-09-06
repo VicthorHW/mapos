@@ -39,6 +39,7 @@ class Tecnina_whatsapp extends MY_Controller
             'logs' => '/admin/logs',
             'status-rules' => '/admin/status-rules',
             'templates' => '/admin/templates',
+            'flows' => '/admin/flows',
             'settings' => '/admin/settings/status-notifications',
             'logistics-overview' => '/admin/logistics/overview',
             'logistics-zones' => '/admin/logistics/zones',
@@ -164,11 +165,56 @@ class Tecnina_whatsapp extends MY_Controller
         if (! $this->authorized(true)) {
             return;
         }
-        if ($this->input->method(true) !== 'POST' || ! ctype_digit((string) $conversationId) || ! in_array($action, ['manual-lock', 'resume'], true)) {
+        if (! ctype_digit((string) $conversationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+        }
+        if ($this->input->method(true) === 'GET' && $action === 'flow-observer') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/conversations/' . $conversationId . '/flow-observer');
+            return $this->json($result, $result['status']);
+        }
+        if ($this->input->method(true) !== 'POST' || ! in_array($action, ['manual-lock', 'resume'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
         }
         $result = $this->tecnina_bot_gateway->request('POST', '/admin/conversations/' . $conversationId . '/' . $action, []);
         return $this->json($result, $result['status']);
+    }
+
+    public function fluxo($flowKey = '', $action = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if (! preg_match('/^[a-z0-9_]{1,64}$/', (string) $flowKey)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_flow_key'], 400);
+        }
+        if ($this->input->method(true) === 'GET' && $action === '') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey));
+            return $this->json($result, $result['status']);
+        }
+        if ($this->input->method(true) === 'POST' && $action === 'simular') {
+            $scenario = (string) $this->input->post('scenario', true);
+            $messages = (array) $this->input->post('messages');
+            if (! in_array($scenario, ['NEW_CUSTOMER', 'EXISTING_CUSTOMER', 'AMBIGUOUS_CUSTOMER', 'HUMAN_LOCK'], true)
+                || count($messages) > 10) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_flow_simulation'], 422);
+            }
+            $cleanMessages = [];
+            foreach ($messages as $message) {
+                $message = trim((string) $message);
+                if ($message === '' || mb_strlen($message) > 500) {
+                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_simulation'], 422);
+                }
+                $cleanMessages[] = $message;
+            }
+            $result = $this->tecnina_bot_gateway->request(
+                'POST',
+                '/admin/flows/' . rawurlencode($flowKey) . '/simulate',
+                ['scenario' => $scenario, 'messages' => $cleanMessages]
+            );
+            return $this->json($result, $result['status']);
+        }
+
+        return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
     }
 
     public function fila($jobId = 0, $action = '')

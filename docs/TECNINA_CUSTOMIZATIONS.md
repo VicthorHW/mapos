@@ -149,6 +149,11 @@ imediatamente antes da gravação. Duplicidades exigem decisão explícita. A OS
 criada com `credencial_tipo = nao_informada`, sem PIN, senha ou desenho, para
 que a credencial seja coletada somente na triagem física.
 
+O contrato da aprovação também transporta somente a data ISO de criação do
+pré-atendimento, validada pelo endpoint privado. A OS resultante recebe
+`dataInicial` nessa data e `dataFinal` em sete dias, eliminando datas nulas que
+podiam ser apresentadas pelo MapOS como valores inválidos antigos.
+
 ## Integração WhatsApp — Fase 8.1 (painel logístico)
 
 ### Arquivo upstream alterado
@@ -169,3 +174,18 @@ Gateway. Zona, rota, capacidade, perfil e appointment permanecem no banco
 `tecnina_bot`. O operador vem da sessão `cSistema`; o navegador não recebe o
 token interno, JID, coordenadas exatas ou acesso SQL ao Gateway. Nenhum status
 logístico ou coluna de agenda foi acrescentado à OS.
+
+## Fase 8.2 — observabilidade de fluxos e carregamento do painel
+
+Arquivos TecNina atualizados:
+
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/views/tecnina_whatsapp/index.php`
+- `application/controllers/api/bot/Intake_approval.php`
+- `application/models/Tecnina_intake_approval_model.php`
+
+O painel carrega inicialmente apenas visão geral e Conversas. As consultas de
+Pré-atendimentos, Logística, Fluxos, Fila, Logs, Regras, Templates e Configuração
+são feitas ao abrir cada aba; leituras recebem apenas uma nova tentativa breve
+para acomodar o aquecimento do Gateway após deploy. Nenhuma ação de escrita é
+repetida automaticamente.

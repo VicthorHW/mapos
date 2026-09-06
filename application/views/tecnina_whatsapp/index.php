@@ -14,6 +14,7 @@
                     <li class="active"><a href="#wa-conversas" data-toggle="tab">Conversas</a></li>
                     <li><a href="#wa-intakes" data-toggle="tab">Pré-atendimentos</a></li>
                     <li><a href="#wa-logistica" data-toggle="tab">Logística</a></li>
+                    <li><a href="#wa-fluxos" data-toggle="tab">Fluxos</a></li>
                     <li><a href="#wa-fila" data-toggle="tab">Fila</a></li>
                     <li><a href="#wa-logs" data-toggle="tab">Logs</a></li>
                     <li><a href="#wa-regras" data-toggle="tab">Regras de status</a></li>
@@ -33,6 +34,7 @@
                         <div id="wa-logistics-capacity"></div>
                         <div id="wa-logistics-profiles"></div>
                     </div>
+                    <div class="tab-pane" id="wa-fluxos"><div id="wa-flows-list">Carregando…</div><div id="wa-flow-detail"></div><div id="wa-flow-observer"></div></div>
                     <div class="tab-pane" id="wa-fila"><div id="wa-queue">Carregando…</div></div>
                     <div class="tab-pane" id="wa-logs"><div id="wa-logs-list">Carregando…</div></div>
                     <div class="tab-pane" id="wa-regras"><div id="wa-rules">Carregando…</div></div>
@@ -85,11 +87,20 @@
         };
         return messages[reason] || 'Não foi possível concluir a operação.';
     }
-    function request(path, method, data, done) {
+    function request(path, method, data, done, retryAttempt) {
         data = data || {}; if (method !== 'GET') { data[csrfName] = csrfHash; }
         return $.ajax({url: base + path, method: method, data: data, dataType: 'json'})
             .done(function (response) { if (response.csrf) { csrfHash = response.csrf; } if (!response.ok) { error(reasonMessage(response.reason)); return; } $('#wa-error').hide(); done(response.data); })
-            .fail(function (xhr) { var response=xhr.responseJSON || {}; if (response.csrf) { csrfHash=response.csrf; } error(reasonMessage(response.reason)); });
+            .fail(function (xhr) {
+                var response=xhr.responseJSON || {}; if (response.csrf) { csrfHash=response.csrf; }
+                // The gateway can still be warming up immediately after a deploy. Retry only
+                // idempotent reads once, without retrying actions that could change state.
+                if (method === 'GET' && !retryAttempt) {
+                    window.setTimeout(function () { request(path, method, data, done, true); }, 800);
+                    return;
+                }
+                error(reasonMessage(response.reason));
+            });
     }
     function loadOverview() { request('/dados/overview', 'GET', null, function (d) {
         var c = d.components || {}, q = d.queue || {};
@@ -98,13 +109,17 @@
             '<div class="span3"><strong>MapOS</strong><br>' + (c.mapos && c.mapos.ok ? 'Online' : 'Indisponível') + '</div>' +
             '<div class="span3"><strong>Evolution</strong><br>' + (c.evolution && c.evolution.ok ? 'Online' : 'Indisponível') + '</div>' +
             '<div class="span3"><strong>Fila pendente</strong><br>' + esc((q.PENDING || 0) + (q.RETRY || 0) + (q.DEFERRED || 0)) + '</div>');
-        loadSettings();
     }); }
     function loadConversations() { request('/dados/conversations', 'GET', null, function (rows) {
         var h = '<table class="table table-bordered"><thead><tr><th>Contato</th><th>Estado</th><th>Até</th><th>Ação</th></tr></thead><tbody>';
-        $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.phone_tail) + '</td><td>' + esc(r.state) + '</td><td>' + esc(r.human_until || '—') + '</td><td><button class="btn btn-mini wa-lock" data-id="' + r.id + '">Pausar bot</button> <button class="btn btn-mini wa-resume" data-id="' + r.id + '">Retomar</button></td></tr>'; });
+        $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.phone_tail) + '</td><td>' + esc(r.state) + '</td><td>' + esc(r.human_until || '—') + '</td><td><button class="btn btn-mini wa-lock" data-id="' + r.id + '">Pausar bot</button> <button class="btn btn-mini wa-resume" data-id="' + r.id + '">Retomar</button> <button class="btn btn-mini wa-flow-observe" data-id="' + r.id + '">Fluxo</button></td></tr>'; });
         $('#wa-conversations').html(h + '</tbody></table>');
     }); }
+    function loadFlows() { request('/dados/flows', 'GET', null, function(rows) { var h='<table class="table table-bordered"><thead><tr><th>Fluxo</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>'; $.each(rows, function(_, r) { var state=r.enabled ? esc(r.mode) : 'PLANEJADO'; h += '<tr><td><strong>' + esc(r.name) + '</strong><br><small>' + esc(r.description) + '</small></td><td>' + esc(r.flow_type) + '</td><td>' + state + '</td><td><button class="btn btn-mini wa-flow-open" data-key="' + esc(r.key) + '">Abrir</button></td></tr>'; }); $('#wa-flows-list').html(h + '</tbody></table>'); }); }
+    function flowDiagram(d, currentNode) { var nodes=d.nodes || [], edges=d.edges || [], position={}, cols=3, width=720, row=108, height=Math.max(180, Math.ceil(nodes.length / cols) * row + 55), svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Diagrama do fluxo '+esc(d.name)+'" style="width:100%;min-width:500px;border:1px solid #ddd;background:#fff"><defs><marker id="wa-flow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#777"></path></marker></defs>'; $.each(nodes,function(i,n){ position[n.key]={x:65+(i%cols)*235,y:45+Math.floor(i/cols)*row}; }); $.each(edges,function(_,e){ var a=position[e.from],b=position[e.to]; if(!a||!b){return;} svg+='<path d="M'+(a.x+75)+' '+(a.y+25)+' L'+(b.x+75)+' '+b.y+'" stroke="#777" stroke-width="1.5" fill="none" marker-end="url(#wa-flow-arrow)"></path>'; if(e.label){svg+='<text x="'+((a.x+b.x+150)/2)+'" y="'+((a.y+b.y+20)/2)+'" text-anchor="middle" font-size="10" fill="#555">'+esc(e.label)+'</text>';}}); $.each(nodes,function(_,n){var p=position[n.key], active=currentNode===n.key, fill=active?'#d9edf7':'#f7f7f7', stroke=active?'#31708f':'#999'; svg+='<g><rect x="'+p.x+'" y="'+p.y+'" width="150" height="50" rx="5" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?'3':'1')+'"></rect><text x="'+(p.x+75)+'" y="'+(p.y+20)+'" text-anchor="middle" font-size="11" font-weight="bold">'+esc(n.type)+'</text><text x="'+(p.x+75)+'" y="'+(p.y+37)+'" text-anchor="middle" font-size="10">'+esc(n.label)+'</text></g>';}); return svg+'</svg>'; }
+    function flowNotes(d) { var notes=[]; $.each(d.nodes || [], function(_, n) { if (n.implementation_status && n.implementation_status !== 'ACTIVE') { notes.push('<li><strong>' + esc(n.label) + ':</strong> ' + esc(n.implementation_status) + (n.note ? ' — ' + esc(n.note) : '') + '</li>'); } }); return notes.length ? '<div class="alert alert-info"><strong>Estado dos nós:</strong><ul>' + notes.join('') + '</ul></div>' : ''; }
+    function loadFlow(key, currentNode) { request('/fluxo/' + encodeURIComponent(key), 'GET', null, function(d) { var simulation=d.enabled ? '<strong>Simulador seguro</strong><br><select class="wa-flow-scenario"><option value="NEW_CUSTOMER">Novo cliente</option><option value="EXISTING_CUSTOMER">Cliente existente</option><option value="AMBIGUOUS_CUSTOMER">Cliente ambíguo</option><option value="HUMAN_LOCK">Atendimento em pausa</option></select> <button class="btn btn-primary btn-mini wa-flow-simulate" data-key="' + esc(d.key) + '">Testar sem enviar WhatsApp</button><pre class="wa-flow-trace" style="display:none"></pre>' : '<div class="alert alert-info">Este fluxo está planejado; nenhuma automação de NLU está ativa.</div>'; var h='<hr><h4>' + esc(d.name) + ' <small>v' + esc(d.version) + ' · ' + esc(d.mode) + '</small></h4><p>' + esc(d.description) + '</p><div class="well"><div style="overflow:auto">'+flowDiagram(d,currentNode)+'</div><p class="muted">Diagrama observacional. Nenhuma alteração estrutural é permitida nesta etapa.</p>'+flowNotes(d)+simulation+'</div>'; $('#wa-flow-detail').html(h); }); }
+    function observeFlow(id) { request('/conversa/' + id + '/flow-observer', 'GET', null, function(d) { $('#wa-flow-observer').html('<div class="alert alert-info"><strong>Conversa observada:</strong> ' + esc(d.flow_key) + ' · nó atual <code>' + esc(d.current_node) + '</code><br><small>' + esc((d.trace && d.trace[0] && d.trace[0].reason) || '') + '</small></div>'); loadFlow(d.flow_key, d.current_node); }); }
     function loadIntakes() { request('/dados/intakes', 'GET', null, function (rows) {
         var h = '<table class="table table-bordered"><thead><tr><th>Recebido</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th>Cidade</th><th>Status</th><th></th></tr></thead><tbody>';
         $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.ready_at || '—') + '</td><td>' + esc(r.phone_display) + '</td><td>' + esc(r.name || 'Cliente já cadastrado') + '</td><td>' + esc(r.equipment) + '</td><td>' + esc(r.city) + '</td><td>' + esc(r.status) + '</td><td><button class="btn btn-mini btn-primary wa-intake-open" data-id="' + esc(r.id) + '">Revisar</button></td></tr>'; });
@@ -169,6 +184,9 @@
     function renderLogisticsProfiles(rows) { logisticsProfiles=rows; var h='<h4>Perfis de equipamento</h4><table class="table table-bordered table-condensed"><thead><tr><th>Tipo</th><th>Classe</th><th>Transportes</th><th>Ativo</th><th></th></tr></thead><tbody>'; $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.label) + '<br><small>' + esc(r.equipment_type_key) + '</small></td><td>' + esc(r.equipment_class) + '</td><td>' + esc((r.compatible_transport_profiles || []).join(', ')) + '</td><td>' + (r.active ? 'Sim' : 'Não') + '</td><td><button class="btn btn-mini wa-log-profile-edit" data-id="' + r.id + '">Editar</button></td></tr>'; }); h += '</tbody></table><div class="well wa-log-profile-form" data-id="0"><strong>Adicionar perfil</strong><label>Chave do tipo</label><input class="wa-lp-key"> <label class="inline">Nome</label><input class="wa-lp-label"> <label class="inline">Classe</label><select class="wa-lp-class"><option>COMPACT</option><option>MEDIUM</option><option>BULKY</option></select><label>Perfis de transporte (um por linha)</label><textarea class="input-block-level wa-lp-transports" rows="2">standard</textarea><label class="checkbox"><input type="checkbox" class="wa-lp-active" checked> Ativo</label><button class="btn btn-primary wa-log-profile-save">Salvar perfil</button> <button class="btn wa-log-profile-clear">Limpar</button></div>'; $('#wa-logistics-profiles').html(h); }
     function loadLogistics() { request('/dados/logistics-overview', 'GET', null, renderLogisticsOverview); request('/dados/logistics-zones', 'GET', null, function(rows) { renderLogisticsZones(rows); request('/dados/logistics-routes', 'GET', null, function(routes) { renderLogisticsRoutes(routes); request('/dados/logistics-capacity-rules', 'GET', null, renderLogisticsCapacity); }); }); request('/dados/logistics-equipment-profiles', 'GET', null, renderLogisticsProfiles); request('/dados/logistics-appointments', 'GET', null, renderLogisticsAppointments); }
     $(document).on('click', '.wa-lock,.wa-resume', function () { var id=$(this).data('id'), action=$(this).hasClass('wa-lock') ? 'manual-lock' : 'resume'; request('/conversa/' + id + '/' + action, 'POST', {}, loadConversations); });
+    $(document).on('click', '.wa-flow-open', function () { loadFlow($(this).data('key')); });
+    $(document).on('click', '.wa-flow-observe', function () { observeFlow($(this).data('id')); });
+    $(document).on('click', '.wa-flow-simulate', function () { var button=$(this), box=button.closest('.well'); request('/fluxo/' + encodeURIComponent(button.data('key')) + '/simular', 'POST', {scenario: box.find('.wa-flow-scenario').val()}, function (d) { box.find('.wa-flow-trace').text(JSON.stringify(d.trace, null, 2)).show(); }); });
     $(document).on('click', '.wa-retry', function () { request('/fila/' + $(this).data('id') + '/retry', 'POST', {}, loadQueue); });
     $(document).on('click', '.wa-rule-save', function () { var row=$(this).closest('tr'); request('/regra/' + row.data('id'), 'POST', {enabled: row.find('.wa-enabled').is(':checked'), public_label: row.find('.wa-label').val(), priority: row.find('.wa-priority').val()}, loadRules); });
     $(document).on('click', '.wa-template-save', function () { var key=$(this).data('key'), body=$(this).siblings('.wa-template-body').val(); request('/template/' + key, 'POST', {body: body, enabled: true}, loadTemplates); });
@@ -191,6 +209,20 @@
     $(document).on('click', '.wa-log-profile-save', function () { var form=$(this).closest('.wa-log-profile-form'); var payload={equipment_type_key:$.trim(form.find('.wa-lp-key').val()),label:$.trim(form.find('.wa-lp-label').val()),equipment_class:form.find('.wa-lp-class').val(),compatible_transport_profiles:lines(form.find('.wa-lp-transports').val()),active:form.find('.wa-lp-active').is(':checked')}; request('/logistica_configuracao/equipment-profiles/' + form.data('id'), 'POST', {payload:JSON.stringify(payload)}, loadLogistics); });
     $(document).on('click', '.wa-log-profile-edit', function () { var r=byId(logisticsProfiles,$(this).data('id')), form=$('.wa-log-profile-form'); if (!r) { return; } form.data('id',r.id).find('strong').text('Editar perfil'); form.find('.wa-lp-key').val(r.equipment_type_key); form.find('.wa-lp-label').val(r.label); form.find('.wa-lp-class').val(r.equipment_class); form.find('.wa-lp-transports').val((r.compatible_transport_profiles || []).join('\n')); form.find('.wa-lp-active').prop('checked',r.active); });
     $(document).on('click', '.wa-log-profile-clear', function () { renderLogisticsProfiles(logisticsProfiles); });
-    loadOverview(); loadConversations(); loadIntakes(); loadLogistics(); loadQueue(); loadLogs(); loadRules(); loadTemplates();
+    // Fetch only what is visible initially. The logistics screen alone performs several
+    // dependent requests, so eager-loading every tab made the first visit unnecessarily
+    // slow and susceptible to a transient Gateway warm-up failure.
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (event) {
+        var target = $(event.target).attr('href');
+        if (target === '#wa-intakes') { loadIntakes(); }
+        else if (target === '#wa-logistica') { loadLogistics(); }
+        else if (target === '#wa-fluxos') { loadFlows(); }
+        else if (target === '#wa-fila') { loadQueue(); }
+        else if (target === '#wa-logs') { loadLogs(); }
+        else if (target === '#wa-regras') { loadRules(); }
+        else if (target === '#wa-templates') { loadTemplates(); }
+        else if (target === '#wa-config') { loadSettings(); }
+    });
+    loadOverview(); loadConversations();
 }(jQuery));
 </script>

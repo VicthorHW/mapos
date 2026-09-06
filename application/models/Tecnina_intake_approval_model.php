@@ -65,7 +65,7 @@ class Tecnina_intake_approval_model extends CI_Model
                 $clientCreated = true;
             }
 
-            $osId = $this->insertOs($clientId, $payload['operator_id'], $intakeId, $payload['os']);
+            $osId = $this->insertOs($clientId, $payload['operator_id'], $intakeId, $payload['os'], $payload['intake_created_at']);
             $this->db->query(
                 "UPDATE {$table} SET `state` = 'COMPLETED', `client_id` = ?, `os_id` = ?, "
                 . '`client_created` = ?, `completed_at` = UTC_TIMESTAMP() WHERE `intake_id` = ?',
@@ -148,7 +148,7 @@ class Tecnina_intake_approval_model extends CI_Model
         return (int) $this->db->insert_id();
     }
 
-    private function insertOs($clientId, $operatorId, $intakeId, array $os)
+    private function insertOs($clientId, $operatorId, $intakeId, array $os, $intakeCreatedAt)
     {
         $description = implode(' ', array_filter([
             $this->limited($os['device_type'], 80),
@@ -166,9 +166,13 @@ class Tecnina_intake_approval_model extends CI_Model
             $observations .= "\nObservações da revisão: " . trim($os['notes']);
         }
 
+        $intakeDate = DateTimeImmutable::createFromFormat('!Y-m-d', $intakeCreatedAt);
+        if ($intakeDate === false) {
+            throw new RuntimeException('invalid intake creation date');
+        }
         $created = $this->db->insert('os', [
-            'dataInicial' => date('Y-m-d'),
-            'dataFinal' => null,
+            'dataInicial' => $intakeDate->format('Y-m-d'),
+            'dataFinal' => $intakeDate->modify('+7 days')->format('Y-m-d'),
             'garantia' => '0',
             'garantias_id' => null,
             'descricaoProduto' => $description,

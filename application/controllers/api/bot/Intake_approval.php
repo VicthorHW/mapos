@@ -30,7 +30,7 @@ class Intake_approval extends REST_Controller
 
         $input = $this->post();
         if (! is_array($input)
-            || ! $this->onlyKeys($input, ['operator_id', 'client_action', 'client_id', 'force_create_new', 'client', 'os'])
+            || ! $this->onlyKeys($input, ['operator_id', 'client_action', 'client_id', 'force_create_new', 'intake_created_at', 'client', 'os'])
             || ! is_array($input['client'] ?? null)
             || ! is_array($input['os'] ?? null)
             || ! $this->onlyKeys($input['client'], ['name', 'phone', 'city'])
@@ -105,8 +105,10 @@ class Intake_approval extends REST_Controller
         $serviceMode = (string) ($input['os']['service_mode'] ?? '');
         $osCity = $this->bounded($input['os']['city'] ?? null, 80, false);
         $notes = $this->bounded($input['os']['notes'] ?? null, 2000, true);
+        $intakeDate = $this->intakeDate($input['intake_created_at'] ?? null);
         if ($phone === null || $clientCity === false || $deviceType === false || $brand === false
             || $problem === false || $osCity === false || $model === false || $notes === false
+            || $intakeDate === null
             || ! in_array($serviceMode, self::SERVICE_MODES, true)
             || ($clientAction === 'CREATE_NEW' && ($name === null || $name === false))) {
             $this->response(['status' => false, 'reason' => 'invalid_intake_fields'], self::HTTP_UNPROCESSABLE_ENTITY);
@@ -119,6 +121,7 @@ class Intake_approval extends REST_Controller
             'client_action' => $clientAction,
             'client_id' => $clientId === null ? null : (int) $clientId,
             'force_create_new' => filter_var($input['force_create_new'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'intake_created_at' => $intakeDate,
             'client' => ['name' => $name, 'phone' => $phone, 'city' => $clientCity],
             'os' => [
                 'device_type' => $deviceType,
@@ -147,6 +150,19 @@ class Intake_approval extends REST_Controller
         $length = mb_strlen($value);
 
         return $length >= $min && $length <= $max ? $value : false;
+    }
+
+    private function intakeDate($value)
+    {
+        if (! is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return null;
+        }
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        $errors = DateTimeImmutable::getLastErrors();
+
+        return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            ? $date->format('Y-m-d')
+            : null;
     }
 
     private function onlyKeys(array $input, array $allowed)
