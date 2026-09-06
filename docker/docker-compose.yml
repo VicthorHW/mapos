@@ -83,7 +83,10 @@ services:
 
 
   mysql:
-    image: 'mysql:${MYSQL_MAPOS_VERSION:-8.4}'
+    # 8.4.11 segfaulted repeatedly on the production ARM host during InnoDB
+    # startup. Keep the verified 8.4.10 LTS patch release pinned until an
+    # upgrade is explicitly validated against this host and the persisted data.
+    image: 'mysql:${MYSQL_MAPOS_VERSION:-8.4.10}'
     restart: unless-stopped
     # Permite que o usuario do schema, que ja possui TRIGGER, instale a outbox
     # mesmo com binary logging ativo sem conceder privilegio global SUPER.

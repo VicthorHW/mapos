@@ -13,3 +13,12 @@ automaticamente o endereco cadastral do cliente.
 
 O recurso e acessivel somente a operadores com `cSistema`. Compartilhe o link
 somente com o cliente daquele atendimento.
+
+## Nota operacional do deploy
+
+Em setembro de 2026, a imagem flutuante `mysql:8.4` resolveu para 8.4.11 e
+encerrou `mysqld` com SIGSEGV durante o startup do InnoDB na Orange Pi. A
+imagem oficial 8.4.10 foi validada em container temporario sem volume no mesmo
+host e completou o startup. O compose fixa 8.4.10 por padrao para impedir que
+um novo deploy troque a versao sem validacao. Antes de subir uma patch release,
+validar a imagem no host e revisar a compatibilidade do volume persistente.
