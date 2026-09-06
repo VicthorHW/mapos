@@ -266,16 +266,22 @@ class Tecnina_whatsapp extends MY_Controller
         if (
             $this->input->method(true) !== 'POST'
             || ! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $appointmentId)
-            || ! in_array($action, ['confirm', 'cancel', 'complete', 'reschedule-required'], true)
+            || ! in_array($action, ['confirm', 'cancel', 'complete', 'reschedule-required', 'location-request'], true)
         ) {
             return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 400);
         }
-        $version = filter_var($this->input->post('state_version'), FILTER_VALIDATE_INT);
         $operatorId = (int) $this->session->userdata('id_admin');
-        if ($version === false || $version < 0 || $operatorId < 1) {
+        if ($operatorId < 1) {
             return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
         }
-        $payload = ['expected_version' => $version, 'operator_id' => $operatorId];
+        $payload = ['operator_id' => $operatorId];
+        if ($action !== 'location-request') {
+            $version = filter_var($this->input->post('state_version'), FILTER_VALIDATE_INT);
+            if ($version === false || $version < 0) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
+            }
+            $payload['expected_version'] = $version;
+        }
         $result = $this->tecnina_bot_gateway->request(
             'POST',
             '/admin/logistics/appointments/' . rawurlencode($appointmentId) . '/' . $action,

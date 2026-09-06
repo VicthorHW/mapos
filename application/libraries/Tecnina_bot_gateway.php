@@ -111,6 +111,8 @@ class Tecnina_bot_gateway
                 'daily_capacity_exceeded',
                 'blackout_capacity_exceeded',
                 'route_blackout',
+                'location_purpose_mismatch',
+                'location_request_closed',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']

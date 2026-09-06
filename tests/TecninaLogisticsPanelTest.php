@@ -21,13 +21,14 @@ expectLogisticsPanel($controller !== false && $view !== false && $gateway !== fa
 expectLogisticsPanel(strpos($controller, "'logistics-zones' => '/admin/logistics/zones'") !== false, 'Zonas não usam Admin API do Gateway.');
 expectLogisticsPanel(strpos($controller, "'logistics-appointments' => '/admin/logistics/appointments'") !== false, 'Movimentos não usam Admin API do Gateway.');
 expectLogisticsPanel(strpos($controller, "'zones' => '/admin/logistics/zones'") !== false, 'Whitelist de configuração logística ausente.');
-expectLogisticsPanel(strpos($controller, "['confirm', 'cancel', 'complete', 'reschedule-required']") !== false, 'Ações logísticas não estão restritas.');
+expectLogisticsPanel(strpos($controller, "['confirm', 'cancel', 'complete', 'reschedule-required', 'location-request']") !== false, 'Ações logísticas não estão restritas.');
 expectLogisticsPanel(strpos($controller, "userdata('id_admin')") !== false, 'Operador deve vir da sessão MapOS.');
 expectLogisticsPanel(strpos($controller, "post('operator_id'") === false, 'Navegador não pode escolher o operador.');
 expectLogisticsPanel(strpos($controller, 'strlen($rawPayload) > 20000') !== false, 'Proxy deve limitar o payload de configuração.');
 expectLogisticsPanel(strpos($view, '>Logística<') !== false, 'Aba Logística ausente.');
 expectLogisticsPanel(strpos($view, 'PICKUP') !== false && strpos($view, 'DELIVERY') !== false, 'Coleta e entrega não compartilham a mesma interface.');
 expectLogisticsPanel(strpos($view, 'America/Sao_Paulo') !== false, 'Timezone IANA não está explícito no painel.');
+expectLogisticsPanel(strpos($view, 'rel="noopener noreferrer"') !== false, 'Link público deve impedir acesso ao opener/referrer.');
 expectLogisticsPanel(strpos($view, 'function esc(value)') !== false, 'Dados do Gateway devem ser escapados.');
 expectLogisticsPanel(strpos($view, 'latitude') === false && strpos($view, 'longitude') === false, 'Lista não deve expor coordenadas exatas.');
 expectLogisticsPanel(strpos($view, 'Authorization: Bearer') === false, 'Token interno não pode aparecer na view.');
