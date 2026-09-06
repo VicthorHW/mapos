@@ -31,7 +31,8 @@
             "php tests/DeviceCredentialTest.php",
             "php tests/DeviceCredentialPrivacyTest.php",
             "php tests/TecninaOutboxTest.php",
-            "php tests/TecninaIntegrationContextTest.php"
+            "php tests/TecninaIntegrationContextTest.php",
+            "php tests/TecninaClientByPhoneTest.php"
         ]
     },
     "config": {

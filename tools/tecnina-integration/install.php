@@ -17,7 +17,10 @@ $required = [
     'application/controllers/Tecnina_integration_setup.php',
     'application/controllers/api/bot/Health.php',
     'application/controllers/api/bot/Outbox.php',
+    'application/controllers/api/bot/Client_by_phone.php',
     'application/libraries/Tecnina_bot_auth.php',
+    'application/libraries/Tecnina_phone.php',
+    'application/models/Tecnina_client_lookup_model.php',
     'application/models/Tecnina_outbox_model.php',
 ];
 foreach ($required as $file) {

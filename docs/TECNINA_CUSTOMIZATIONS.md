@@ -78,3 +78,23 @@ O painel não acessa o banco do Gateway. Cada requisição é autenticada no
 servidor MapOS e encaminhada ao contrato `/admin/*`; o token nunca é enviado ao
 navegador. O Gateway mascara JIDs/telefones nas listagens e não retorna corpos
 de mensagens nos logs operacionais.
+
+## Integração WhatsApp — Fase 7
+
+### Arquivos upstream alterados
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `application/config/routes.php` | Publicar `GET /api/bot/client/by-phone` | O `MapOSAdapter` precisa identificar com exatidão um cadastro sem usar a API administrativa genérica | Fazer SQL no Gateway; rejeitado porque quebraria a separação entre os bancos |
+| `composer.json` | Executar o teste de contrato da consulta | Preservar a whitelist e o comportamento de ambiguidade após atualizações | Teste manual; rejeitado por ser fácil esquecer |
+
+### Arquivos novos TecNina
+
+- `application/controllers/api/bot/Client_by_phone.php`
+- `application/models/Tecnina_client_lookup_model.php`
+- `tests/TecninaClientByPhoneTest.php`
+
+O endpoint aceita apenas a identificação normalizada e responde `none`,
+`unique` com `client_id`, ou `ambiguous`. Ele nunca devolve nome, CPF, e-mail,
+endereço, senha, hash ou telefone. A consulta é identificação operacional, não
+autenticação do cliente.
