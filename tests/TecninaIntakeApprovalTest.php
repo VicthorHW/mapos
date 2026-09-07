@@ -22,7 +22,7 @@ $installer = file_get_contents($root . '/tools/tecnina-integration/install.php')
 expectIntakeApproval($controller !== false && $model !== false && $setup !== false, 'Arquivos da aprovação ausentes.');
 expectIntakeApproval(strpos($routes, 'api/bot/intakes/(:any)/approve') !== false, 'Rota privada de aprovação ausente.');
 expectIntakeApproval(strpos($controller, 'authorizeRequest()') < strpos($controller, '$this->post()'), 'Autorização deve ocorrer antes da leitura do payload.');
-expectIntakeApproval(strpos($controller, "['operator_id', 'client_action', 'client_id', 'force_create_new', 'client', 'os']") !== false, 'Contrato superior não usa whitelist explícita.');
+expectIntakeApproval(strpos($controller, "['operator_id', 'client_action', 'client_id', 'force_create_new', 'intake_created_at', 'client', 'os']") !== false, 'Contrato superior não usa whitelist explícita.');
 expectIntakeApproval(strpos($controller, "['name', 'phone', 'city']") !== false, 'Contrato de cliente não usa whitelist explícita.');
 expectIntakeApproval(strpos($controller, "['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes']") !== false, 'Contrato de OS não usa whitelist explícita.');
 expectIntakeApproval(stripos($controller, 'credencial') === false, 'Endpoint não pode receber credencial do aparelho.');

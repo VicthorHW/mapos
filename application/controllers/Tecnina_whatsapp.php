@@ -160,6 +160,43 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status']);
     }
 
+    public function os_acesso($osId = 0, $action = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if (! ctype_digit((string) $osId) || (int) $osId < 1) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_os_id'], 422);
+        }
+
+        // Rotation returns the credential exactly once. Do not let browsers or
+        // intermediary proxies retain that sensitive response.
+        $this->output
+            ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
+            ->set_header('Pragma: no-cache');
+
+        $method = $this->input->method(true);
+        $path = '/admin/os-access-codes/' . (int) $osId;
+        if ($method === 'GET' && $action === '') {
+            $result = $this->tecnina_bot_gateway->request('GET', $path);
+            return $this->json($result, $result['status']);
+        }
+        if ($method !== 'POST' || ! in_array($action, ['rotate', 'revoke'], true)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+        }
+
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($operatorId < 1) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
+        }
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            $path . '/' . $action,
+            ['operator_id' => $operatorId]
+        );
+        return $this->json($result, $result['status']);
+    }
+
     public function conversa($conversationId = 0, $action = '')
     {
         if (! $this->authorized(true)) {

@@ -118,6 +118,8 @@ class Tecnina_bot_gateway
                 'flow_version_missing',
                 'draft_not_found',
                 'stale_flow_revision',
+                'invalid_os_id',
+                'mapos_context_unavailable',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']

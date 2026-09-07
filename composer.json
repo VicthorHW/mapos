@@ -36,7 +36,9 @@
             "php tests/TecninaIntakeReviewPanelTest.php",
             "php tests/TecninaIntakeApprovalTest.php",
             "php tests/TecninaLogisticsPanelTest.php",
-            "php tests/TecninaFlowStudioPanelTest.php"
+            "php tests/TecninaFlowStudioPanelTest.php",
+            "php tests/TecninaOsStatusContractTest.php",
+            "php tests/TecninaOsAccessPanelTest.php"
         ]
     },
     "config": {

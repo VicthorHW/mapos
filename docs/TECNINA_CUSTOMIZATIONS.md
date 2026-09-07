@@ -45,6 +45,7 @@ as mudanças de status é feita pela trigger MySQL instalada separadamente.
 | Arquivo | Motivo | Necessidade | Alternativa avaliada |
 | --- | --- | --- | --- |
 | `application/config/routes.php` | Publicar a URL estável `/api/bot/integration-context/{os_id}` | Manter o contrato do `MapOSAdapter` independente do nome de classe do CodeIgniter | Usar underscore na URL; rejeitado por vazar detalhe interno no contrato |
+| `application/config/routes.php` | Publicar `/api/bot/os/{os_id}/status` | Consulta nível 1 exige contrato mínimo, autenticado e estável | Reutilizar API administrativa; rejeitado por JWT de funcionário e excesso de dados |
 | `composer.json` | Executar o teste do contexto na suíte padrão | Evitar regressão da whitelist e da normalização | Execução manual; rejeitada por ser fácil esquecer |
 
 Nenhum controller ou model existente de OS/cliente foi alterado. O endpoint
@@ -211,3 +212,31 @@ O simulador permanece sem efeitos externos e apresenta decisões em tabela. O
 modo de teste ponta a ponta com WhatsApp real e o chat-emulador interno estão
 planejados como capacidades separadas, com allowlist e auditoria antes de
 qualquer envio real.
+
+## Fase 10 — consulta autenticada de status da OS
+
+### Arquivos upstream alterados
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada |
+| --- | --- | --- | --- |
+| `application/config/routes.php` | Publicar `GET /api/bot/os/{os_id}/status` | Manter o contrato mínimo e estável do `MapOSAdapter` | API administrativa; rejeitada por exigir JWT de funcionário e retornar dados excessivos |
+| `composer.json` | Executar os contratos de status e painel na suíte padrão | Detectar regressões de whitelist, cache e separação do token | Execução manual; rejeitada por ser fácil esquecer |
+
+### Arquivos novos TecNina
+
+- `application/controllers/api/bot/Os_status.php`
+- `application/models/Tecnina_os_status_model.php`
+- `tests/TecninaOsStatusContractTest.php`
+- `tests/TecninaOsAccessPanelTest.php`
+
+### Arquivos TecNina atualizados
+
+- `application/controllers/Tecnina_whatsapp.php`
+- `application/libraries/Tecnina_bot_gateway.php`
+- `assets/tecnina/js/whatsapp-panel.js`
+
+O endpoint privado usa uma seleção explícita de `os_id`, `client_id` e status.
+O `client_id` serve somente à conferência interna entre a OS e o código; não é
+mostrado ao cliente. A operação de gerar, consultar ou revogar códigos fica no
+painel protegido por `cSistema`. O operador auditado vem da sessão MapOS, e a
+resposta que exibe o código uma única vez recebe `Cache-Control: no-store`.
