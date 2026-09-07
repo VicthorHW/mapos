@@ -117,6 +117,14 @@ capacidade, confirmação humana e localização exata consentida.
 
 Essa prioridade não pode atrasar o primeiro MVP útil de notificações de OS.
 
+A experiência pública de localização é tratada na Fase 8.3 do Gateway. Ela deve
+usar a identidade visual do `tecnina-site`, solicitar GPS apenas após ação
+explícita, separar endereço de coordenadas e permitir confirmação por mapa em
+satélite. A integração com Maps é opcional e carregada sob demanda; sem ela, o
+fluxo continua disponível por endereço. A chave de navegador deve ser restrita
+por origem e API. Pré-preenchimento ou atualização do cadastro só pode ocorrer
+futuramente pelo `MapOSAdapter`, mediante escolha explícita do cliente.
+
 ## P4.2 — Flow Studio / orquestração visual
 
 Depois que Intake e aprovação estiverem estáveis, criar progressivamente uma
@@ -4862,6 +4870,45 @@ quebras, emoji e placeholders sem envio.
 Test mode real futuro permite uma DRAFT somente para número explicitamente
 allowlisted. Exige confirmação, audit log, identificação visual permanente de
 TEST MODE e isolamento rigoroso: números comuns continuam na versão publicada.
+
+## Refinamentos aprovados para edição e testes do Flow Studio
+
+O diagrama deve organizar nodes por camadas do fluxo, minimizar cruzamentos,
+proteger labels contra sobreposição e oferecer pelo menos zoom e ajuste à tela.
+Coordenadas visuais continuam separadas da semântica do fluxo.
+
+A edição será oferecida por duas representações equivalentes:
+
+1. interface visual progressiva, inicialmente para labels, templates e
+   parâmetros registrados e, após validação completa, para nodes/edges;
+2. formato JSON versionado `tecnina-flow-ai/v1`, exportável com instruções,
+   campos permitidos e registries necessários para uma IA propor mudanças.
+
+O pacote para IA não inclui secrets, tokens, payloads reais ou dados pessoais.
+A resposta importada deve ser JSON sem Markdown; import sempre cria ou atualiza
+DRAFT, nunca publica. A UI mostra validação e diff antes de publicar.
+
+O simulador deve explicar entrada, decisão, node, motivo e saída prevista, sem
+exigir que o operador interprete strings internas. A evolução dos testes fica
+separada em três níveis:
+
+- dry-run fictício, sem qualquer efeito externo;
+- chat-emulador stateful dentro do painel, sem WhatsApp;
+- teste ponta a ponta, inclusive envio pela Evolution, somente em TEST MODE para
+  identidades allowlisted, com confirmação e auditoria.
+
+Devem existir roteiros regressivos predefinidos para menu, Human Lock, retorno
+ao bot, intake, status, falhas de dependência, coleta e localização. Um executor
+automatizado deve indicar cenário aprovado/falhou e a primeira divergência.
+
+No intake `PICKUP_REQUESTED`, depois da cidade, o próprio Bot solicita
+automaticamente a localização por link temporário. A emissão manual na aba
+Logística é complementar para repetição ou exceção; não é o caminho padrão.
+Para `DROP_OFF`, nenhum GPS é solicitado sem necessidade operacional.
+
+O NLU permanece uma camada futura e substituível que retorna somente intenção e
+confiança. Sua ausência ou falha nunca impede menus, comandos determinísticos,
+Human Lock, status ou pré-atendimento.
 
 ## UI progressiva
 

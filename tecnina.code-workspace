@@ -1,13 +1,20 @@
 {
 	"folders": [
 		{
+			"name": "MapOS",
 			"path": "."
 		},
 		{
+			"name": "TecNina Bot",
 			"path": "../tecnina-bot"
 		},
 		{
+			"name": "WhatsApp Infra",
 			"path": "../tecnina-whatsapp-infra"
+		},
+		{
+			"name": "TecNina Site",
+			"path": "../tecnina-site"
 		}
 	],
 	"settings": {}

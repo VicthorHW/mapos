@@ -39,6 +39,12 @@
             ,pricing_requires_review: 'O preço da zona mudou e precisa ser revisado.'
             ,route_schedule_mismatch: 'A janela não corresponde mais ao horário da rota.'
             ,minimum_notice_not_met: 'A antecedência mínima desta rota não é mais atendida.'
+            ,flow_not_found: 'O fluxo não existe mais.'
+            ,flow_version_not_found: 'A versão selecionada não existe mais.'
+            ,flow_version_missing: 'O fluxo ainda não possui uma versão disponível.'
+            ,draft_not_found: 'Crie um rascunho antes de editar ou validar.'
+            ,stale_flow_revision: 'Este fluxo foi alterado. Reabra-o antes de salvar novamente.'
+            ,invalid_flow_definition: 'O JSON do fluxo é inválido ou excede o limite permitido.'
         };
         return messages[reason] || 'Não foi possível concluir a operação.';
     }
@@ -70,10 +76,100 @@
         $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.phone_tail) + '</td><td>' + esc(r.state) + '</td><td>' + esc(r.human_until || '—') + '</td><td><button class="btn btn-mini wa-lock" data-id="' + r.id + '">Pausar bot</button> <button class="btn btn-mini wa-resume" data-id="' + r.id + '">Retomar</button> <button class="btn btn-mini wa-flow-observe" data-id="' + r.id + '">Fluxo</button></td></tr>'; });
         $('#wa-conversations').html(h + '</tbody></table>');
     }); }
-    function loadFlows() { request('/dados/flows', 'GET', null, function(rows) { var h='<table class="table table-bordered"><thead><tr><th>Fluxo</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>'; $.each(rows, function(_, r) { var state=r.enabled ? esc(r.mode) : 'PLANEJADO'; h += '<tr><td><strong>' + esc(r.name) + '</strong><br><small>' + esc(r.description) + '</small></td><td>' + esc(r.flow_type) + '</td><td>' + state + '</td><td><button class="btn btn-mini wa-flow-open" data-key="' + esc(r.key) + '">Abrir</button></td></tr>'; }); $('#wa-flows-list').html(h + '</tbody></table>'); }); }
-    function flowDiagram(d, currentNode) { var nodes=d.nodes || [], edges=d.edges || [], position={}, cols=3, width=720, row=108, height=Math.max(180, Math.ceil(nodes.length / cols) * row + 55), svg='<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Diagrama do fluxo '+esc(d.name)+'" style="width:100%;min-width:500px;border:1px solid #ddd;background:#fff"><defs><marker id="wa-flow-arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#777"></path></marker></defs>'; $.each(nodes,function(i,n){ position[n.key]={x:65+(i%cols)*235,y:45+Math.floor(i/cols)*row}; }); $.each(edges,function(_,e){ var a=position[e.from],b=position[e.to]; if(!a||!b){return;} svg+='<path d="M'+(a.x+75)+' '+(a.y+25)+' L'+(b.x+75)+' '+b.y+'" stroke="#777" stroke-width="1.5" fill="none" marker-end="url(#wa-flow-arrow)"></path>'; if(e.label){svg+='<text x="'+((a.x+b.x+150)/2)+'" y="'+((a.y+b.y+20)/2)+'" text-anchor="middle" font-size="10" fill="#555">'+esc(e.label)+'</text>';}}); $.each(nodes,function(_,n){var p=position[n.key], active=currentNode===n.key, fill=active?'#d9edf7':'#f7f7f7', stroke=active?'#31708f':'#999'; svg+='<g><rect x="'+p.x+'" y="'+p.y+'" width="150" height="50" rx="5" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?'3':'1')+'"></rect><text x="'+(p.x+75)+'" y="'+(p.y+20)+'" text-anchor="middle" font-size="11" font-weight="bold">'+esc(n.type)+'</text><text x="'+(p.x+75)+'" y="'+(p.y+37)+'" text-anchor="middle" font-size="10">'+esc(n.label)+'</text></g>';}); return svg+'</svg>'; }
+    var flowDrafts = {}, flowDraftRevisions = {};
+    function loadFlows() { request('/dados/flows', 'GET', null, function(rows) {
+        var h='<table class="table table-bordered"><thead><tr><th>Fluxo</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>';
+        $.each(rows, function(_, r) {
+            var state=r.enabled ? esc(r.mode) : 'PLANEJADO';
+            var versions='Publicada: v' + esc(r.version || '—') + (r.draft_version ? '<br>Rascunho: v' + esc(r.draft_version) : '');
+            h += '<tr><td><strong>' + esc(r.name) + '</strong><br><small>' + esc(r.description) + '</small></td><td>' + esc(r.flow_type) + '</td><td>' + state + '<br><small>' + versions + '</small></td><td><button class="btn btn-mini wa-flow-open" data-key="' + esc(r.key) + '">Abrir</button></td></tr>';
+        });
+        $('#wa-flows-list').html(h + '</tbody></table>');
+    }); }
+    function shortFlowText(value, limit) {
+        value=String(value || '');
+        return value.length > limit ? value.substring(0, limit - 1) + '…' : value;
+    }
+    function flowLayout(nodes, edges) {
+        var byKey={}, levels={}, queue=[], groups={}, maxLevel=0, nodeWidth=220, nodeHeight=72, gap=42, rowGap=94;
+        $.each(nodes, function(_, node) { byKey[node.key]=node; if (node.type === 'START') { levels[node.key]=0; queue.push(node.key); } });
+        while (queue.length) {
+            var source=queue.shift(), sourceLevel=levels[source];
+            $.each(edges, function(_, edge) {
+                if (edge.from === source && byKey[edge.to] && levels[edge.to] === undefined) {
+                    levels[edge.to]=sourceLevel + 1;
+                    maxLevel=Math.max(maxLevel, levels[edge.to]);
+                    queue.push(edge.to);
+                }
+            });
+        }
+        $.each(nodes, function(_, node) { if (levels[node.key] === undefined) { levels[node.key]=++maxLevel; } });
+        $.each(nodes, function(_, node) { var level=levels[node.key]; groups[level]=groups[level] || []; groups[level].push(node); maxLevel=Math.max(maxLevel, level); });
+        var maxInLevel=1;
+        $.each(groups, function(_, group) { maxInLevel=Math.max(maxInLevel, group.length); });
+        var width=Math.max(900, maxInLevel * nodeWidth + (maxInLevel - 1) * gap + 100), positions={};
+        $.each(groups, function(level, group) {
+            var total=group.length * nodeWidth + (group.length - 1) * gap, start=(width-total)/2;
+            $.each(group, function(index, node) { positions[node.key]={x:start + index*(nodeWidth+gap), y:38 + Number(level)*(nodeHeight+rowGap)}; });
+        });
+        return {positions:positions,width:width,height:Math.max(220, 38+(maxLevel+1)*(nodeHeight+rowGap)),nodeWidth:nodeWidth,nodeHeight:nodeHeight};
+    }
+    function flowDiagram(d, currentNode) {
+        var nodes=d.nodes || [], edges=d.edges || [], layout=flowLayout(nodes,edges), p=layout.positions, marker='wa-flow-arrow-' + String(d.key || 'flow').replace(/[^a-z0-9_-]/gi,''), svg='';
+        svg += '<div class="wa-flow-tools" style="margin-bottom:6px"><button class="btn btn-mini wa-flow-zoom" data-scale="75">−</button> <button class="btn btn-mini wa-flow-zoom" data-scale="100">Ajustar</button> <button class="btn btn-mini wa-flow-zoom" data-scale="135">+</button></div>';
+        svg += '<div class="wa-flow-canvas" style="overflow:auto;background:#fff;border:1px solid #ddd"><svg viewBox="0 0 '+layout.width+' '+layout.height+'" role="img" aria-label="Diagrama do fluxo '+esc(d.name)+'" style="display:block;width:100%;min-width:700px;transition:width .15s ease"><defs><marker id="'+marker+'" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#667085"></path></marker></defs>';
+        $.each(edges,function(index,e){
+            var a=p[e.from], b=p[e.to]; if(!a||!b){return;}
+            var sx=a.x+layout.nodeWidth/2, sy=a.y+layout.nodeHeight, tx=b.x+layout.nodeWidth/2, ty=b.y, path, lx, ly;
+            if (ty > sy) {
+                var mid=sy+(ty-sy)/2;
+                path='M'+sx+' '+sy+' C'+sx+' '+mid+' '+tx+' '+mid+' '+tx+' '+ty;
+                lx=(sx+tx)/2; ly=mid-6;
+            } else {
+                var lane=layout.width-28-(index%5)*14;
+                sx=a.x+layout.nodeWidth; sy=a.y+layout.nodeHeight/2; tx=b.x+layout.nodeWidth; ty=b.y+layout.nodeHeight/2;
+                path='M'+sx+' '+sy+' C'+lane+' '+sy+' '+lane+' '+ty+' '+tx+' '+ty;
+                lx=lane-8; ly=(sy+ty)/2-6;
+            }
+            svg+='<path d="'+path+'" stroke="#667085" stroke-width="1.8" fill="none" marker-end="url(#'+marker+')"></path>';
+            if(e.label){svg+='<text x="'+lx+'" y="'+ly+'" text-anchor="middle" font-size="12" fill="#475467" style="paint-order:stroke;stroke:#fff;stroke-width:6px;stroke-linejoin:round">'+esc(shortFlowText(e.label,34))+'</text>';}
+        });
+        $.each(nodes,function(_,n){
+            var point=p[n.key], active=currentNode===n.key, planned=n.implementation_status && n.implementation_status !== 'ACTIVE';
+            var fill=active?'#d9edf7':(planned?'#fff7e6':'#f8fafc'), stroke=active?'#31708f':(planned?'#b7791f':'#98a2b3');
+            svg+='<g class="wa-flow-node" data-node="'+esc(n.key)+'"><rect x="'+point.x+'" y="'+point.y+'" width="'+layout.nodeWidth+'" height="'+layout.nodeHeight+'" rx="9" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(active?'3':'1.5')+'"></rect><text x="'+(point.x+layout.nodeWidth/2)+'" y="'+(point.y+27)+'" text-anchor="middle" font-size="13" font-weight="bold">'+esc(n.type)+'</text><text x="'+(point.x+layout.nodeWidth/2)+'" y="'+(point.y+51)+'" text-anchor="middle" font-size="12">'+esc(shortFlowText(n.label,31))+'</text></g>';
+        });
+        return svg+'</svg></div>';
+    }
     function flowNotes(d) { var notes=[]; $.each(d.nodes || [], function(_, n) { if (n.implementation_status && n.implementation_status !== 'ACTIVE') { notes.push('<li><strong>' + esc(n.label) + ':</strong> ' + esc(n.implementation_status) + (n.note ? ' — ' + esc(n.note) : '') + '</li>'); } }); return notes.length ? '<div class="alert alert-info"><strong>Estado dos nós:</strong><ul>' + notes.join('') + '</ul></div>' : ''; }
-    function loadFlow(key, currentNode) { request('/fluxo/' + encodeURIComponent(key), 'GET', null, function(d) { var simulation=d.enabled ? '<strong>Simulador seguro</strong><br><select class="wa-flow-scenario"><option value="NEW_CUSTOMER">Novo cliente</option><option value="EXISTING_CUSTOMER">Cliente existente</option><option value="AMBIGUOUS_CUSTOMER">Cliente ambíguo</option><option value="HUMAN_LOCK">Atendimento em pausa</option></select> <button class="btn btn-primary btn-mini wa-flow-simulate" data-key="' + esc(d.key) + '">Testar sem enviar WhatsApp</button><pre class="wa-flow-trace" style="display:none"></pre>' : '<div class="alert alert-info">Este fluxo está planejado; nenhuma automação de NLU está ativa.</div>'; var h='<hr><h4>' + esc(d.name) + ' <small>v' + esc(d.version) + ' · ' + esc(d.mode) + '</small></h4><p>' + esc(d.description) + '</p><div class="well"><div style="overflow:auto">'+flowDiagram(d,currentNode)+'</div><p class="muted">Diagrama observacional. Nenhuma alteração estrutural é permitida nesta etapa.</p>'+flowNotes(d)+simulation+'</div>'; $('#wa-flow-detail').html(h); }); }
+    function cleanFlowDefinition(value) {
+        var result=$.extend(true, {}, value);
+        $.each(['published_version','revision','draft_version','state'], function(_, key) { delete result[key]; });
+        return result;
+    }
+    function syncDraftJson(key) { $('.wa-flow-json').val(JSON.stringify(cleanFlowDefinition(flowDrafts[key]), null, 2)); }
+    function renderDraftEditor(key) {
+        var d=flowDrafts[key], nodes='', edges=''; if(!d){return;}
+        $.each(d.nodes || [], function(index,node) { nodes+='<label><code>'+esc(node.key)+'</code><input class="input-block-level wa-flow-node-label" data-key="'+esc(key)+'" data-index="'+index+'" maxlength="160" value="'+esc(node.label)+'"></label>'; });
+        $.each(d.edges || [], function(index,edge) { edges+='<label><code>'+esc(edge.from)+' → '+esc(edge.to)+'</code><input class="input-block-level wa-flow-edge-label" data-key="'+esc(key)+'" data-index="'+index+'" maxlength="160" value="'+esc(edge.label || '')+'" placeholder="Descrição da transição"></label>'; });
+        var html='<hr><h5>Editor visual do rascunho v'+esc(d.version)+'</h5><p class="muted">Edite nomes dos passos e transições. A estrutura completa também pode ser revisada no JSON; salvar não publica e não altera conversas em andamento.</p><div class="row-fluid"><div class="span6"><strong>Passos</strong>'+nodes+'</div><div class="span6"><strong>Transições</strong>'+edges+'</div></div><label><strong>Formato para edição por IA</strong></label><textarea class="input-block-level wa-flow-json" rows="18" spellcheck="false" style="font-family:monospace"></textarea><button class="btn btn-primary wa-flow-save-draft" data-key="'+esc(key)+'">Salvar rascunho</button> <button class="btn wa-flow-copy-ai" data-key="'+esc(key)+'">Copiar pacote para IA</button> <button class="btn wa-flow-import-ai" data-key="'+esc(key)+'">Aplicar JSON no editor</button><div class="wa-flow-editor-status" style="margin-top:8px"></div>';
+        $('#wa-flow-editor').html(html); syncDraftJson(key); $('#wa-flow-diagram').html(flowDiagram(d));
+    }
+    function loadFlowDraft(key) { request('/fluxo/' + encodeURIComponent(key) + '/draft', 'GET', null, function(d) { flowDrafts[key]=d; flowDraftRevisions[key]=d.revision; renderDraftEditor(key); }); }
+    function flowSimulation(key) {
+        return '<hr><h5>Simulador seguro</h5><p class="muted">Executa decisões com dados fictícios somente dentro do Gateway. Não consulta clientes reais, não cria OS, não gera link e não envia WhatsApp.</p><select class="wa-flow-scenario"><option value="NEW_CUSTOMER">Novo cliente</option><option value="EXISTING_CUSTOMER">Cliente existente</option><option value="AMBIGUOUS_CUSTOMER">Telefone ambíguo</option><option value="HUMAN_LOCK">Atendimento em pausa</option><option value="MAPOS_OFFLINE">MapOS indisponível</option><option value="PICKUP">Pré-atendimento com coleta</option><option value="DROP_OFF">Cliente traz o equipamento</option><option value="LOCATION_PENDING">Localização pendente</option><option value="FALLBACK">Mensagem não compreendida</option></select><label>Mensagens fictícias opcionais (uma por linha)</label><textarea class="input-block-level wa-flow-messages" rows="3" maxlength="5000" placeholder="oi&#10;preciso de assistência"></textarea><button class="btn btn-primary btn-mini wa-flow-simulate" data-key="'+esc(key)+'">Executar simulação segura</button><div class="wa-flow-trace" style="display:none;margin-top:10px"></div>';
+    }
+    function renderFlowTrace(d) {
+        var rows=''; $.each(d.trace || [], function(index,step) { rows+='<tr><td>'+(index+1)+'</td><td>'+esc(step.event)+'</td><td><code>'+esc(step.node_key)+'</code></td><td>'+esc(step.reason)+'</td></tr>'; });
+        return '<div class="alert alert-success"><strong>'+esc(d.scenario_label || d.scenario)+'</strong><br>'+esc(d.output_preview || '')+'<br><small>Modo seguro: '+(d.side_effects ? 'há efeitos externos' : 'nenhum efeito externo')+'.</small></div><table class="table table-bordered table-condensed"><thead><tr><th>#</th><th>Decisão</th><th>Passo</th><th>Motivo</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    function loadFlow(key, currentNode) { request('/fluxo/' + encodeURIComponent(key), 'GET', null, function(d) {
+        var versioning=d.draft_version ? '<strong>Rascunho v' + esc(d.draft_version) + '</strong> <button class="btn btn-mini wa-flow-validate" data-key="' + esc(d.key) + '">Validar</button> <button class="btn btn-warning btn-mini wa-flow-publish" data-key="' + esc(d.key) + '" data-revision="' + esc(d.revision) + '">Publicar</button>' : '<button class="btn btn-mini wa-flow-draft" data-key="' + esc(d.key) + '" data-revision="' + esc(d.revision) + '">Criar rascunho editável</button>';
+        var simulation=d.enabled ? flowSimulation(d.key) : '<div class="alert alert-info">Este fluxo está planejado; o NLU ainda não participa do atendimento real.</div>';
+        var h='<hr><h4>' + esc(d.name) + ' <small>publicada v' + esc(d.version) + ' · ' + esc(d.mode) + '</small></h4><p>' + esc(d.description) + '</p><div class="well"><div id="wa-flow-diagram">'+flowDiagram(d,currentNode)+'</div><p class="muted">O desenho é organizado automaticamente por etapas. Use −/Ajustar/+ para controlar o tamanho.</p>'+flowNotes(d)+'<hr>'+versioning+'<div id="wa-flow-editor"></div>'+simulation+'<div id="wa-flow-history"></div></div>';
+        $('#wa-flow-detail').html(h); loadFlowHistory(key, d.revision); if(d.draft_version){loadFlowDraft(key);}
+    }); }
+    function loadFlowHistory(key, revision) { request('/fluxo/' + encodeURIComponent(key) + '/versoes', 'GET', null, function(rows) { var h='<hr><strong>Histórico de versões</strong><br><select class="wa-flow-rollback-version">'; $.each(rows,function(_,row){ h+='<option value="'+esc(row.version)+'">v'+esc(row.version)+' — '+esc(row.state)+' — '+esc(row.checksum)+'</option>'; }); h+='</select> <button class="btn btn-mini wa-flow-rollback" data-key="'+esc(key)+'" data-revision="'+esc(revision)+'">Restaurar como nova versão</button>'; $('#wa-flow-history').html(h); }); }
     function observeFlow(id) { request('/conversa/' + id + '/flow-observer', 'GET', null, function(d) { $('#wa-flow-observer').html('<div class="alert alert-info"><strong>Conversa observada:</strong> ' + esc(d.flow_key) + ' · nó atual <code>' + esc(d.current_node) + '</code><br><small>' + esc((d.trace && d.trace[0] && d.trace[0].reason) || '') + '</small></div>'); loadFlow(d.flow_key, d.current_node); }); }
     function loadIntakes() { request('/dados/intakes', 'GET', null, function (rows) {
         var h = '<table class="table table-bordered"><thead><tr><th>Recebido</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th>Cidade</th><th>Status</th><th></th></tr></thead><tbody>';
@@ -141,7 +237,17 @@
     $(document).on('click', '.wa-lock,.wa-resume', function () { var id=$(this).data('id'), action=$(this).hasClass('wa-lock') ? 'manual-lock' : 'resume'; request('/conversa/' + id + '/' + action, 'POST', {}, loadConversations); });
     $(document).on('click', '.wa-flow-open', function () { loadFlow($(this).data('key')); });
     $(document).on('click', '.wa-flow-observe', function () { observeFlow($(this).data('id')); });
-    $(document).on('click', '.wa-flow-simulate', function () { var button=$(this), box=button.closest('.well'); request('/fluxo/' + encodeURIComponent(button.data('key')) + '/simular', 'POST', {scenario: box.find('.wa-flow-scenario').val()}, function (d) { box.find('.wa-flow-trace').text(JSON.stringify(d.trace, null, 2)).show(); }); });
+    $(document).on('click', '.wa-flow-zoom', function () { $(this).closest('.wa-flow-tools').next('.wa-flow-canvas').find('svg').css('width', String($(this).data('scale')) + '%'); });
+    $(document).on('click', '.wa-flow-simulate', function () { var button=$(this), box=button.closest('.well'), messages=lines(box.find('.wa-flow-messages').val()); request('/fluxo/' + encodeURIComponent(button.data('key')) + '/simular', 'POST', {scenario: box.find('.wa-flow-scenario').val(), messages:messages}, function (d) { box.find('.wa-flow-trace').html(renderFlowTrace(d)).show(); }); });
+    $(document).on('click', '.wa-flow-draft', function () { var button=$(this); request('/fluxo/' + encodeURIComponent(button.data('key')) + '/draft', 'POST', {expected_revision:button.data('revision')}, function () { loadFlows(); loadFlow(button.data('key')); }); });
+    $(document).on('input', '.wa-flow-node-label', function () { var input=$(this), key=input.data('key'), index=Number(input.data('index')); flowDrafts[key].nodes[index].label=input.val(); syncDraftJson(key); $('#wa-flow-diagram').html(flowDiagram(flowDrafts[key])); });
+    $(document).on('input', '.wa-flow-edge-label', function () { var input=$(this), key=input.data('key'), index=Number(input.data('index')), value=$.trim(input.val()); if(value){flowDrafts[key].edges[index].label=value;}else{delete flowDrafts[key].edges[index].label;} syncDraftJson(key); $('#wa-flow-diagram').html(flowDiagram(flowDrafts[key])); });
+    $(document).on('click', '.wa-flow-import-ai', function () { var key=$(this).data('key'), raw=$('.wa-flow-json').val(), parsed; try { parsed=JSON.parse(raw); parsed=parsed.flow || parsed; if(!parsed || !$.isArray(parsed.nodes) || !$.isArray(parsed.edges)){throw new Error('invalid');} flowDrafts[key]=$.extend(true, {}, parsed, {revision:flowDraftRevisions[key], draft_version:flowDrafts[key].draft_version, state:'DRAFT'}); renderDraftEditor(key); $('.wa-flow-editor-status').html('<div class="alert alert-info">JSON aplicado somente ao editor. Clique em Salvar rascunho para persistir.</div>'); } catch(exception) { $('.wa-flow-editor-status').html('<div class="alert alert-error">JSON inválido ou sem nodes/edges.</div>'); } });
+    $(document).on('click', '.wa-flow-save-draft', function () { var key=$(this).data('key'), raw=$('.wa-flow-json').val(), parsed; try { parsed=JSON.parse(raw); parsed=parsed.flow || parsed; } catch(exception) { $('.wa-flow-editor-status').html('<div class="alert alert-error">Corrija o JSON antes de salvar.</div>'); return; } request('/fluxo/' + encodeURIComponent(key) + '/salvar-draft', 'POST', {expected_revision:flowDraftRevisions[key], definition:JSON.stringify(parsed)}, function (d) { flowDrafts[key]=d; flowDraftRevisions[key]=d.revision; renderDraftEditor(key); $('.wa-flow-publish,.wa-flow-rollback').data('revision',d.revision).attr('data-revision',d.revision); $('.wa-flow-editor-status').html('<div class="alert alert-success">Rascunho salvo e auditado. Valide antes de publicar.</div>'); loadFlows(); loadFlowHistory(key,d.revision); }); });
+    $(document).on('click', '.wa-flow-copy-ai', function () { var key=$(this).data('key'); request('/fluxo/' + encodeURIComponent(key) + '/exportar-ia', 'GET', null, function (d) { var value=JSON.stringify(d,null,2); $('.wa-flow-json').val(value).focus().select(); if(navigator.clipboard && navigator.clipboard.writeText){navigator.clipboard.writeText(value);} $('.wa-flow-editor-status').html('<div class="alert alert-success">Pacote com instruções e limites preparado. Se a cópia automática falhar, use Ctrl+C no campo selecionado.</div>'); }); });
+    $(document).on('click', '.wa-flow-validate', function () { var button=$(this); request('/fluxo/' + encodeURIComponent(button.data('key')) + '/validar', 'POST', {}, function (d) { var warnings=(d.warnings || []).length ? '<br><small>Avisos: '+esc(d.warnings.join(', '))+'</small>' : ''; $('#wa-flow-editor').prepend('<div class="alert '+(d.valid?'alert-success':'alert-error')+'">Validação: '+(d.valid?'aprovada':esc((d.errors || []).join(', ')))+warnings+'</div>'); }); });
+    $(document).on('click', '.wa-flow-publish', function () { var button=$(this); if(!window.confirm('Publicar este rascunho validado? A FSM atual continuará soberana até a ativação controlada do runtime visual.')){return;} request('/fluxo/' + encodeURIComponent(button.data('key')) + '/publicar', 'POST', {expected_revision:button.data('revision')}, function () { loadFlows(); loadFlow(button.data('key')); }); });
+    $(document).on('click', '.wa-flow-rollback', function () { var button=$(this), source=button.closest('.well').find('.wa-flow-rollback-version').val(); if(!window.confirm('Restaurar esta versão como uma nova versão publicada?')){return;} request('/fluxo/' + encodeURIComponent(button.data('key')) + '/rollback', 'POST', {expected_revision:button.data('revision'),source_version:source}, function () { loadFlows(); loadFlow(button.data('key')); }); });
     $(document).on('click', '.wa-retry', function () { request('/fila/' + $(this).data('id') + '/retry', 'POST', {}, loadQueue); });
     $(document).on('click', '.wa-rule-save', function () { var row=$(this).closest('tr'); request('/regra/' + row.data('id'), 'POST', {enabled: row.find('.wa-enabled').is(':checked'), public_label: row.find('.wa-label').val(), priority: row.find('.wa-priority').val()}, loadRules); });
     $(document).on('click', '.wa-template-save', function () { var key=$(this).data('key'), body=$(this).siblings('.wa-template-body').val(); request('/template/' + key, 'POST', {body: body, enabled: true}, loadTemplates); });

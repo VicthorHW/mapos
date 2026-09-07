@@ -189,3 +189,25 @@ Pré-atendimentos, Logística, Fluxos, Fila, Logs, Regras, Templates e Configura
 são feitas ao abrir cada aba; leituras recebem apenas uma nova tentativa breve
 para acomodar o aquecimento do Gateway após deploy. Nenhuma ação de escrita é
 repetida automaticamente.
+
+O JavaScript do painel está isolado em
+`assets/tecnina/js/whatsapp-panel.js`; a view contém apenas markup, configuração
+escapada e referências versionadas aos assets. Isso evita que conteúdo dinâmico
+gere novamente erro de parsing no script principal.
+
+## Fase 8.2 — versionamento e edição segura de fluxos
+
+O Flow Studio expõe, sempre via proxy `cSistema`, criação e leitura de draft,
+validação, publicação, histórico, rollback, atualização e exportação para IA.
+O navegador não recebe o token do Gateway e cada gravação usa revisão otimista.
+
+O diagrama usa layout em camadas e curvas para reduzir cruzamentos. O editor
+visual inicial altera labels de nodes e transições; a estrutura declarativa pode
+ser importada/exportada no formato `tecnina-flow-ai/v1`, que inclui instruções e
+whitelists. Importar ou salvar altera apenas DRAFT. A FSM atual continua sendo o
+runtime até uma ativação posterior e controlada.
+
+O simulador permanece sem efeitos externos e apresenta decisões em tabela. O
+modo de teste ponta a ponta com WhatsApp real e o chat-emulador interno estão
+planejados como capacidades separadas, com allowlist e auditoria antes de
+qualquer envio real.

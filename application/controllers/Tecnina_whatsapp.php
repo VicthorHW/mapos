@@ -191,10 +191,22 @@ class Tecnina_whatsapp extends MY_Controller
             $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey));
             return $this->json($result, $result['status']);
         }
+        if ($this->input->method(true) === 'GET' && $action === 'versoes') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/versions');
+            return $this->json($result, $result['status']);
+        }
+        if ($this->input->method(true) === 'GET' && $action === 'draft') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/draft');
+            return $this->json($result, $result['status']);
+        }
+        if ($this->input->method(true) === 'GET' && $action === 'exportar-ia') {
+            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/ai-export');
+            return $this->json($result, $result['status']);
+        }
         if ($this->input->method(true) === 'POST' && $action === 'simular') {
             $scenario = (string) $this->input->post('scenario', true);
             $messages = (array) $this->input->post('messages');
-            if (! in_array($scenario, ['NEW_CUSTOMER', 'EXISTING_CUSTOMER', 'AMBIGUOUS_CUSTOMER', 'HUMAN_LOCK'], true)
+            if (! in_array($scenario, ['NEW_CUSTOMER', 'EXISTING_CUSTOMER', 'AMBIGUOUS_CUSTOMER', 'HUMAN_LOCK', 'MAPOS_OFFLINE', 'PICKUP', 'DROP_OFF', 'LOCATION_PENDING', 'FALLBACK'], true)
                 || count($messages) > 10) {
                 return $this->json(['ok' => false, 'reason' => 'invalid_flow_simulation'], 422);
             }
@@ -211,6 +223,44 @@ class Tecnina_whatsapp extends MY_Controller
                 '/admin/flows/' . rawurlencode($flowKey) . '/simulate',
                 ['scenario' => $scenario, 'messages' => $cleanMessages]
             );
+            return $this->json($result, $result['status']);
+        }
+        if ($this->input->method(true) === 'POST' && in_array($action, ['draft', 'salvar-draft', 'validar', 'publicar', 'rollback'], true)) {
+            $revision = filter_var($this->input->post('expected_revision'), FILTER_VALIDATE_INT);
+            if ($action !== 'validar' && ($revision === false || $revision < 0)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_flow_revision'], 422);
+            }
+            $path = '/admin/flows/' . rawurlencode($flowKey);
+            $payload = [];
+            if ($action === 'draft') {
+                $path .= '/draft';
+                $payload = ['expected_revision' => (int) $revision];
+            } elseif ($action === 'salvar-draft') {
+                $rawDefinition = (string) $this->input->post('definition', false);
+                if ($rawDefinition === '' || strlen($rawDefinition) > 100000) {
+                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_definition'], 422);
+                }
+                $definition = json_decode($rawDefinition, true);
+                if (! is_array($definition) || json_last_error() !== JSON_ERROR_NONE) {
+                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_definition'], 422);
+                }
+                $path .= '/draft/update';
+                $payload = ['expected_revision' => (int) $revision, 'definition' => $definition];
+            } elseif ($action === 'validar') {
+                $path .= '/draft/validate';
+            } elseif ($action === 'publicar') {
+                $path .= '/draft/publish';
+                $payload = ['expected_revision' => (int) $revision];
+            } else {
+                $sourceVersion = filter_var($this->input->post('source_version'), FILTER_VALIDATE_INT);
+                if ($sourceVersion === false || $sourceVersion < 1) {
+                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_revision'], 422);
+                }
+                $path .= '/rollback';
+                $payload = ['expected_revision' => (int) $revision, 'source_version' => (int) $sourceVersion];
+            }
+            $result = $this->tecnina_bot_gateway->request('POST', $path, $payload);
+
             return $this->json($result, $result['status']);
         }
 

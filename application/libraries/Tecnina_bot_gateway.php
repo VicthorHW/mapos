@@ -113,6 +113,11 @@ class Tecnina_bot_gateway
                 'route_blackout',
                 'location_purpose_mismatch',
                 'location_request_closed',
+                'flow_not_found',
+                'flow_version_not_found',
+                'flow_version_missing',
+                'draft_not_found',
+                'stale_flow_revision',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
