@@ -45,9 +45,11 @@
         </div>
     </div>
 </div>
+<script src="<?= base_url(); ?>assets/tecnina/js/whatsapp-panel-diagnostics.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/whatsapp-panel-diagnostics.js'); ?>"></script>
 <script>
 (function ($) {
     'use strict';
+    window.__tecninaWhatsappPanel = {executed: true, booted: false};
     var base = <?= json_encode(site_url('tecnina_whatsapp')) ?>;
     var osEditBase = <?= json_encode(site_url('os/editar')) ?>;
     var csrfName = <?= json_encode($csrfName) ?>, csrfHash = <?= json_encode($csrfHash) ?>;
@@ -231,6 +233,7 @@
     function bootPanel() {
         if (panelBooted) { return; }
         panelBooted = true;
+        window.__tecninaWhatsappPanel.booted = true;
         try {
             loadOverview();
             loadConversations();
