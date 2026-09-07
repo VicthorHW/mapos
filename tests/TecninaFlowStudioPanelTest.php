@@ -28,6 +28,9 @@ expectFlowStudioPanel(strpos($script, 'Copiar pacote para IA') !== false, 'Edito
 expectFlowStudioPanel(strpos($script, 'Salvar rascunho') !== false, 'Editor não diferencia rascunho de publicação.');
 expectFlowStudioPanel(strpos($script, 'nenhum efeito externo') !== false, 'Simulador não esclarece sua segurança.');
 expectFlowStudioPanel(strpos($script, 'LOCATION_PENDING') !== false && strpos($script, 'PICKUP') !== false, 'Cenários de localização não estão disponíveis.');
+expectFlowStudioPanel(strpos($script, 'Chat de teste seguro') !== false, 'Simulador conversacional interno não está disponível.');
+expectFlowStudioPanel(strpos($script, 'Executar testes automáticos') !== false, 'Suíte regressiva do Flow Studio não está disponível.');
+expectFlowStudioPanel(strpos($script, 'flowChats') !== false, 'Estado local do chat simulado não está isolado no navegador.');
 expectFlowStudioPanel(strpos($script, 'Authorization: Bearer') === false, 'Token interno não pode aparecer no JavaScript.');
 expectFlowStudioPanel(strpos($gateway, "'stale_flow_revision'") !== false, 'Conflito de revisão não atravessa o proxy de forma segura.');
 
