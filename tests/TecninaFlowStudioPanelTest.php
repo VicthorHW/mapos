@@ -31,6 +31,8 @@ expectFlowStudioPanel(strpos($script, 'LOCATION_PENDING') !== false && strpos($s
 expectFlowStudioPanel(strpos($script, 'Chat de teste seguro') !== false, 'Simulador conversacional interno não está disponível.');
 expectFlowStudioPanel(strpos($script, 'Executar testes automáticos') !== false, 'Suíte regressiva do Flow Studio não está disponível.');
 expectFlowStudioPanel(strpos($script, 'flowChats') !== false, 'Estado local do chat simulado não está isolado no navegador.');
+expectFlowStudioPanel(strpos($script, 'simulation_scenarios') !== false, 'Cenários do simulador não são definidos pelo contrato de cada fluxo.');
+expectFlowStudioPanel(strpos($script, 'TRANSACTIONAL_HELD') !== false && strpos($script, 'LOCATION_LOW_ACCURACY') !== false, 'Roteiros transacionais e de localização não estão cobertos.');
 expectFlowStudioPanel(strpos($script, 'Authorization: Bearer') === false, 'Token interno não pode aparecer no JavaScript.');
 expectFlowStudioPanel(strpos($gateway, "'stale_flow_revision'") !== false, 'Conflito de revisão não atravessa o proxy de forma segura.');
 
