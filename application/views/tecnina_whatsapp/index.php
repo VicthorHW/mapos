@@ -89,7 +89,7 @@
     }
     function request(path, method, data, done, retryAttempt) {
         data = data || {}; if (method !== 'GET') { data[csrfName] = csrfHash; }
-        return $.ajax({url: base + path, method: method, data: data, dataType: 'json'})
+        return $.ajax({url: base + path, method: method, data: data, dataType: 'json', timeout: 12000})
             .done(function (response) { if (response.csrf) { csrfHash = response.csrf; } if (!response.ok) { error(reasonMessage(response.reason)); return; } $('#wa-error').hide(); done(response.data); })
             .fail(function (xhr) {
                 var response=xhr.responseJSON || {}; if (response.csrf) { csrfHash=response.csrf; }
@@ -223,6 +223,25 @@
         else if (target === '#wa-templates') { loadTemplates(); }
         else if (target === '#wa-config') { loadSettings(); }
     });
-    loadOverview(); loadConversations();
+    // This view is rendered inside the legacy MapOS layout. Start only after the
+    // document is ready so the first data requests cannot be lost while the
+    // layout scripts are still initializing. The short fallback also covers a
+    // browser that has already passed jQuery's ready event.
+    var panelBooted = false;
+    function bootPanel() {
+        if (panelBooted) { return; }
+        panelBooted = true;
+        try {
+            loadOverview();
+            loadConversations();
+        } catch (exception) {
+            error('Não foi possível iniciar o painel do WhatsApp. Atualize a página e tente novamente.');
+            if (window.console && window.console.error) {
+                window.console.error('TecNina WhatsApp panel initialization failed.', exception);
+            }
+        }
+    }
+    $(bootPanel);
+    window.setTimeout(bootPanel, 500);
 }(jQuery));
 </script>
