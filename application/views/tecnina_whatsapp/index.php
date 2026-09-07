@@ -45,14 +45,24 @@
         </div>
     </div>
 </div>
+<div
+    id="wa-panel-config"
+    data-base="<?= html_escape(site_url('tecnina_whatsapp')); ?>"
+    data-os-edit-base="<?= html_escape(site_url('os/editar')); ?>"
+    data-csrf-name="<?= html_escape($csrfName); ?>"
+    data-csrf-hash="<?= html_escape($csrfHash); ?>"
+    style="display:none"
+></div>
 <script src="<?= base_url(); ?>assets/tecnina/js/whatsapp-panel-diagnostics.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/whatsapp-panel-diagnostics.js'); ?>"></script>
 <script>
 (function ($) {
     'use strict';
     window.__tecninaWhatsappPanel = {executed: true, booted: false};
-    var base = <?= json_encode(site_url('tecnina_whatsapp')) ?>;
-    var osEditBase = <?= json_encode(site_url('os/editar')) ?>;
-    var csrfName = <?= json_encode($csrfName) ?>, csrfHash = <?= json_encode($csrfHash) ?>;
+    var panelConfig = $('#wa-panel-config');
+    var base = String(panelConfig.attr('data-base') || '');
+    var osEditBase = String(panelConfig.attr('data-os-edit-base') || '');
+    var csrfName = String(panelConfig.attr('data-csrf-name') || '');
+    var csrfHash = String(panelConfig.attr('data-csrf-hash') || '');
     var runtimeNotifications = false;
     function esc(value) { return $('<div>').text(value == null ? '' : value).html(); }
     function error(message) { $('#wa-error').text(message || 'Não foi possível comunicar com o Gateway.').show(); }
