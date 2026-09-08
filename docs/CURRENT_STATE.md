@@ -28,7 +28,10 @@ Scope: MapOS fork TecNina / estado atual
 
 ## Estado do snapshot
 
-Branch `master`, HEAD `8d0fcf2`, com alterações locais ainda não commitadas. Os 13 scripts definidos pela suíte MapOS foram registrados como aprovados no snapshot, além de `node --check`, `php -l` e `git diff --check`.
+Branch `master`, HEAD `d9ff0a0`, com alterações funcionais locais ainda não
+commitadas. Os 13 scripts do `composer test`, `php -l` do controller alterado,
+`node --check` do painel e `git diff --check` foram aprovados localmente para
+`CR-20260908-RUNTIME-CLEANUP`.
 
 ## Confirmações no repositório real
 
@@ -38,6 +41,8 @@ Branch `master`, HEAD `8d0fcf2`, com alterações locais ainda não commitadas. 
 - `tests/TecninaIntakeApprovalTest.php` verifica rota e instalação;
 - o mecanismo antigo de código de oito caracteres não está exposto pelo painel; endpoints residuais retornam desativação explícita;
 - a UI e o proxy do Flow Studio estão removidos; testes de regressão cobrem essa ausência.
+- o painel não oferece emissão manual do link legado de localização; a coleta é
+  iniciada automaticamente pelo fluxo vigente do Gateway em `/g/{token}`.
 
 ## Legado que não deve orientar novas mudanças
 
@@ -50,3 +55,6 @@ Branch `master`, HEAD `8d0fcf2`, com alterações locais ainda não commitadas. 
 - limpar dados de teste do MapOS de forma controlada;
 - deploy antes do Gateway;
 - validar contratos `/api/bot/*`, outbox, painel, intake e notificações em ambiente real.
+
+O escopo funcional CURRENT não possui implementação local pendente conhecida;
+os itens acima pertencem à preparação de release e à validação operacional.

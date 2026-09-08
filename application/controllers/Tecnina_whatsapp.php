@@ -34,7 +34,6 @@ class Tecnina_whatsapp extends MY_Controller
         $paths = [
             'overview' => '/admin/overview',
             'conversations' => '/admin/conversations',
-            'flows' => '/admin/flows',
             'intakes' => '/admin/intakes',
             'intake-history' => '/admin/intakes-history',
             'logistics-overview' => '/admin/logistics/overview',
@@ -180,103 +179,11 @@ class Tecnina_whatsapp extends MY_Controller
         if (! ctype_digit((string) $conversationId)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
         }
-        if ($this->input->method(true) === 'GET' && $action === 'flow-observer') {
-            $result = $this->tecnina_bot_gateway->request('GET', '/admin/conversations/' . $conversationId . '/flow-observer');
-            return $this->json($result, $result['status']);
-        }
         if ($this->input->method(true) !== 'POST' || ! in_array($action, ['manual-lock', 'resume'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
         }
         $result = $this->tecnina_bot_gateway->request('POST', '/admin/conversations/' . $conversationId . '/' . $action, []);
         return $this->json($result, $result['status']);
-    }
-
-    public function fluxo($flowKey = '', $action = '')
-    {
-        if (! $this->authorized(true)) {
-            return;
-        }
-        if (! preg_match('/^[a-z0-9_]{1,64}$/', (string) $flowKey)) {
-            return $this->json(['ok' => false, 'reason' => 'invalid_flow_key'], 400);
-        }
-        if ($this->input->method(true) === 'GET' && $action === '') {
-            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey));
-            return $this->json($result, $result['status']);
-        }
-        if ($this->input->method(true) === 'GET' && $action === 'versoes') {
-            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/versions');
-            return $this->json($result, $result['status']);
-        }
-        if ($this->input->method(true) === 'GET' && $action === 'draft') {
-            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/draft');
-            return $this->json($result, $result['status']);
-        }
-        if ($this->input->method(true) === 'GET' && $action === 'exportar-ia') {
-            $result = $this->tecnina_bot_gateway->request('GET', '/admin/flows/' . rawurlencode($flowKey) . '/ai-export');
-            return $this->json($result, $result['status']);
-        }
-        if ($this->input->method(true) === 'POST' && $action === 'simular') {
-            $scenario = (string) $this->input->post('scenario', true);
-            $messages = (array) $this->input->post('messages');
-            if (! in_array($scenario, ['NEW_CUSTOMER', 'EXISTING_CUSTOMER', 'AMBIGUOUS_CUSTOMER', 'HUMAN_LOCK', 'MAPOS_OFFLINE', 'PICKUP', 'DROP_OFF', 'LOCATION_PENDING', 'FALLBACK'], true)
-                || count($messages) > 10) {
-                return $this->json(['ok' => false, 'reason' => 'invalid_flow_simulation'], 422);
-            }
-            $cleanMessages = [];
-            foreach ($messages as $message) {
-                $message = trim((string) $message);
-                if ($message === '' || mb_strlen($message) > 500) {
-                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_simulation'], 422);
-                }
-                $cleanMessages[] = $message;
-            }
-            $result = $this->tecnina_bot_gateway->request(
-                'POST',
-                '/admin/flows/' . rawurlencode($flowKey) . '/simulate',
-                ['scenario' => $scenario, 'messages' => $cleanMessages]
-            );
-            return $this->json($result, $result['status']);
-        }
-        if ($this->input->method(true) === 'POST' && in_array($action, ['draft', 'salvar-draft', 'validar', 'publicar', 'rollback'], true)) {
-            $revision = filter_var($this->input->post('expected_revision'), FILTER_VALIDATE_INT);
-            if ($action !== 'validar' && ($revision === false || $revision < 0)) {
-                return $this->json(['ok' => false, 'reason' => 'invalid_flow_revision'], 422);
-            }
-            $path = '/admin/flows/' . rawurlencode($flowKey);
-            $payload = [];
-            if ($action === 'draft') {
-                $path .= '/draft';
-                $payload = ['expected_revision' => (int) $revision];
-            } elseif ($action === 'salvar-draft') {
-                $rawDefinition = (string) $this->input->post('definition', false);
-                if ($rawDefinition === '' || strlen($rawDefinition) > 100000) {
-                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_definition'], 422);
-                }
-                $definition = json_decode($rawDefinition, true);
-                if (! is_array($definition) || json_last_error() !== JSON_ERROR_NONE) {
-                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_definition'], 422);
-                }
-                $path .= '/draft/update';
-                $payload = ['expected_revision' => (int) $revision, 'definition' => $definition];
-            } elseif ($action === 'validar') {
-                $path .= '/draft/validate';
-            } elseif ($action === 'publicar') {
-                $path .= '/draft/publish';
-                $payload = ['expected_revision' => (int) $revision];
-            } else {
-                $sourceVersion = filter_var($this->input->post('source_version'), FILTER_VALIDATE_INT);
-                if ($sourceVersion === false || $sourceVersion < 1) {
-                    return $this->json(['ok' => false, 'reason' => 'invalid_flow_revision'], 422);
-                }
-                $path .= '/rollback';
-                $payload = ['expected_revision' => (int) $revision, 'source_version' => (int) $sourceVersion];
-            }
-            $result = $this->tecnina_bot_gateway->request('POST', $path, $payload);
-
-            return $this->json($result, $result['status']);
-        }
-
-        return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
     }
 
     public function fila($jobId = 0, $action = '')
@@ -374,7 +281,7 @@ class Tecnina_whatsapp extends MY_Controller
         if (
             $this->input->method(true) !== 'POST'
             || ! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $appointmentId)
-            || ! in_array($action, ['confirm', 'cancel', 'complete', 'reschedule-required', 'location-request'], true)
+            || ! in_array($action, ['confirm', 'cancel', 'complete', 'reschedule-required'], true)
         ) {
             return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 400);
         }
@@ -382,14 +289,11 @@ class Tecnina_whatsapp extends MY_Controller
         if ($operatorId < 1) {
             return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
         }
-        $payload = ['operator_id' => $operatorId];
-        if ($action !== 'location-request') {
-            $version = filter_var($this->input->post('state_version'), FILTER_VALIDATE_INT);
-            if ($version === false || $version < 0) {
-                return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
-            }
-            $payload['expected_version'] = $version;
+        $version = filter_var($this->input->post('state_version'), FILTER_VALIDATE_INT);
+        if ($version === false || $version < 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_logistics_action'], 422);
         }
+        $payload = ['operator_id' => $operatorId, 'expected_version' => $version];
         $result = $this->tecnina_bot_gateway->request(
             'POST',
             '/admin/logistics/appointments/' . rawurlencode($appointmentId) . '/' . $action,

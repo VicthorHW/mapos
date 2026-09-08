@@ -7,9 +7,15 @@ Scope: MapOS fork TecNina / pendências
 
 # Roadmap — MapOS TecNina
 
-## P0
+## Desenvolvimento
 
-- revisar/commit das alterações locais vigentes;
+O escopo funcional CURRENT não possui implementação local pendente conhecida.
+Funcionalidades novas exigem change request próprio.
+
+## P0 — preparação de release
+
+- revisar e, mediante autorização, fazer commit/push das alterações locais
+  validadas de `CR-20260908-RUNTIME-CLEANUP`;
 - executar limpeza controlada de homologação (`TECNINA_TEST_DATA_RESET.md`);
 
 ## P1

@@ -15,7 +15,6 @@
                     <li><a href="#wa-intakes" data-toggle="tab">Pré-atendimentos</a></li>
                     <li><a href="#wa-logistica" data-toggle="tab">Logística</a></li>
                     <li><a href="#wa-cidades" data-toggle="tab">Cidades com coleta</a></li>
-                    <li><a href="#wa-fluxos" data-toggle="tab">Fluxos</a></li>
                     <li><a href="#wa-fila" data-toggle="tab">Fila</a></li>
                     <li><a href="#wa-logs" data-toggle="tab">Logs</a></li>
                     <li><a href="#wa-regras" data-toggle="tab">Regras de status</a></li>
@@ -27,7 +26,6 @@
                     <div class="tab-pane" id="wa-intakes"><div id="wa-intakes-list">Carregando…</div><div id="wa-intake-detail"></div></div>
                     <div class="tab-pane" id="wa-logistica">
                         <div id="wa-logistics-overview">Carregando…</div>
-                        <div id="wa-logistics-location-link"></div>
                         <div id="wa-logistics-appointments"></div>
                         <div id="wa-logistics-zones"></div>
                         <div id="wa-logistics-routes"></div>
@@ -35,11 +33,6 @@
                         <div id="wa-logistics-profiles"></div>
                     </div>
                     <div class="tab-pane" id="wa-cidades"><div id="wa-pickup-cities">As cidades habilitadas para coleta serão configuradas nesta área.</div></div>
-                    <div class="tab-pane" id="wa-fluxos">
-                        <div id="wa-flow-observer"></div>
-                        <div id="wa-flows-list">Carregando…</div>
-                        <div id="wa-flow-detail"></div>
-                    </div>
                     <div class="tab-pane" id="wa-fila"><div id="wa-queue">Carregando…</div></div>
                     <div class="tab-pane" id="wa-logs"><div id="wa-logs-list">Carregando…</div></div>
                     <div class="tab-pane" id="wa-regras"><div id="wa-rules">Carregando…</div></div>

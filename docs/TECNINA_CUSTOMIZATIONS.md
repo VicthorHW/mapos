@@ -18,9 +18,9 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-03 | Identificação de cliente por telefone | CURRENT | `/api/bot/client/by-phone` | teste de ambiguidade/whitelist |
 | MAP-04 | Painel Configurações → WhatsApp | CURRENT | controller, gateway client, view, JS | autorização `cSistema` |
 | MAP-05 | Revisão e aprovação de intake | CURRENT | painel + endpoint/model de aprovação | idempotência/concorrência |
-| MAP-06 | Configuração logística/coleta | CURRENT | proxy/admin UI | sem colunas logísticas na OS |
+| MAP-06 | Configuração logística/coleta | CURRENT | `application/controllers/Tecnina_whatsapp.php`, `application/views/tecnina_whatsapp/index.php`, `assets/tecnina/js/whatsapp-panel.js` | sem colunas logísticas na OS; sem emissor manual `/l` |
 | MAP-07 | Carregamento incremental do painel | CURRENT | `assets/tecnina/js/whatsapp-panel.js` | leitura retry breve; escrita sem retry automático |
-| MAP-08 | OS abertas por cliente para consulta atual | IMPLEMENTED_LOCAL / VERIFY | contrato `/api/bot/client/{client_id}/open-os` | confirmar arquivos/teste no repo real |
+| MAP-08 | OS abertas por cliente para consulta atual | CURRENT | `application/controllers/api/bot/Client_open_os.php`, `application/models/Tecnina_client_open_os_model.php`, `application/config/routes.php` | `tests/TecninaIntakeApprovalTest.php` |
 | MAP-09 | Flow Studio | SUPERSEDED/REMOVED | antiga aba/proxy | não reativar; histórico em archive |
 | MAP-10 | Código de 8 caracteres / consulta por OS | SUPERSEDED | rota/status + UI antiga | fluxo atual usa telefone + OS abertas |
 
@@ -29,8 +29,6 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 Sempre que uma customização alterar arquivo original do MapOS, registrar:
 
 `arquivo | motivo | por que é necessário | alternativa considerada | teste que protege a alteração`.
-
-O agente com acesso ao repositório deve atualizar esta tabela com os caminhos exatos do endpoint `open-os` após confirmação do código real.
 
 ## Regras de manutenção
 
