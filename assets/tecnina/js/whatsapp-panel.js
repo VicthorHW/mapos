@@ -210,16 +210,33 @@
     }); }
     function loadFlowHistory(key, revision) { request('/fluxo/' + encodeURIComponent(key) + '/versoes', 'GET', null, function(rows) { var h='<hr><strong>Histórico de versões</strong><br><select class="wa-flow-rollback-version">'; $.each(rows,function(_,row){ h+='<option value="'+esc(row.version)+'">v'+esc(row.version)+' — '+esc(row.state)+' — '+esc(row.checksum)+'</option>'; }); h+='</select> <button class="btn btn-mini wa-flow-rollback" data-key="'+esc(key)+'" data-revision="'+esc(revision)+'">Restaurar como nova versão</button>'; $('#wa-flow-history').html(h); }); }
     function observeFlow(id) { request('/conversa/' + id + '/flow-observer', 'GET', null, function(d) { $('#wa-flow-observer').html('<div class="alert alert-info"><strong>Conversa observada:</strong> ' + esc(d.flow_key) + ' · nó atual <code>' + esc(d.current_node) + '</code><br><small>' + esc((d.trace && d.trace[0] && d.trace[0].reason) || '') + '</small></div>'); loadFlow(d.flow_key, d.current_node); }); }
+    function intakeTable(rows, historical) {
+        if (!rows.length) { return '<p class="muted">' + (historical ? 'Nenhum histórico disponível.' : 'Nenhum pré-atendimento aguardando revisão.') + '</p>'; }
+        var h = '<table class="table table-bordered"><thead><tr><th>Atualizado</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th>Cidade</th><th>Status</th><th></th></tr></thead><tbody>';
+        $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.ready_at || r.updated_at || '—') + '</td><td>' + esc(r.phone_display) + '</td><td>' + esc(r.name || 'Cliente já cadastrado') + '</td><td>' + esc(r.equipment) + '</td><td>' + esc(r.city) + '</td><td>' + esc(r.status) + '</td><td><button class="btn btn-mini ' + (historical ? '' : 'btn-primary') + ' wa-intake-open" data-id="' + esc(r.id) + '">' + (historical ? 'Consultar' : 'Revisar') + '</button></td></tr>'; });
+        return h + '</tbody></table>';
+    }
     function loadIntakes() { request('/dados/intakes', 'GET', null, function (rows) {
-        var h = '<table class="table table-bordered"><thead><tr><th>Recebido</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th>Cidade</th><th>Status</th><th></th></tr></thead><tbody>';
-        $.each(rows, function(_, r) { h += '<tr><td>' + esc(r.ready_at || '—') + '</td><td>' + esc(r.phone_display) + '</td><td>' + esc(r.name || 'Cliente já cadastrado') + '</td><td>' + esc(r.equipment) + '</td><td>' + esc(r.city) + '</td><td>' + esc(r.status) + '</td><td><button class="btn btn-mini btn-primary wa-intake-open" data-id="' + esc(r.id) + '">Revisar</button></td></tr>'; });
-        $('#wa-intakes-list').html(rows.length ? h + '</tbody></table>' : '<p>Nenhum pré-atendimento aguardando revisão.</p>');
+        request('/dados/intake-history', 'GET', null, function (history) {
+            $('#wa-intakes-list').html('<h5>Aguardando revisão</h5>' + intakeTable(rows, false) + '<hr><h5>Histórico preservado</h5>' + intakeTable(history, true));
+        });
     }); }
     function loadIntake(id) { request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (d) {
         var pickup = d.service_mode === 'PICKUP_REQUESTED';
+        var actionable = d.status === 'READY' || d.status === 'UNDER_REVIEW';
         var existingId = d.possible_mapos_client_id || '';
         var linkChecked = existingId ? ' checked' : '';
         var createChecked = existingId ? '' : ' checked';
+        var pickupDetail = '';
+        if (pickup) {
+            pickupDetail = '<div class="well well-small"><strong>Coleta confirmada pelo cliente</strong><br>' +
+                esc((d.street || '—') + ', ' + (d.street_number || '—') + ' — ' + (d.neighborhood || '—')) + '<br>' +
+                esc((d.city || '—') + '/' + (d.address_state || 'PR') + ' — CEP ' + (d.postal_code || '—')) +
+                (d.complement ? '<br><strong>Complemento:</strong> ' + esc(d.complement) : '') +
+                (d.reference ? '<br><strong>Referência:</strong> ' + esc(d.reference) : '') +
+                '<br><strong>Taxa:</strong> ' + esc(d.pickup_fee == null ? 'A confirmar pela equipe' : 'R$ ' + d.pickup_fee) +
+                '<br><strong>GPS opcional:</strong> ' + (d.gps_available ? 'Recebido (' + esc(d.gps_source || 'origem registrada') + ')' : 'Não informado') + '</div>';
+        }
         var h = '<div class="well wa-intake-form" data-id="' + esc(d.id) + '" data-version="' + esc(d.review_version) + '">' +
             '<h5>Pré-atendimento ' + esc(d.id) + '</h5><p><strong>WhatsApp:</strong> ' + esc(d.phone_display) + '</p>' +
             '<div class="row-fluid"><div class="span6"><label>Nome</label><input class="input-block-level wa-i-name" maxlength="120" value="' + esc(d.name || '') + '"></div>' +
@@ -229,6 +246,7 @@
             '<div class="span4"><label>Modelo</label><input class="input-block-level wa-i-model" maxlength="120" value="' + esc(d.model || '') + '"></div></div>' +
             '<label>Problema informado</label><textarea class="input-block-level wa-i-problem" maxlength="2000" rows="4">' + esc(d.problem_description || '') + '</textarea>' +
             '<label>Forma de atendimento</label><select class="wa-i-mode"><option value="DROP_OFF"' + (!pickup ? ' selected' : '') + '>Cliente traz o equipamento</option><option value="PICKUP_REQUESTED"' + (pickup ? ' selected' : '') + '>Solicitação de coleta</option></select>' +
+            pickupDetail +
             '<label>Observações internas</label><textarea class="input-block-level wa-i-notes" maxlength="2000" rows="3">' + esc(d.notes || '') + '</textarea>' +
             '<div class="well well-small"><strong>Destino no MapOS</strong>' +
             '<label class="radio"><input type="radio" name="wa-client-action" value="LINK_EXISTING"' + linkChecked + '> Vincular cliente existente</label>' +
@@ -236,8 +254,9 @@
             '<label class="radio"><input type="radio" name="wa-client-action" value="CREATE_NEW"' + createChecked + '> Criar novo cliente</label>' +
             '<label class="checkbox"><input class="wa-i-force-create" type="checkbox"> Confirmo criar mesmo se o telefone já estiver cadastrado</label>' +
             '<p class="muted">Salve eventuais alterações acima antes de aprovar. A credencial do aparelho ficará como não informada para coleta na triagem física.</p></div>' +
-            '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-success wa-intake-approve">Aprovar e criar OS</button> <button class="btn btn-danger wa-intake-reject">Descartar</button> <button class="btn wa-intake-close">Fechar</button></div>';
+            (actionable ? '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-success wa-intake-approve">Aprovar e criar OS</button> <button class="btn btn-danger wa-intake-reject">Descartar</button> ' : '<div class="alert alert-info">Registro histórico somente para consulta. Etapa final: <code>' + esc(d.stage || '—') + '</code>.</div>') + '<button class="btn wa-intake-close">Fechar</button></div>';
         $('#wa-intake-detail').html(h);
+        if (!actionable) { $('#wa-intake-detail').find('input,select,textarea').prop('disabled', true); }
     }); }
     function loadQueue() { request('/dados/queue', 'GET', null, function (rows) {
         var h = '<table class="table table-bordered"><thead><tr><th>OS</th><th>Cliente</th><th>Status</th><th>Estado</th><th>Tentativas</th><th>Erro</th><th></th></tr></thead><tbody>';
@@ -258,23 +277,20 @@
         var h = ''; $.each(rows, function(_, r) { h += '<div class="well"><strong>' + esc(r.template_key) + ' v' + esc(r.version) + '</strong><br><textarea class="wa-template-body input-xxlarge" rows="5" data-key="' + esc(r.template_key) + '">' + esc(r.body) + '</textarea><br><button class="btn btn-mini wa-template-save" data-key="' + esc(r.template_key) + '">Salvar nova versão</button></div>'; });
         $('#wa-templates-list').html(h || '<p>Nenhum template disponível.</p>');
     }); }
-    function osAccessBox() {
-        return '<hr><h5>Acesso seguro ao status da OS pelo WhatsApp</h5>' +
-            '<p class="muted">Gere um código específico por OS. O código aparece somente uma vez e permite consultar apenas o status público; detalhes continuam restritos à Área do Cliente.</p>' +
-            '<div class="input-append"><input id="wa-os-access-id" class="input-small" type="number" min="1" step="1" placeholder="Nº da OS">' +
-            '<button class="btn wa-os-access-status">Consultar</button> <button class="btn btn-primary wa-os-access-rotate">Gerar/rotacionar</button> <button class="btn btn-danger wa-os-access-revoke">Revogar</button></div>' +
-            '<div id="wa-os-access-result" style="margin-top:10px"></div>';
+    function loadSettings() { request('/dados/settings', 'GET', null, function (d) { var runtime = runtimeNotifications ? '' : '<div class="alert alert-warning">O kill switch STATUS_NOTIFICATIONS_ENABLED do Gateway está desligado. Esta opção será salva, mas nenhum envio ocorrerá até ele ser habilitado em um deploy controlado.</div>'; $('#wa-settings').html('<label class="checkbox"><input id="wa-notifications" type="checkbox"' + (d.enabled ? ' checked' : '') + '> Habilitar notificações transacionais de status</label><p class="muted">O interruptor de segurança do ambiente também precisa estar habilitado para qualquer envio ocorrer.</p>' + runtime); }); }
+    function pickupModeLabel(mode) { return {FIXED_FEE:'Taxa fixa',NEIGHBORHOOD:'Por bairro',MANUAL_QUOTE:'Valor definido pela equipe'}[mode] || mode; }
+    function renderPickupCities(rows) {
+        var h='<div class="alert alert-info"><strong>Coleta configurável.</strong> O bot usa somente cidades ativas e nunca inventa uma taxa. Morretes pode usar taxa fixa; Antonina permanece em cotação manual até os bairros oficiais serem cadastrados.</div>';
+        $.each(rows,function(_,city){
+            var rates=''; $.each(city.neighborhood_rates || [],function(_,rate){rates+='<tr><td>'+esc(rate.neighborhood)+'</td><td>R$ '+esc(rate.fee)+'</td><td>'+(rate.active?'Sim':'Não')+'</td><td><button class="btn btn-mini btn-danger wa-pickup-rate-delete" data-city="'+city.id+'" data-id="'+rate.id+'">Excluir</button></td></tr>';});
+            h+='<div class="well wa-pickup-city" data-id="'+city.id+'"><h5>'+esc(city.city)+' / '+esc(city.uf)+'</h5><div class="row-fluid"><div class="span3"><label>Cidade</label><input class="input-block-level wa-pc-city" maxlength="120" value="'+esc(city.city)+'"></div><div class="span2"><label>UF</label><input class="input-small wa-pc-uf" maxlength="2" value="'+esc(city.uf)+'"></div><div class="span3"><label>Precificação</label><select class="wa-pc-mode"><option value="FIXED_FEE"'+(city.pricing_mode==='FIXED_FEE'?' selected':'')+'>Taxa fixa</option><option value="NEIGHBORHOOD"'+(city.pricing_mode==='NEIGHBORHOOD'?' selected':'')+'>Por bairro</option><option value="MANUAL_QUOTE"'+(city.pricing_mode==='MANUAL_QUOTE'?' selected':'')+'>Definida pela equipe</option></select></div><div class="span2"><label>Taxa fixa</label><input class="input-small wa-pc-fee" type="number" min="0" step="0.01" value="'+esc(city.flat_fee || '')+'"></div><div class="span2"><label class="checkbox"><input class="wa-pc-active" type="checkbox"'+(city.active?' checked':'')+'> Ativa</label><button class="btn btn-primary wa-pickup-city-save">Salvar</button></div></div><p class="muted">Modo atual: '+esc(pickupModeLabel(city.pricing_mode))+'</p>';
+            if(city.pricing_mode==='NEIGHBORHOOD'){h+='<table class="table table-bordered table-condensed"><thead><tr><th>Bairro</th><th>Taxa</th><th>Ativo</th><th></th></tr></thead><tbody>'+(rates||'<tr><td colspan="4">Nenhum bairro oficial cadastrado. O bot encaminhará a cotação para a equipe.</td></tr>')+'</tbody></table><div class="form-inline"><input class="wa-pr-name" maxlength="120" placeholder="Nome oficial do bairro"> <input class="input-small wa-pr-fee" type="number" min="0" step="0.01" placeholder="Taxa"> <label class="checkbox"><input class="wa-pr-active" type="checkbox" checked> Ativo</label> <button class="btn wa-pickup-rate-save">Adicionar/atualizar bairro</button></div>';}
+            h+='</div>';
+        });
+        h+='<div class="well wa-pickup-city" data-id="0"><h5>Adicionar cidade</h5><div class="form-inline"><input class="wa-pc-city" maxlength="120" placeholder="Cidade"> <input class="input-mini wa-pc-uf" maxlength="2" value="PR"> <select class="wa-pc-mode"><option value="MANUAL_QUOTE">Definida pela equipe</option><option value="FIXED_FEE">Taxa fixa</option><option value="NEIGHBORHOOD">Por bairro</option></select> <input class="input-small wa-pc-fee" type="number" min="0" step="0.01" placeholder="Taxa fixa"> <label class="checkbox inline"><input class="wa-pc-active" type="checkbox" checked> Ativa</label> <button class="btn btn-primary wa-pickup-city-save">Adicionar</button></div></div>';
+        $('#wa-pickup-cities').html(h);
     }
-    function validOsAccessId() {
-        var value=$.trim($('#wa-os-access-id').val());
-        if(!/^\d+$/.test(value) || Number(value)<1){error(reasonMessage('invalid_os_id'));return null;}
-        return Number(value);
-    }
-    function renderOsAccessStatus(d) {
-        var status=d.active ? '<span class="label label-success">Ativo</span>' : '<span class="label">Inativo</span>';
-        $('#wa-os-access-result').html('<div class="well well-small">OS #'+esc(d.os_id)+' · '+status+'<br><small>Final do código: '+esc(d.code_hint || '—')+' · Expiração: '+esc(d.expires_at || '—')+'</small></div>');
-    }
-    function loadSettings() { request('/dados/settings', 'GET', null, function (d) { var runtime = runtimeNotifications ? '' : '<div class="alert alert-warning">O kill switch STATUS_NOTIFICATIONS_ENABLED do Gateway está desligado. Esta opção será salva, mas nenhum envio ocorrerá até ele ser habilitado em um deploy controlado.</div>'; $('#wa-settings').html('<label class="checkbox"><input id="wa-notifications" type="checkbox"' + (d.enabled ? ' checked' : '') + '> Habilitar notificações transacionais de status</label><p class="muted">O interruptor de segurança do ambiente também precisa estar habilitado para qualquer envio ocorrer.</p>' + runtime + osAccessBox()); }); }
+    function loadPickupCities() { request('/dados/pickup-cities','GET',null,renderPickupCities); }
     var logisticsZones = [], logisticsRoutes = [], logisticsCapacity = [], logisticsProfiles = [];
     function byId(rows, id) { var found=null; $.each(rows, function(_, row) { if (String(row.id) === String(id)) { found=row; return false; } }); return found; }
     function optionList(rows, selected) { var h=''; selected=selected || []; $.each(rows, function(_, row) { h += '<option value="' + esc(row.id) + '"' + ($.inArray(Number(row.id), $.map(selected, Number)) >= 0 ? ' selected' : '') + '>' + esc(row.name || row.label || row.rule_key) + '</option>'; }); return h; }
@@ -316,10 +332,9 @@
     $(document).on('click', '.wa-intake-approve', function () { var button=$(this), form=button.closest('.wa-intake-form'), action=form.find('input[name="wa-client-action"]:checked').val(), force=form.find('.wa-i-force-create').is(':checked'); if (action === 'CREATE_NEW' && force && !window.confirm('Confirma a criação de um cliente duplicado com o mesmo telefone?')) { return; } button.prop('disabled',true); request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/approve', 'POST', {review_version: form.data('version'), client_action: action, client_id: form.find('.wa-i-client-id').val(), force_create_new: force}, function (d) { $('#wa-intake-detail').html('<div class="alert alert-success">OS #' + esc(d.mapos_os_id) + ' criada com sucesso. <a href="' + esc(osEditBase + '/' + d.mapos_os_id) + '">Abrir OS</a></div>'); loadIntakes(); }).always(function () { button.prop('disabled',false); }); });
     $(document).on('click', '.wa-intake-reject', function () { var form=$(this).closest('.wa-intake-form'), reason=window.prompt('Informe o motivo do descarte:'); if (reason === null) { return; } request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/reject', 'POST', {review_version: form.data('version'), reason: reason}, function () { $('#wa-intake-detail').empty(); loadIntakes(); }); });
     $(document).on('change', '#wa-notifications', function () { request('/notificacoes', 'POST', {enabled: $(this).is(':checked')}, loadSettings); });
-    $(document).on('click', '.wa-os-access-status', function () { var osId=validOsAccessId(); if(!osId){return;} request('/os_acesso/'+osId, 'GET', null, renderOsAccessStatus); });
-    $(document).on('click', '.wa-os-access-rotate', function () { var button=$(this),osId=validOsAccessId(); if(!osId||!window.confirm('Gerar um novo código invalida o código e as sessões anteriores desta OS. Continuar?')){return;} button.prop('disabled',true); request('/os_acesso/'+osId+'/rotate','POST',{},function(d){$('#wa-os-access-result').html('<div class="alert alert-success"><strong>Código exibido uma única vez para a OS #'+esc(d.os_id)+':</strong><br><code class="wa-os-access-code" style="font-size:20px;letter-spacing:2px">'+esc(d.code)+'</code> <button class="btn btn-mini wa-os-access-copy">Copiar</button><br><small>Compartilhe somente com o cliente desta OS. Expira em '+esc(d.expires_at)+'.</small></div>');}).always(function(){button.prop('disabled',false);}); });
-    $(document).on('click', '.wa-os-access-revoke', function () { var button=$(this),osId=validOsAccessId(); if(!osId||!window.confirm('Revogar o acesso ao status desta OS?')){return;} button.prop('disabled',true); request('/os_acesso/'+osId+'/revoke','POST',{},function(){loadSettings();}).always(function(){button.prop('disabled',false);}); });
-    $(document).on('click', '.wa-os-access-copy', function () { var value=$('.wa-os-access-code').text(); if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(value);} });
+    $(document).on('click', '.wa-pickup-city-save', function () { var form=$(this).closest('.wa-pickup-city'), fee=form.find('.wa-pc-fee').val(); request('/coleta/save-city','POST',{city:$.trim(form.find('.wa-pc-city').val()),uf:$.trim(form.find('.wa-pc-uf').val()),pricing_mode:form.find('.wa-pc-mode').val(),flat_fee:fee===''?'':fee,active:form.find('.wa-pc-active').is(':checked')},loadPickupCities); });
+    $(document).on('click', '.wa-pickup-rate-save', function () { var form=$(this).closest('.wa-pickup-city'), cityId=form.data('id'); request('/coleta/save-neighborhood/'+cityId,'POST',{neighborhood:$.trim(form.find('.wa-pr-name').val()),fee:form.find('.wa-pr-fee').val(),active:form.find('.wa-pr-active').is(':checked')},loadPickupCities); });
+    $(document).on('click', '.wa-pickup-rate-delete', function () { var button=$(this); if(!window.confirm('Excluir esta regra de bairro?')){return;} request('/coleta/delete-neighborhood/'+button.data('city')+'/'+button.data('id'),'POST',{},loadPickupCities); });
     $(document).on('click', '.wa-log-action', function () { var button=$(this), action=button.data('action'); if ((action === 'cancel' || action === 'complete') && !window.confirm('Confirma esta ação logística?')) { return; } button.prop('disabled', true); request('/logistica_appointment/' + encodeURIComponent(button.data('id')) + '/' + action, 'POST', {state_version: button.data('version')}, function (d) { if (action === 'location-request') { $('#wa-logistics-location-link').html('<div class="alert alert-success"><strong>Link temporário:</strong> <a target="_blank" rel="noopener noreferrer" href="' + esc(d.url) + '">' + esc(d.url) + '</a><br><small>Expira em ' + esc(d.expires_at) + '. Compartilhe somente com o cliente deste atendimento.</small></div>'); } loadLogistics(); }).always(function () { button.prop('disabled', false); }); });
     $(document).on('click', '.wa-log-zone-save', function () { var form=$(this).closest('.wa-log-zone-form'), ranges=parsePostalRanges(form.find('.wa-lz-postals').val()), fee=form.find('.wa-lz-fee').val(); if (ranges === null) { error('Use uma faixa de CEP por linha no formato 83370000..83370999.'); return; } var payload={zone_key:$.trim(form.find('.wa-lz-key').val()),name:$.trim(form.find('.wa-lz-name').val()),city:$.trim(form.find('.wa-lz-city').val()),neighborhoods:lines(form.find('.wa-lz-neighborhoods').val()),postal_code_ranges:ranges,allowed_operations:selectedValues(form.find('.wa-lz-operations')),pricing_mode:form.find('.wa-lz-price').val(),fixed_fee:fee === '' ? null : Number(fee),active:form.find('.wa-lz-active').is(':checked'),sort_order:100}; request('/logistica_configuracao/zones/' + form.data('id'), 'POST', {payload:JSON.stringify(payload)}, loadLogistics); });
     $(document).on('click', '.wa-log-zone-edit', function () { var r=byId(logisticsZones,$(this).data('id')), form=$('.wa-log-zone-form'); if (!r) { return; } form.data('id',r.id).find('strong').text('Editar zona'); form.find('.wa-lz-key').val(r.zone_key); form.find('.wa-lz-name').val(r.name); form.find('.wa-lz-city').val(r.city); form.find('.wa-lz-neighborhoods').val((r.neighborhoods || []).join('\n')); form.find('.wa-lz-postals').val($.map(r.postal_code_ranges || [],function(p){return p.start+'..'+p.end;}).join('\n')); form.find('.wa-lz-operations').val(r.allowed_operations); form.find('.wa-lz-price').val(r.pricing_mode); form.find('.wa-lz-fee').val(r.fixed_fee || ''); form.find('.wa-lz-active').prop('checked',r.active); });
@@ -339,6 +354,7 @@
     $('a[data-toggle="tab"]').on('shown.bs.tab', function (event) {
         var target = $(event.target).attr('href');
         if (target === '#wa-intakes') { loadIntakes(); }
+        else if (target === '#wa-cidades') { loadPickupCities(); }
         else if (target === '#wa-logistica') { loadLogistics(); }
         else if (target === '#wa-fluxos') { loadFlows(); }
         else if (target === '#wa-fila') { loadQueue(); }

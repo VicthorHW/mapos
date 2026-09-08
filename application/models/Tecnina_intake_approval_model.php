@@ -61,7 +61,10 @@ class Tecnina_intake_approval_model extends CI_Model
 
                     return ['ok' => false, 'reason' => count($matches) > 1 ? 'ambiguous_client' : 'duplicate_client_requires_decision'];
                 }
-                $clientId = $this->insertClient($payload['client']);
+                $clientId = $this->insertClient(
+                    $payload['client'],
+                    $payload['os']['pickup_address'] ?? null
+                );
                 $clientCreated = true;
             }
 
@@ -119,8 +122,9 @@ class Tecnina_intake_approval_model extends CI_Model
         return array_keys($matches);
     }
 
-    private function insertClient(array $client)
+    private function insertClient(array $client, $pickupAddress = null)
     {
+        $pickup = is_array($pickupAddress) ? $pickupAddress : [];
         $password = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
         $created = $this->db->insert('clientes', [
             'nomeCliente' => $this->limited($client['name'], 255),
@@ -131,13 +135,13 @@ class Tecnina_intake_approval_model extends CI_Model
             'celular' => $client['phone'],
             'email' => '',
             'senha' => $password,
-            'rua' => null,
-            'numero' => null,
-            'complemento' => null,
-            'bairro' => null,
+            'rua' => $pickup['street'] ?? null,
+            'numero' => $pickup['street_number'] ?? null,
+            'complemento' => $pickup['complement'] ?? null,
+            'bairro' => $pickup['neighborhood'] ?? null,
             'cidade' => $this->limited($client['city'], 45),
-            'estado' => null,
-            'cep' => null,
+            'estado' => $pickup['state'] ?? null,
+            'cep' => $pickup['postal_code'] ?? null,
             'dataCadastro' => date('Y-m-d'),
             'fornecedor' => 0,
         ]);
@@ -162,6 +166,23 @@ class Tecnina_intake_approval_model extends CI_Model
             . "Credencial do equipamento ainda não informada.\n"
             . 'Forma de atendimento: ' . $serviceMode . ".\n"
             . 'Cidade informada: ' . $os['city'] . '.';
+        if ($os['service_mode'] === 'PICKUP_REQUESTED' && is_array($os['pickup_address'] ?? null)) {
+            $pickup = $os['pickup_address'];
+            $observations .= "\nEndereço de coleta: "
+                . $pickup['street'] . ', ' . $pickup['street_number']
+                . ' — ' . $pickup['neighborhood']
+                . ' — ' . $os['city'] . '/' . $pickup['state']
+                . ' — CEP ' . $pickup['postal_code'] . '.';
+            if ($pickup['complement'] !== null) {
+                $observations .= "\nComplemento: " . $pickup['complement'] . '.';
+            }
+            if ($pickup['reference'] !== null) {
+                $observations .= "\nReferência: " . $pickup['reference'] . '.';
+            }
+            $observations .= "\nTaxa de coleta: "
+                . ($pickup['pickup_fee'] === null ? 'a confirmar' : 'R$ ' . str_replace('.', ',', $pickup['pickup_fee']))
+                . '. GPS opcional: ' . ($pickup['gps_available'] ? 'informado' : 'não informado') . '.';
+        }
         if ($os['notes'] !== null && trim($os['notes']) !== '') {
             $observations .= "\nObservações da revisão: " . trim($os['notes']);
         }

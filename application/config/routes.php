@@ -47,6 +47,7 @@ $route['404_override'] = '';
 $route['api/bot/integration-context/(:num)'] = 'api/bot/integration_context/index/$1';
 $route['api/bot/os/(:num)/status'] = 'api/bot/os_status/index/$1';
 $route['api/bot/client/by-phone'] = 'api/bot/client_by_phone/index';
+$route['api/bot/client/(:num)/open-os'] = 'api/bot/client_open_os/index/$1';
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 
 // Rotas da API

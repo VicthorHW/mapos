@@ -34,19 +34,21 @@ class Tecnina_whatsapp extends MY_Controller
         $paths = [
             'overview' => '/admin/overview',
             'conversations' => '/admin/conversations',
-            'intakes' => '/admin/intakes',
-            'queue' => '/admin/queue',
-            'logs' => '/admin/logs',
-            'status-rules' => '/admin/status-rules',
-            'templates' => '/admin/templates',
             'flows' => '/admin/flows',
-            'settings' => '/admin/settings/status-notifications',
+            'intakes' => '/admin/intakes',
+            'intake-history' => '/admin/intakes-history',
             'logistics-overview' => '/admin/logistics/overview',
             'logistics-zones' => '/admin/logistics/zones',
             'logistics-routes' => '/admin/logistics/routes',
             'logistics-capacity-rules' => '/admin/logistics/capacity-rules',
             'logistics-equipment-profiles' => '/admin/logistics/equipment-profiles',
             'logistics-appointments' => '/admin/logistics/appointments',
+            'queue' => '/admin/queue',
+            'logs' => '/admin/logs',
+            'status-rules' => '/admin/status-rules',
+            'templates' => '/admin/templates',
+            'settings' => '/admin/settings/status-notifications',
+            'pickup-cities' => '/admin/pickup-cities',
         ];
         if (! isset($paths[$resource])) {
             return $this->json(['ok' => false, 'reason' => 'not_found'], 404);
@@ -129,7 +131,6 @@ class Tecnina_whatsapp extends MY_Controller
         $serviceMode = (string) $this->input->post('service_mode', true);
         $required = [
             'device_type' => trim((string) $this->input->post('device_type', true)),
-            'brand' => trim((string) $this->input->post('brand', true)),
             'problem_description' => trim((string) $this->input->post('problem_description', true)),
             'city' => trim((string) $this->input->post('city', true)),
         ];
@@ -139,6 +140,7 @@ class Tecnina_whatsapp extends MY_Controller
         $payload = array_merge($required, [
             'review_version' => $version,
             'name' => trim((string) $this->input->post('name', true)),
+            'brand' => trim((string) $this->input->post('brand', true)),
             'model' => trim((string) $this->input->post('model', true)),
             'service_mode' => $serviceMode,
             'notes' => trim((string) $this->input->post('notes', true)),
@@ -165,36 +167,9 @@ class Tecnina_whatsapp extends MY_Controller
         if (! $this->authorized(true)) {
             return;
         }
-        if (! ctype_digit((string) $osId) || (int) $osId < 1) {
-            return $this->json(['ok' => false, 'reason' => 'invalid_os_id'], 422);
-        }
+        unset($osId, $action);
 
-        // Rotation returns the credential exactly once. Do not let browsers or
-        // intermediary proxies retain that sensitive response.
-        $this->output
-            ->set_header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0')
-            ->set_header('Pragma: no-cache');
-
-        $method = $this->input->method(true);
-        $path = '/admin/os-access-codes/' . (int) $osId;
-        if ($method === 'GET' && $action === '') {
-            $result = $this->tecnina_bot_gateway->request('GET', $path);
-            return $this->json($result, $result['status']);
-        }
-        if ($method !== 'POST' || ! in_array($action, ['rotate', 'revoke'], true)) {
-            return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
-        }
-
-        $operatorId = (int) $this->session->userdata('id_admin');
-        if ($operatorId < 1) {
-            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
-        }
-        $result = $this->tecnina_bot_gateway->request(
-            'POST',
-            $path . '/' . $action,
-            ['operator_id' => $operatorId]
-        );
-        return $this->json($result, $result['status']);
+        return $this->json(['ok' => false, 'reason' => 'os_access_code_retired'], 410);
     }
 
     public function conversa($conversationId = 0, $action = '')
@@ -421,6 +396,67 @@ class Tecnina_whatsapp extends MY_Controller
             $payload
         );
         return $this->json($result, $result['status']);
+    }
+
+    public function coleta($action = '', $cityId = 0, $rateId = 0)
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        if ($action === 'save-city') {
+            $city = trim((string) $this->input->post('city', true));
+            $mode = (string) $this->input->post('pricing_mode', true);
+            $fee = $this->input->post('flat_fee', true);
+            if (mb_strlen($city) < 2 || ! in_array($mode, ['FIXED_FEE', 'NEIGHBORHOOD', 'MANUAL_QUOTE'], true)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_pickup_city'], 422);
+            }
+            $payload = [
+                'city' => $city,
+                'uf' => strtoupper(substr(trim((string) $this->input->post('uf', true)), 0, 2)),
+                'pricing_mode' => $mode,
+                'flat_fee' => $fee === '' ? null : (float) $fee,
+                'active' => filter_var($this->input->post('active'), FILTER_VALIDATE_BOOLEAN),
+            ];
+            $result = $this->tecnina_bot_gateway->request('POST', '/admin/pickup-cities', $payload);
+
+            return $this->json($result, $result['status']);
+        }
+
+        if (! ctype_digit((string) $cityId) || (int) $cityId < 1) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_pickup_city'], 422);
+        }
+        if ($action === 'save-neighborhood') {
+            $neighborhood = trim((string) $this->input->post('neighborhood', true));
+            $fee = $this->input->post('fee', true);
+            if (mb_strlen($neighborhood) < 2 || ! is_numeric($fee) || (float) $fee < 0) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_pickup_neighborhood'], 422);
+            }
+            $result = $this->tecnina_bot_gateway->request(
+                'POST',
+                '/admin/pickup-cities/' . (int) $cityId . '/neighborhoods',
+                [
+                    'neighborhood' => $neighborhood,
+                    'fee' => (float) $fee,
+                    'active' => filter_var($this->input->post('active'), FILTER_VALIDATE_BOOLEAN),
+                ]
+            );
+
+            return $this->json($result, $result['status']);
+        }
+        if ($action === 'delete-neighborhood' && ctype_digit((string) $rateId) && (int) $rateId > 0) {
+            $result = $this->tecnina_bot_gateway->request(
+                'DELETE',
+                '/admin/pickup-cities/' . (int) $cityId . '/neighborhoods/' . (int) $rateId
+            );
+
+            return $this->json($result, $result['status']);
+        }
+
+        return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
     }
 
     private function authorized($json = false)

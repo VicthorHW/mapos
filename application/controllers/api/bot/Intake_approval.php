@@ -34,7 +34,14 @@ class Intake_approval extends REST_Controller
             || ! is_array($input['client'] ?? null)
             || ! is_array($input['os'] ?? null)
             || ! $this->onlyKeys($input['client'], ['name', 'phone', 'city'])
-            || ! $this->onlyKeys($input['os'], ['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes'])) {
+            || ! $this->onlyKeys($input['os'], ['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes', 'pickup_address'])
+            || (isset($input['os']['pickup_address']) && (
+                ! is_array($input['os']['pickup_address'])
+                || ! $this->onlyKeys($input['os']['pickup_address'], [
+                    'postal_code', 'street', 'street_number', 'neighborhood', 'state',
+                    'complement', 'reference', 'pickup_fee', 'pickup_fee_status', 'gps_available',
+                ])
+            ))) {
             $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_BAD_REQUEST);
 
             return;
@@ -99,12 +106,13 @@ class Intake_approval extends REST_Controller
         $name = $this->bounded($input['client']['name'] ?? null, 120, true);
         $clientCity = $this->bounded($input['client']['city'] ?? null, 80, false);
         $deviceType = $this->bounded($input['os']['device_type'] ?? null, 80, false);
-        $brand = $this->bounded($input['os']['brand'] ?? null, 80, false);
+        $brand = $this->bounded($input['os']['brand'] ?? null, 80, true);
         $model = $this->bounded($input['os']['model'] ?? null, 120, true);
         $problem = $this->bounded($input['os']['problem_description'] ?? null, 2000, false, 3);
         $serviceMode = (string) ($input['os']['service_mode'] ?? '');
         $osCity = $this->bounded($input['os']['city'] ?? null, 80, false);
         $notes = $this->bounded($input['os']['notes'] ?? null, 2000, true);
+        $pickupAddress = $this->pickupAddress($input['os']['pickup_address'] ?? null);
         // Keep the private contract deployable in either order. Older Gateway
         // versions do not send this field yet; once the new Gateway is live it
         // always supplies the actual intake date.
@@ -114,6 +122,7 @@ class Intake_approval extends REST_Controller
         if ($phone === null || $clientCity === false || $deviceType === false || $brand === false
             || $problem === false || $osCity === false || $model === false || $notes === false
             || $intakeDate === null
+            || $pickupAddress === false
             || ! in_array($serviceMode, self::SERVICE_MODES, true)
             || ($clientAction === 'CREATE_NEW' && ($name === null || $name === false))) {
             $this->response(['status' => false, 'reason' => 'invalid_intake_fields'], self::HTTP_UNPROCESSABLE_ENTITY);
@@ -136,7 +145,51 @@ class Intake_approval extends REST_Controller
                 'service_mode' => $serviceMode,
                 'city' => $osCity,
                 'notes' => $notes,
+                'pickup_address' => $pickupAddress,
             ],
+        ];
+    }
+
+    private function pickupAddress($value)
+    {
+        if ($value === null) {
+            // Deploy-order compatibility: the new Gateway always requires and
+            // sends the pickup address before approval, but an older Gateway
+            // may briefly coexist with this MapOS endpoint during rollout.
+            return null;
+        }
+        if (! is_array($value)) {
+            return false;
+        }
+        $postalCode = preg_replace('/\D+/', '', (string) ($value['postal_code'] ?? ''));
+        $street = $this->bounded($value['street'] ?? null, 160, false);
+        $number = $this->bounded($value['street_number'] ?? null, 32, false);
+        $neighborhood = $this->bounded($value['neighborhood'] ?? null, 120, false);
+        $state = strtoupper((string) ($value['state'] ?? 'PR'));
+        $complement = $this->bounded($value['complement'] ?? null, 160, true);
+        $reference = $this->bounded($value['reference'] ?? null, 255, true);
+        $fee = $value['pickup_fee'] ?? null;
+        $feeStatus = $this->bounded($value['pickup_fee_status'] ?? null, 24, true);
+        if (strlen($postalCode) !== 8 || $street === false || $number === false
+            || $neighborhood === false || preg_match('/^[A-Z]{2}$/', $state) !== 1
+            || $complement === false || $reference === false
+            || ($fee !== null && (! is_numeric($fee) || (float) $fee < 0))
+            || ! in_array($feeStatus, ['DETERMINED', 'MANUAL_QUOTE'], true)
+            || ! is_bool($value['gps_available'] ?? false)) {
+            return false;
+        }
+
+        return [
+            'postal_code' => $postalCode,
+            'street' => $street,
+            'street_number' => $number,
+            'neighborhood' => $neighborhood,
+            'state' => $state,
+            'complement' => $complement,
+            'reference' => $reference,
+            'pickup_fee' => $fee === null ? null : number_format((float) $fee, 2, '.', ''),
+            'pickup_fee_status' => $feeStatus,
+            'gps_available' => (bool) ($value['gps_available'] ?? false),
         ];
     }
 
