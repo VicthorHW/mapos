@@ -1,3 +1,11 @@
+Status: REFERENCE
+Last consolidated: 2026-09-08
+Source of truth: NO
+Scope: MapOS / outbox
+
+> Este arquivo é referência técnica. Em conflito com uma fonte de verdade CURRENT, a fonte CURRENT prevalece.
+
+---
 # Outbox MapOS → TecNina Bot
 
 A outbox publica criações e mudanças de status de OS sem depender do caminho

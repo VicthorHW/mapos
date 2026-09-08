@@ -1,3 +1,11 @@
+Status: REFERENCE
+Last consolidated: 2026-09-08
+Source of truth: NO
+Scope: MapOS / credencial de dispositivo
+
+> Este arquivo é referência técnica. Em conflito com uma fonte de verdade CURRENT, a fonte CURRENT prevalece.
+
+---
 # Credencial de aparelho nas Ordens de Servico
 
 Esta customizacao adiciona senha/PIN e padrao de desenho 3x3 a 6x6 as OS do

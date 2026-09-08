@@ -1,242 +1,42 @@
-# Customizações TecNina
+Status: CURRENT
+Last consolidated: 2026-09-08
+Source of truth: YES
+Scope: MapOS fork TecNina / manifesto de customizações
 
-Inventário das diferenças mantidas pela fork para facilitar comparação e
-reaplicação após atualizações do MapOS upstream.
+---
 
-## Integração WhatsApp — Fase 3
+# Manifesto de customizações TecNina
 
-### Arquivos upstream alterados
+Objetivo: permitir atualização do upstream sem perder de vista o que a fork adiciona ou altera.
 
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/.env.example` | Documentar o token interno e TTL do claim | Evitar configuração implícita ou secret versionado | Documentação separada não informa novas instalações durante o setup |
-| `composer.json` | Incluir o teste estrutural na suíte padrão | Impedir regressão silenciosa no CI | Executar manualmente; rejeitado por ser fácil esquecer |
-| `tools/device-credential/post-deploy.sh` | Encadear a outbox no lifecycle já configurado | Garantir atualização automática da instalação existente | Alteração manual imediata no Coolify; mantido apenas como ponte de compatibilidade |
-| `docker/docker-compose.yml` | Permitir criação de trigger com binary logging no MySQL 8.4 | Evitar conceder privilégio global `SUPER` ao usuário do MapOS | Criar a trigger como root manualmente; rejeitado por não ser repetível no deploy |
+## Registro consolidado
 
-Nenhum controller ou model existente do MapOS foi alterado. A captura de todas
-as mudanças de status é feita pela trigger MySQL instalada separadamente.
+| ID | Capability | Estado | Principais áreas | Contrato/teste |
+|---|---|---|---|---|
+| MAP-01 | Outbox de eventos | CURRENT | setup, model, trigger, install/post-deploy | testes de outbox/claim/ACK |
+| MAP-02 | Contexto mínimo para notificações | CURRENT | routes + controller/model TecNina | contract test |
+| MAP-03 | Identificação de cliente por telefone | CURRENT | `/api/bot/client/by-phone` | teste de ambiguidade/whitelist |
+| MAP-04 | Painel Configurações → WhatsApp | CURRENT | controller, gateway client, view, JS | autorização `cSistema` |
+| MAP-05 | Revisão e aprovação de intake | CURRENT | painel + endpoint/model de aprovação | idempotência/concorrência |
+| MAP-06 | Configuração logística/coleta | CURRENT | proxy/admin UI | sem colunas logísticas na OS |
+| MAP-07 | Carregamento incremental do painel | CURRENT | `assets/tecnina/js/whatsapp-panel.js` | leitura retry breve; escrita sem retry automático |
+| MAP-08 | OS abertas por cliente para consulta atual | IMPLEMENTED_LOCAL / VERIFY | contrato `/api/bot/client/{client_id}/open-os` | confirmar arquivos/teste no repo real |
+| MAP-09 | Flow Studio | SUPERSEDED/REMOVED | antiga aba/proxy | não reativar; histórico em archive |
+| MAP-10 | Código de 8 caracteres / consulta por OS | SUPERSEDED | rota/status + UI antiga | fluxo atual usa telefone + OS abertas |
 
-### Arquivos novos TecNina
+## Regra para arquivos upstream
 
-- `application/controllers/Tecnina_integration_setup.php`
-- `application/controllers/api/bot/Health.php`
-- `application/controllers/api/bot/Outbox.php`
-- `application/libraries/Tecnina_bot_auth.php`
-- `application/models/Tecnina_outbox_model.php`
-- `tools/tecnina-integration/install.php`
-- `tools/tecnina-integration/post-deploy.sh`
-- `tools/tecnina-post-deploy.sh`
-- `tests/TecninaOutboxTest.php`
-- `docs/TECNINA_OUTBOX.md`
+Sempre que uma customização alterar arquivo original do MapOS, registrar:
+
+`arquivo | motivo | por que é necessário | alternativa considerada | teste que protege a alteração`.
+
+O agente com acesso ao repositório deve atualizar esta tabela com os caminhos exatos do endpoint `open-os` após confirmação do código real.
 
 ## Regras de manutenção
 
-- manter o Gateway sem acesso direto ao banco do MapOS;
-- não inserir chamadas ao WhatsApp nos controllers de OS;
-- executar o instalador com `--verify-only` depois de atualizar o upstream;
-- executar testes de contrato antes de habilitar o dispatcher;
-- registrar nesta lista qualquer novo arquivo upstream alterado.
-
-## Integração WhatsApp — Fase 4
-
-### Arquivos upstream alterados
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/config/routes.php` | Publicar a URL estável `/api/bot/integration-context/{os_id}` | Manter o contrato do `MapOSAdapter` independente do nome de classe do CodeIgniter | Usar underscore na URL; rejeitado por vazar detalhe interno no contrato |
-| `application/config/routes.php` | Publicar `/api/bot/os/{os_id}/status` | Consulta nível 1 exige contrato mínimo, autenticado e estável | Reutilizar API administrativa; rejeitado por JWT de funcionário e excesso de dados |
-| `composer.json` | Executar o teste do contexto na suíte padrão | Evitar regressão da whitelist e da normalização | Execução manual; rejeitada por ser fácil esquecer |
-
-Nenhum controller ou model existente de OS/cliente foi alterado. O endpoint
-novo consulta somente uma whitelist explícita e não reutiliza os métodos
-administrativos que fazem `SELECT *`. Números legados sem nono dígito são
-rejeitados no envio para evitar inferência que possa alcançar outro titular.
-
-### Arquivos novos TecNina
-
-- `application/controllers/api/bot/Integration_context.php`
-- `application/libraries/Tecnina_phone.php`
-- `application/models/Tecnina_integration_context_model.php`
-- `tests/TecninaIntegrationContextTest.php`
-
-## Integração WhatsApp — Fase 5
-
-### Arquivos upstream alterados
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/.env.example` | Documentar `TECNINA_BOT_BASE_URL` | Configurar o cliente interno sem deixar URL implícita | Colocar a URL na view; rejeitado por expor detalhe operacional ao navegador |
-| `application/views/tema/topo.php` | Incluir Configurações → WhatsApp | Tornar o painel administrativo acessível ao operador com `cSistema` | Link externo direto ao Gateway; rejeitado porque exporia o token e quebraria a separação de responsabilidades |
-
-### Arquivos novos TecNina
-
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/libraries/Tecnina_bot_gateway.php`
-- `application/views/tecnina_whatsapp/index.php`
-
-O painel não acessa o banco do Gateway. Cada requisição é autenticada no
-servidor MapOS e encaminhada ao contrato `/admin/*`; o token nunca é enviado ao
-navegador. O Gateway mascara JIDs/telefones nas listagens e não retorna corpos
-de mensagens nos logs operacionais.
-
-## Integração WhatsApp — Fase 7
-
-### Arquivos upstream alterados
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/config/routes.php` | Publicar `GET /api/bot/client/by-phone` | O `MapOSAdapter` precisa identificar com exatidão um cadastro sem usar a API administrativa genérica | Fazer SQL no Gateway; rejeitado porque quebraria a separação entre os bancos |
-| `composer.json` | Executar o teste de contrato da consulta | Preservar a whitelist e o comportamento de ambiguidade após atualizações | Teste manual; rejeitado por ser fácil esquecer |
-
-### Arquivos novos TecNina
-
-- `application/controllers/api/bot/Client_by_phone.php`
-- `application/models/Tecnina_client_lookup_model.php`
-- `tests/TecninaClientByPhoneTest.php`
-
-O endpoint aceita apenas a identificação normalizada e responde `none`,
-`unique` com `client_id`, ou `ambiguous`. Ele nunca devolve nome, CPF, e-mail,
-endereço, senha, hash ou telefone. A consulta é identificação operacional, não
-autenticação do cliente.
-
-## Integração WhatsApp — Fase 8 (revisão de intake)
-
-### Arquivos upstream alterados
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `composer.json` | Executar o teste estrutural do painel de revisão | Evitar regressão na autorização, whitelist e proxy server-side | Teste manual; rejeitado por ser fácil esquecer |
-
-### Arquivos TecNina atualizados
-
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/views/tecnina_whatsapp/index.php`
-- `tests/TecninaIntakeReviewPanelTest.php`
-
-A aba lista somente drafts acionáveis e permite revisar, rejeitar ou aprovar. O navegador
-nunca recebe o token do Gateway nem o JID. O ID do operador é obtido da sessão
-MapOS, e não de dados enviados pelo formulário. A gravação usa
-`review_version` para rejeitar edições concorrentes.
-
-### Fase 8B — aprovação e criação transacional
-
-Arquivos novos TecNina:
-
-- `application/controllers/api/bot/Intake_approval.php`
-- `application/models/Tecnina_intake_approval_model.php`
-- `tests/TecninaIntakeApprovalTest.php`
-
-Arquivos TecNina atualizados:
-
-- `application/controllers/Tecnina_integration_setup.php`
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/libraries/Tecnina_bot_gateway.php`
-- `application/views/tecnina_whatsapp/index.php`
-- `tools/tecnina-integration/install.php`
-- `tests/TecninaIntakeReviewPanelTest.php`
-
-Arquivo upstream alterado:
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/config/routes.php` | Publicar o endpoint privado de aprovação | Manter o Gateway desacoplado do banco MapOS | SQL direto pelo Gateway; rejeitado por segurança e compatibilidade |
-| `composer.json` | Incluir o teste de contrato no conjunto padrão | Detectar regressões de segurança e idempotência | Teste manual; rejeitado por não ser repetível |
-
-A aprovação cria cliente, quando solicitado, e OS na mesma transação MySQL. Uma
-tabela própria, instalada de forma idempotente e respeitando `DB_PREFIX`, impede
-que reenvios criem outra OS. A correspondência por telefone é refeita no MapOS
-imediatamente antes da gravação. Duplicidades exigem decisão explícita. A OS é
-criada com `credencial_tipo = nao_informada`, sem PIN, senha ou desenho, para
-que a credencial seja coletada somente na triagem física.
-
-O contrato da aprovação também transporta somente a data ISO de criação do
-pré-atendimento, validada pelo endpoint privado. A OS resultante recebe
-`dataInicial` nessa data e `dataFinal` em sete dias, eliminando datas nulas que
-podiam ser apresentadas pelo MapOS como valores inválidos antigos.
-
-## Integração WhatsApp — Fase 8.1 (painel logístico)
-
-### Arquivo upstream alterado
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `composer.json` | Incluir o teste estrutural do painel logístico na suíte padrão | Detectar regressões de autorização, whitelist e privacidade | Execução manual; rejeitada por não ser repetível |
-
-### Arquivos TecNina atualizados
-
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/libraries/Tecnina_bot_gateway.php`
-- `application/views/tecnina_whatsapp/index.php`
-- `tests/TecninaLogisticsPanelTest.php`
-
-O MapOS atua somente como interface e proxy autenticado para a Admin API do
-Gateway. Zona, rota, capacidade, perfil e appointment permanecem no banco
-`tecnina_bot`. O operador vem da sessão `cSistema`; o navegador não recebe o
-token interno, JID, coordenadas exatas ou acesso SQL ao Gateway. Nenhum status
-logístico ou coluna de agenda foi acrescentado à OS.
-
-## Fase 8.2 — observabilidade de fluxos e carregamento do painel
-
-Arquivos TecNina atualizados:
-
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/views/tecnina_whatsapp/index.php`
-- `application/controllers/api/bot/Intake_approval.php`
-- `application/models/Tecnina_intake_approval_model.php`
-
-O painel carrega inicialmente apenas visão geral e Conversas. As consultas de
-Pré-atendimentos, Logística, Fluxos, Fila, Logs, Regras, Templates e Configuração
-são feitas ao abrir cada aba; leituras recebem apenas uma nova tentativa breve
-para acomodar o aquecimento do Gateway após deploy. Nenhuma ação de escrita é
-repetida automaticamente.
-
-O JavaScript do painel está isolado em
-`assets/tecnina/js/whatsapp-panel.js`; a view contém apenas markup, configuração
-escapada e referências versionadas aos assets. Isso evita que conteúdo dinâmico
-gere novamente erro de parsing no script principal.
-
-## Fase 8.2 — versionamento e edição segura de fluxos
-
-O Flow Studio expõe, sempre via proxy `cSistema`, criação e leitura de draft,
-validação, publicação, histórico, rollback, atualização e exportação para IA.
-O navegador não recebe o token do Gateway e cada gravação usa revisão otimista.
-
-O diagrama usa layout em camadas e curvas para reduzir cruzamentos. O editor
-visual inicial altera labels de nodes e transições; a estrutura declarativa pode
-ser importada/exportada no formato `tecnina-flow-ai/v1`, que inclui instruções e
-whitelists. Importar ou salvar altera apenas DRAFT. A FSM atual continua sendo o
-runtime até uma ativação posterior e controlada.
-
-O simulador permanece sem efeitos externos e apresenta decisões em tabela. O
-modo de teste ponta a ponta com WhatsApp real e o chat-emulador interno estão
-planejados como capacidades separadas, com allowlist e auditoria antes de
-qualquer envio real.
-
-## Fase 10 — consulta autenticada de status da OS
-
-### Arquivos upstream alterados
-
-| Arquivo | Motivo | Necessidade | Alternativa avaliada |
-| --- | --- | --- | --- |
-| `application/config/routes.php` | Publicar `GET /api/bot/os/{os_id}/status` | Manter o contrato mínimo e estável do `MapOSAdapter` | API administrativa; rejeitada por exigir JWT de funcionário e retornar dados excessivos |
-| `composer.json` | Executar os contratos de status e painel na suíte padrão | Detectar regressões de whitelist, cache e separação do token | Execução manual; rejeitada por ser fácil esquecer |
-
-### Arquivos novos TecNina
-
-- `application/controllers/api/bot/Os_status.php`
-- `application/models/Tecnina_os_status_model.php`
-- `tests/TecninaOsStatusContractTest.php`
-- `tests/TecninaOsAccessPanelTest.php`
-
-### Arquivos TecNina atualizados
-
-- `application/controllers/Tecnina_whatsapp.php`
-- `application/libraries/Tecnina_bot_gateway.php`
-- `assets/tecnina/js/whatsapp-panel.js`
-
-O endpoint privado usa uma seleção explícita de `os_id`, `client_id` e status.
-O `client_id` serve somente à conferência interna entre a OS e o código; não é
-mostrado ao cliente. A operação de gerar, consultar ou revogar códigos fica no
-painel protegido por `cSistema`. O operador auditado vem da sessão MapOS, e a
-resposta que exibe o código uma única vez recebe `Cache-Control: no-store`.
+- minimizar alterações em arquivos upstream;
+- preferir controllers/models/libraries TecNina novos;
+- preservar contratos privados estáveis;
+- rodar instalador em modo de verificação após atualização upstream;
+- não colocar WhatsApp/Evolution dentro do MapOS;
+- não reintroduzir funcionalidade marcada `SUPERSEDED` porque ainda exista tabela/arquivo histórico.

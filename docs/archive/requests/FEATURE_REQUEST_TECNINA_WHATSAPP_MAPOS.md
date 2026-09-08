@@ -1,3 +1,13 @@
+Status: SUPERSEDED
+Source of truth: NO
+Original document: `FEATURE_REQUEST_TECNINA_WHATSAPP_MAPOS.md`
+Superseded by: `00_APLICACAO/SOURCE_OF_TRUTH.md + tecnina-bot/docs/bot-spec/`
+Archived on: 2026-09-08
+
+> **NÃO IMPLEMENTAR ESTE DOCUMENTO.** Documento monolítico contém decisões de várias gerações, inclusive funcionalidades removidas. Mantido somente para histórico, evidência e rastreabilidade.
+
+---
+
 # Feature Request — Integração WhatsApp ↔ MapOS para a TecNina
 
 ## 1. Resumo
@@ -18,8 +28,8 @@ A integração deve permitir:
 - futura logística configurável de coleta e devolução, com agenda, capacidade e
   confirmação de localização, sem transformar movimentos logísticos em status
   da OS;
-- futura visualização, simulação e edição declarativa/versionada dos fluxos
-  realmente executados pelo Gateway por meio do **TecNina Flow Studio**;
+- FSM conversacional determinística, testável e documentada no repositório do
+  Gateway, sem uma segunda representação visual concorrente;
 - painel administrativo dentro do MapOS para acompanhar e controlar a integração;
 - futura adição de NLU estatístico sem LLM, sem refazer a arquitetura;
 - futura substituição do provedor de WhatsApp ou até do MapOS sem reescrever toda a aplicação.
@@ -119,19 +129,44 @@ Essa prioridade não pode atrasar o primeiro MVP útil de notificações de OS.
 
 A experiência pública de localização é tratada na Fase 8.3 do Gateway. Ela deve
 usar a identidade visual do `tecnina-site`, solicitar GPS apenas após ação
-explícita, separar endereço de coordenadas e permitir confirmação por mapa em
-satélite. A integração com Maps é opcional e carregada sob demanda; sem ela, o
-fluxo continua disponível por endereço. A chave de navegador deve ser restrita
-por origem e API. Pré-preenchimento ou atualização do cadastro só pode ocorrer
-futuramente pelo `MapOSAdapter`, mediante escolha explícita do cliente.
+explícita e separar endereço textual de coordenadas. O endereço confirmado é a
+fonte operacional principal; GPS é auxiliar e opcional. O fluxo não depende de
+Google Maps, Leaflet, tiles ou confirmação visual em mapa. ViaCEP pode auxiliar
+o preenchimento, mas o cliente sempre pode informar o endereço manualmente.
+Pré-preenchimento ou atualização do cadastro MapOS só pode ocorrer pelo
+`MapOSAdapter`, mediante escolha explícita do cliente.
 
-## P4.2 — Flow Studio / orquestração visual
+## P4.2 — FSM e especificação conversacional
 
-Depois que Intake e aprovação estiverem estáveis, criar progressivamente uma
-representação visual, versionada e validável dos fluxos reais do Gateway.
-Começar como observador read-only da FSM existente; edição estrutural só entra
-após versionamento, simulação, validação e publicação segura. O Flow Studio não
-pode virar ambiente de execução de código arbitrário.
+O Flow Studio foi removido por duplicar a FSM sem governar o runtime. Não devem
+existir editor visual, simulador paralelo, bootstrap de definições ou endpoints
+`/admin/flows/*`. A única lógica executável fica na FSM determinística do
+Gateway; a referência humana e versionada fica em `tecnina-bot/docs/bot-spec/`,
+com testes automatizados garantindo o alinhamento entre contrato e runtime.
+
+Todas as menções históricas a Flow Studio nas seções antigas deste documento
+estão **revogadas** e não constituem requisito de implementação.
+
+## P4.3 — Contrato conversacional consolidado
+
+O comportamento de conversa passa a ter fonte de verdade versionada em
+`tecnina-bot/docs/bot-spec/`. A especificação consolidada tem precedência sobre
+descrições históricas de fases deste documento quando houver divergência sobre
+mensagens, estados ou transições já revisados.
+
+O contrato atual define:
+
+- menu antes de qualquer identificação proativa do cliente;
+- pré-atendimento completo tanto no WhatsApp quanto no formulário opcional;
+- consulta de reparos exclusivamente pelo telefone normalizado da conversa;
+- endereço textual como dado canônico e GPS opcional, sem mapa;
+- ViaCEP como auxílio não bloqueante e preenchimento manual sempre disponível;
+- áudio e mídia sem interpretação automática, com fallback e handoff seguros;
+- timeout de 30 minutos para draft automático inativo;
+- retorno de Human Lock solicitado pelo cliente sempre pelo menu;
+- capabilities curtas, de uso único, versionadas e armazenadas somente por hash;
+- taxas de coleta vindas apenas da configuração administrativa, sem valores
+  inventados pelo runtime.
 
 ## P5 — Autoatendimento determinístico
 
@@ -865,10 +900,8 @@ Status "Teste bancada" não possui regra de WhatsApp.
 
 # 23. Templates
 
-Templates devem ser editáveis e versionáveis.
-
-Nós `MESSAGE` do Flow Studio devem referenciar o sistema de templates já
-existente. Não criar um segundo repositório de mensagens dentro do grafo.
+Templates devem ser editáveis e versionáveis. A FSM deve referenciar o sistema
+de templates existente; não criar um segundo repositório de mensagens.
 
 Exemplo:
 
@@ -1181,12 +1214,9 @@ HUMAN_MANUAL
 BOT_RECOVERY
 ```
 
-A FSM deve ser determinística.
-
-O Flow Studio não substituirá esta FSM de uma vez. Inicialmente deverá gerar
-uma representação fiel dos estados/transições já executados. À medida que
-partes forem migradas para `FlowDefinition`, cada conversa deverá permanecer
-pinada à versão com que iniciou até um boundary seguro.
+A FSM deve ser determinística e é a única fonte executável das transições. O
+contrato em `docs/bot-spec/` deve permanecer alinhado por testes, sem uma
+representação visual paralela.
 
 Estados de conversa, estados do Intake, estados logísticos e status da OS são
 máquinas diferentes. `PENDING_CONFIRMATION` logístico, por exemplo, não deve
@@ -2012,7 +2042,7 @@ banco `tecnina_bot`.
 Adicionar na Fase 8.2 dentro do mesmo painel central:
 
 ```text
-Configurações → WhatsApp → Fluxos
+Configurações → WhatsApp
 ```
 
 A UI MapOS deverá funcionar somente como cliente administrativo:
@@ -2022,7 +2052,7 @@ navegador MapOS
 → controller MapOS com cSistema + CSRF
 → Tecnina_bot_gateway server-side
 → Gateway Admin API
-→ serviços/repositórios do Flow Studio
+→ serviços/repositórios administrativos específicos
 ```
 
 O navegador nunca acessa o banco `tecnina_bot`, nunca recebe o Bearer interno
@@ -2188,18 +2218,6 @@ GET  /admin/logistics/capacity
 GET  /admin/logistics/availability
 GET  /admin/location-requests/{id}
 
-GET  /admin/flows
-GET  /admin/flows/{flow_key}
-GET  /admin/flows/{flow_key}/versions/{version}
-POST /admin/flows/{flow_key}/drafts
-PUT  /admin/flows/{flow_key}/drafts/{version}
-POST /admin/flows/{flow_key}/drafts/{version}/validate
-POST /admin/flows/{flow_key}/drafts/{version}/simulate
-POST /admin/flows/{flow_key}/drafts/{version}/publish
-POST /admin/flows/{flow_key}/rollback
-GET  /admin/flows/{flow_key}/history
-GET  /admin/conversations/{id}/flow-state
-GET  /admin/conversations/{id}/flow-trace
 ```
 
 Não expor publicamente.
@@ -2332,11 +2350,8 @@ event_id
 conversation_id
 ```
 
-O Flow Studio poderá acrescentar `flow_key`, `flow_version`, `node_key` e
-`transition_result`, todos sem PII. Telefone, JID, cliente e OS não podem virar
-labels de métricas. Métricas previstas: `flow_started_total`,
-`flow_completed_total`, `flow_fallback_total`, `flow_handoff_total`,
-`flow_error_total` e `flow_transition_total` com labels de baixo risco.
+A FSM poderá acrescentar identificadores técnicos de estado e transição, sempre
+sem PII. Telefone, JID, cliente e OS não podem virar labels de métricas.
 
 ---
 
@@ -4495,7 +4510,13 @@ Critério:
 
 ---
 
-# 89.2. Fase 8.2 — TecNina Flow Studio / orquestração visual do Bot
+# 89.2. Fase 8.2 — Flow Studio (REMOVIDA)
+
+> **Seção histórica e revogada.** A implementação abaixo chegou a existir, mas
+> foi removida porque duplicava a FSM sem controlar o runtime. Nenhum requisito,
+> endpoint, tabela operacional, aba, editor ou simulador descrito nesta seção
+> deve ser implementado ou reativado. A FSM e `docs/bot-spec/` substituem
+> integralmente esta proposta.
 
 ## Objetivo e posição arquitetural
 
@@ -5119,6 +5140,80 @@ Critério resumido:
 
 ---
 
+# 89.3. Fase 8.3 — Consolidação conversacional e localização sem provedor pago
+
+## Fonte de verdade
+
+O contrato executável e documental desta fase fica em:
+
+```text
+tecnina-bot/docs/bot-spec/README.md
+tecnina-bot/docs/bot-spec/GLOBAL_RULES.md
+tecnina-bot/docs/bot-spec/flows/FLOW-01_ENTRY_MENU.md
+tecnina-bot/docs/bot-spec/flows/FLOW-02_PRE_ATENDIMENTO.md
+tecnina-bot/docs/bot-spec/flows/FLOW-03_CONSULTA_REPARO.md
+tecnina-bot/docs/bot-spec/flows/FLOW-04_COLETA_LOCALIZACAO.md
+tecnina-bot/docs/bot-spec/flows/FLOW-05_ATENDIMENTO_HUMANO.md
+tecnina-bot/docs/bot-spec/flows/FLOW-06_FALLBACK.md
+tecnina-bot/docs/bot-spec/flows/FLOW-07_PRE_ATENDIMENTO_WEB.md
+tecnina-bot/docs/bot-spec/IMPLEMENTATION_NOTES.md
+```
+
+Esses arquivos prevalecem sobre propostas históricas deste Feature Request nos
+pontos já consolidados. Alterações futuras de comportamento devem atualizar
+conjuntamente especificação, runtime e testes.
+
+## Decisões consolidadas
+
+- O atendimento começa perguntando o objetivo do cliente; localizar cadastro
+  antecipadamente não muda a saudação nem expõe que o telefone foi encontrado.
+- A FSM determinística continua sendo o runtime. NLU estatístico permanece
+  opcional e não pode contornar estados ativos, autorização ou Human Lock.
+- O pré-atendimento é concluível integralmente pelo WhatsApp. `/p/{token}` é
+  uma alternativa visual que escreve no mesmo draft e exige revisão final.
+- Endereço textual confirmado é canônico. GPS estático pode vir do WhatsApp ou
+  de `/g/{token}`, é opcional e fica armazenado separadamente.
+- Não utilizar Google Maps, conta de billing, Leaflet, tiles ou mapa visual como
+  requisito. ViaCEP auxilia o CEP; falha externa não bloqueia endereço manual.
+- O runtime consulta cidades e taxas em `pickup_cities` e
+  `pickup_neighborhood_rates`. Morretes nasce com a configuração operacional
+  aprovada; Antonina nunca recebe preço presumido quando não houver regra ativa.
+- Cidade/bairro obtidos do endereço final precisam ser revalidados. Divergência
+  nunca mantém silenciosamente uma taxa anterior nem torna GPS fonte da taxa.
+- A consulta de OS usa o telefone da conversa e o contrato mínimo
+  `/api/bot/client/{client_id}/open-os`; número arbitrário de OS não autentica.
+- Áudio, imagem, vídeo e documento não são interpretados no MVP. Aplicar
+  fallback seguro e, quando definido no contrato, encaminhar para Atendimento.
+- Draft `COLLECTING` expira após 30 minutos sem atividade real, invalida links e
+  produz no máximo uma tentativa de notificação de timeout.
+- Handoff solicitado pelo cliente preserva o draft incompleto para consulta,
+  mas o retorno à automação começa num contexto limpo pelo menu.
+
+## Implementação e dados
+
+As migrations Alembic `0017` e `0018` são aditivas e cobrem configuração de
+cidades/bairros, capabilities, endereço, GPS e estado conversacional revisado.
+O MapOS recebe somente contratos aditivos `/api/bot/*` e continua sem acesso ao
+banco do Gateway. O Gateway continua sem acesso direto ao banco MapOS.
+
+## Validação ainda necessária no ambiente
+
+- cadastrar no painel apenas bairros e preços oficiais de Antonina;
+- capturar fixtures sanitizadas reais da Evolution 2.3.7 para áudio,
+  localização estática e localização em tempo real;
+- validar em deploy menu, intake por WhatsApp, formulário, GPS opcional, timeout,
+  Human Lock e consulta com zero/uma/múltiplas OS;
+- futuramente apontar `atendimento.tecnina.com` para o Gateway, sem criar outro
+  serviço obrigatório.
+
+Critério:
+
+> O comportamento documentado em `docs/bot-spec/` é reproduzido pela FSM e por
+> testes automatizados, sem dependência de mapa ou serviço pago, sem inventar
+> taxas e sem expor dados além dos contratos mínimos.
+
+---
+
 # 90. Fase 9 — Autoatendimento determinístico
 
 Criar:
@@ -5289,36 +5384,11 @@ A fase logística estará concluída quando:
 
 ---
 
-# 96.2. Critérios de aceite da Fase 8.2
+# 96.2. Critério de aceite da remoção da Fase 8.2
 
-O Flow Studio será considerado maduro quando:
-
-1. os fluxos principais puderem ser visualizados separadamente;
-2. atendimento conversacional e notificações mantiverem semânticas distintas;
-3. subflows forem suportados;
-4. o node atual de uma conversa puder ser destacado;
-5. trace sanitizado explicar cada transição relevante;
-6. o simulador funcionar sem WhatsApp real;
-7. cenários fictícios cobrirem os caminhos críticos;
-8. mensagens puderem ser editadas com segurança pelo template existente;
-9. templates e flows continuarem versionados;
-10. DRAFT nunca alterar o runtime PUBLISHED;
-11. publicação for explícita, validada, atômica e auditada;
-12. rollback preservar todo o histórico;
-13. Validation Engine impedir graph inválido;
-14. zero-wait cycles forem bloqueados e `max_steps_per_event` existir;
-15. Human Lock continuar soberano;
-16. kill switches continuarem soberanos;
-17. sessões permanecerem pinadas a uma versão coerente;
-18. edição/publicação concorrente usar optimistic locking;
-19. audit log cobrir todas as ações administrativas;
-20. import/export não transportar secrets nem dados de clientes;
-21. actions/conditions arbitrárias forem impossíveis;
-22. o painel MapOS não acessar o banco Gateway diretamente;
-23. nenhum token interno chegar ao navegador;
-24. testes funcionais, contratuais e de segurança passarem;
-25. a integração continuar dentro da meta de baixo acoplamento upstream;
-26. a arquitetura permitir futura reutilização sem hardcoding operacional.
+A remoção está concluída quando não existirem aba, proxy MapOS, endpoints
+Gateway, bootstrap, repositório, editor ou simulador do Flow Studio, e testes de
+regressão impedirem sua reexposição acidental. A FSM deve continuar funcional.
 
 ---
 
@@ -5341,7 +5411,6 @@ Evolution
 WhatsApp
 Human Takeover
 FSM
-Flow Studio
 intake
 logística
 localização
@@ -5432,7 +5501,6 @@ DISCOVERY
 → INTAKE
 → APROVAÇÃO
 → LOGÍSTICA / LOCALIZAÇÃO / AGENDAMENTO
-→ FLOW STUDIO / ORQUESTRAÇÃO VISUAL
 → AUTOATENDIMENTO
 → AUTENTICAÇÃO
 → NLU

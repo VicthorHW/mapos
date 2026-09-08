@@ -1,3 +1,13 @@
+Status: SUPERSEDED
+Source of truth: NO
+Original document: `docs/TECNINA_LOGISTICS_LOCATION_LINK.md`
+Superseded by: `tecnina-bot/docs/bot-spec/flows/FLOW-04_COLETA_LOCALIZACAO.md`
+Archived on: 2026-09-08
+
+> **NÃO IMPLEMENTAR ESTE DOCUMENTO.** O link novo vigente usa `/g/{token}` e não um fluxo visual antigo. Mantido somente para histórico, evidência e rastreabilidade.
+
+---
+
 # Link temporario de localizacao
 
 O painel `Configuracoes -> WhatsApp -> Logistica` pode emitir um link

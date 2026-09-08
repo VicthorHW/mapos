@@ -1,3 +1,12 @@
+Status: SUPERSEDED
+Last consolidated: 2026-09-08
+Source of truth: NO
+Superseded by: remoção do Flow Studio e especificação normativa em `tecnina-bot/docs/bot-spec/`
+
+> **NÃO IMPLEMENTAR ESTE DOCUMENTO.** Esta solicitação foi substituída pela FSM determinística e pela remoção do Flow Studio. É mantida apenas para rastreabilidade.
+
+---
+
 # ATUALIZAÇÃO DO FEATURE REQUEST — FLOW STUDIO / EDITOR VISUAL DOS FLUXOS DO BOT
 
 Leia integralmente o `FEATURE_REQUEST_TECNINA_WHATSAPP_MAPOS.md` e inspecione a implementação atual antes de modificar a documentação.
