@@ -61,10 +61,7 @@ class Tecnina_intake_approval_model extends CI_Model
 
                     return ['ok' => false, 'reason' => count($matches) > 1 ? 'ambiguous_client' : 'duplicate_client_requires_decision'];
                 }
-                $clientId = $this->insertClient(
-                    $payload['client'],
-                    $payload['os']['pickup_address'] ?? null
-                );
+                $clientId = $this->insertClient($payload['client']);
                 $clientCreated = true;
             }
 
@@ -122,9 +119,8 @@ class Tecnina_intake_approval_model extends CI_Model
         return array_keys($matches);
     }
 
-    private function insertClient(array $client, $pickupAddress = null)
+    private function insertClient(array $client)
     {
-        $pickup = is_array($pickupAddress) ? $pickupAddress : [];
         $password = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
         $created = $this->db->insert('clientes', [
             'nomeCliente' => $this->limited($client['name'], 255),
@@ -135,13 +131,14 @@ class Tecnina_intake_approval_model extends CI_Model
             'celular' => $client['phone'],
             'email' => '',
             'senha' => $password,
-            'rua' => $pickup['street'] ?? null,
-            'numero' => $pickup['street_number'] ?? null,
-            'complemento' => $pickup['complement'] ?? null,
-            'bairro' => $pickup['neighborhood'] ?? null,
-            'cidade' => $this->limited($client['city'], 45),
-            'estado' => $pickup['state'] ?? null,
-            'cep' => $pickup['postal_code'] ?? null,
+            // Coleta é endereço operacional da OS, não endereço cadastral.
+            'rua' => null,
+            'numero' => null,
+            'complemento' => null,
+            'bairro' => null,
+            'cidade' => null,
+            'estado' => null,
+            'cep' => null,
             'dataCadastro' => date('Y-m-d'),
             'fornecedor' => 0,
         ]);
@@ -162,29 +159,31 @@ class Tecnina_intake_approval_model extends CI_Model
         $serviceMode = $os['service_mode'] === 'PICKUP_REQUESTED'
             ? 'Coleta solicitada'
             : 'Cliente levará o equipamento';
-        $observations = 'OS criada a partir do pré-atendimento WhatsApp #' . $intakeId . ".\n"
-            . "Credencial do equipamento ainda não informada.\n"
-            . 'Forma de atendimento: ' . $serviceMode . ".\n"
-            . 'Cidade informada: ' . $os['city'] . '.';
+        $annotations = [
+            'OS criada a partir do pré-atendimento WhatsApp #' . $intakeId . '.',
+            'Credencial do equipamento ainda não informada.',
+            'Forma de atendimento: ' . $serviceMode . '.',
+            'Cidade informada: ' . $os['city'] . '.',
+        ];
         if ($os['service_mode'] === 'PICKUP_REQUESTED' && is_array($os['pickup_address'] ?? null)) {
             $pickup = $os['pickup_address'];
-            $observations .= "\nEndereço de coleta: "
+            $annotations[] = 'Endereço de coleta: '
                 . $pickup['street'] . ', ' . $pickup['street_number']
                 . ' — ' . $pickup['neighborhood']
                 . ' — ' . $os['city'] . '/' . $pickup['state']
                 . ' — CEP ' . $pickup['postal_code'] . '.';
             if ($pickup['complement'] !== null) {
-                $observations .= "\nComplemento: " . $pickup['complement'] . '.';
+                $annotations[] = 'Complemento da coleta: ' . $pickup['complement'] . '.';
             }
             if ($pickup['reference'] !== null) {
-                $observations .= "\nReferência: " . $pickup['reference'] . '.';
+                $annotations[] = 'Referência da coleta: ' . $pickup['reference'] . '.';
             }
-            $observations .= "\nTaxa de coleta: "
+            $annotations[] = 'Taxa de coleta: '
                 . ($pickup['pickup_fee'] === null ? 'a confirmar' : 'R$ ' . str_replace('.', ',', $pickup['pickup_fee']))
                 . '. GPS opcional: ' . ($pickup['gps_available'] ? 'informado' : 'não informado') . '.';
         }
         if ($os['notes'] !== null && trim($os['notes']) !== '') {
-            $observations .= "\nObservações da revisão: " . trim($os['notes']);
+            $annotations[] = 'Observações da revisão: ' . trim($os['notes']);
         }
 
         $intakeDate = DateTimeImmutable::createFromFormat('!Y-m-d', $intakeCreatedAt);
@@ -199,7 +198,7 @@ class Tecnina_intake_approval_model extends CI_Model
             'descricaoProduto' => $description,
             'defeito' => $os['problem_description'],
             'status' => 'Aberto',
-            'observacoes' => $observations,
+            'observacoes' => null,
             'laudoTecnico' => null,
             'credencial_tipo' => 'nao_informada',
             'credencial_dados' => null,
@@ -213,7 +212,31 @@ class Tecnina_intake_approval_model extends CI_Model
             throw new RuntimeException('os insert failed');
         }
 
-        return (int) $this->db->insert_id();
+        $osId = (int) $this->db->insert_id();
+        $this->insertOsAnnotations($osId, $annotations);
+
+        return $osId;
+    }
+
+    private function insertOsAnnotations($osId, array $annotations)
+    {
+        $prefix = '[Pré-atendimento WhatsApp] ';
+        $chunkLength = 255 - mb_strlen($prefix);
+        foreach ($annotations as $annotation) {
+            $remaining = trim((string) $annotation);
+            do {
+                $chunk = mb_substr($remaining, 0, $chunkLength);
+                $remaining = mb_substr($remaining, $chunkLength);
+                $created = $this->db->insert('anotacoes_os', [
+                    'anotacao' => $prefix . $chunk,
+                    'data_hora' => date('Y-m-d H:i:s'),
+                    'os_id' => (int) $osId,
+                ]);
+                if (! $created) {
+                    throw new RuntimeException('os annotation insert failed');
+                }
+            } while ($remaining !== '');
+        }
     }
 
     private function limited($value, $length)

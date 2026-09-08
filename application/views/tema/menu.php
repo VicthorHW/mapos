@@ -109,6 +109,17 @@
                     </li>
                 <?php } ?>
 
+                <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'cSistema')) { ?>
+                    <li class="<?php if (isset($menuPreAtendimentos)) {
+                        echo 'active';
+                    }; ?>">
+                        <a class="tip-bottom" title="" href="<?= site_url('tecnina_whatsapp/pre_atendimentos') ?>"><i class='bx bx-conversation iconX'></i>
+                            <span class="title">Pré-atendimentos</span>
+                            <span class="title-tooltip">Pré-atendimentos</span>
+                        </a>
+                    </li>
+                <?php } ?>
+
                 <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'vGarantia')) { ?>
                     <li class="<?php if (isset($menuGarantia)) {
                         echo 'active';

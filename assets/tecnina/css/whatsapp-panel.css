@@ -1,0 +1,69 @@
+.tecnina-wa-panel .widget-content { padding: 20px; }
+.tecnina-wa-panel h3, .tecnina-wa-panel h4 { margin-top: 0; }
+.wa-main-tabs { margin: 18px 0 0; }
+.wa-tab-content { min-height: 260px; padding-top: 20px; }
+.wa-loading { color: #777; padding: 18px 0; }
+.wa-section { margin-bottom: 28px; }
+.wa-section + .wa-section { border-top: 1px solid #e5e5e5; padding-top: 22px; }
+.wa-health-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 760px; }
+.wa-health-card { align-items: center; background: #fff; border: 1px solid #ddd; border-left: 5px solid #999; border-radius: 5px; display: flex; gap: 12px; min-height: 62px; padding: 12px 14px; }
+.wa-health-card.is-ok { border-left-color: #2e9b58; }
+.wa-health-card.is-warning { border-left-color: #e5a817; }
+.wa-health-card.is-error { border-left-color: #c9413a; }
+.wa-health-dot { background: #999; border-radius: 50%; flex: 0 0 12px; height: 12px; width: 12px; }
+.is-ok .wa-health-dot { background: #2e9b58; }
+.is-warning .wa-health-dot { background: #e5a817; }
+.is-error .wa-health-dot { background: #c9413a; }
+.wa-health-card strong, .wa-health-card span { display: block; }
+.wa-health-card span { color: #666; margin-top: 2px; }
+.wa-state-badge { border-radius: 12px; display: inline-block; font-size: 12px; font-weight: 600; line-height: 20px; padding: 0 9px; white-space: nowrap; }
+.wa-state-auto { background: #e5f5eb; color: #247944; }
+.wa-state-human { background: #fff3d6; color: #8a6200; }
+.wa-state-manual { background: #f6e5e4; color: #9b302a; }
+.wa-status-ready { background: #e5f5eb; color: #247944; }
+.wa-status-review { background: #e7f0fb; color: #285f9b; }
+.wa-status-progress { background: #fff3d6; color: #8a6200; }
+.wa-status-closed { background: #eee; color: #555; }
+.wa-table { font-size: 14px; }
+.wa-table th { background: #f6f6f6; color: #444; }
+.wa-table td, .wa-table th { padding: 10px 9px; vertical-align: middle; }
+.wa-table .wa-actions { white-space: nowrap; }
+.wa-connection-card, .wa-city-card { background: #fafafa; border: 1px solid #ddd; border-radius: 5px; padding: 16px; }
+.wa-connection-line { border-bottom: 1px solid #e8e8e8; display: flex; justify-content: space-between; padding: 9px 0; }
+.wa-connection-line:last-child { border-bottom: 0; }
+.wa-city-card { margin-bottom: 14px; }
+.wa-city-card-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 12px; }
+.wa-city-card-header h5 { font-size: 16px; margin: 0; }
+.wa-city-fields label { font-weight: 600; }
+.wa-city-neighborhoods { background: #fff; border-top: 1px solid #e4e4e4; margin-top: 15px; padding-top: 15px; }
+.wa-page-heading { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 18px; }
+.wa-page-heading h3 { margin-bottom: 4px; }
+.wa-intake-workspace { align-items: flex-start; display: flex; }
+.wa-intake-list-column { min-width: 0; }
+.wa-intake-detail-column { position: sticky; top: 18px; }
+.wa-intake-empty { align-items: center; background: #fafafa; border: 1px dashed #bbb; border-radius: 5px; color: #777; display: flex; flex-direction: column; min-height: 220px; justify-content: center; padding: 24px; text-align: center; }
+.wa-intake-empty i { font-size: 38px; margin-bottom: 10px; }
+.wa-intake-empty strong, .wa-intake-empty span { display: block; }
+.wa-intake-form { margin: 0; }
+.wa-intake-form h4 { overflow-wrap: anywhere; }
+.wa-intake-form .wa-form-actions { border-top: 1px solid #ddd; margin-top: 18px; padding-top: 14px; }
+.wa-intake-form textarea { min-height: 80px; }
+.wa-intake-table .wa-col-date { width: 86px; }
+.wa-intake-table .wa-col-city { width: 90px; }
+.wa-intake-table .wa-col-status { width: 100px; }
+.wa-intake-table .wa-col-action { width: 74px; }
+@media (max-width: 900px) {
+    .wa-main-tabs > li { float: none; }
+    .wa-main-tabs > li > a { border: 1px solid #ddd; margin-bottom: 3px; }
+    .wa-health-grid { grid-template-columns: 1fr; }
+    .wa-intake-workspace { display: block; }
+    .wa-intake-workspace > [class*="span"] { margin-left: 0; width: 100%; }
+    .wa-intake-detail-column { margin-top: 18px !important; position: static; }
+}
+@media (max-width: 600px) {
+    .tecnina-wa-panel .widget-content { padding: 14px; }
+    .wa-page-heading { display: block; }
+    .wa-history-filter { margin-top: 10px; }
+    .wa-table-wrap { overflow-x: auto; }
+    .wa-intake-table { min-width: 760px; }
+}

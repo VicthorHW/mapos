@@ -23,6 +23,13 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-08 | OS abertas por cliente para consulta atual | CURRENT | `application/controllers/api/bot/Client_open_os.php`, `application/models/Tecnina_client_open_os_model.php`, `application/config/routes.php` | `tests/TecninaIntakeApprovalTest.php` |
 | MAP-09 | Flow Studio | SUPERSEDED/REMOVED | antiga aba/proxy | não reativar; histórico em archive |
 | MAP-10 | Código de 8 caracteres / consulta por OS | SUPERSEDED | rota/status + UI antiga | fluxo atual usa telefone + OS abertas |
+| MAP-11 | Gestão WhatsApp e pré-atendimentos separados | LOCAL/UNRELEASED | controller/view/JS/CSS TecNina + item no menu original | testes de painel, privacidade e aprovação |
+
+## Arquivo upstream alterado neste ciclo
+
+| Arquivo | Motivo | Necessidade | Alternativa avaliada | Proteção |
+|---|---|---|---|---|
+| `application/views/tema/menu.php` | entrada operacional Pré-atendimentos | a barra lateral central é a navegação padrão do MapOS | manter dentro de Configurações contrariaria o fluxo diário | `TecninaIntakeReviewPanelTest.php` |
 
 ## Regra para arquivos upstream
 

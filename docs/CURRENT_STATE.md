@@ -18,20 +18,22 @@ Scope: MapOS fork TecNina / estado atual
 
 - outbox MapOS para eventos do Gateway;
 - endpoints privados `/api/bot/*` com bearer interno e whitelists;
-- painel `Configurações → WhatsApp` protegido por `cSistema`;
-- revisão/aprovação de intake via proxy server-side;
+- painel técnico `Configurações → WhatsApp` protegido por `cSistema`;
+- pré-atendimentos em área operacional própria no menu, com revisão/aprovação via
+  proxy server-side;
 - criação idempotente de cliente/OS na aprovação;
 - configuração logística/coleta administrada sem colocar estados logísticos dentro da OS;
-- painel carrega abas de forma incremental;
+- painel carrega áreas de forma incremental e consolida conexão/fila e mensagens
+  automáticas;
 - Flow Studio removido da UI/proxy;
 - consulta vigente de reparo deve suportar cliente identificado pelo telefone e suas OS abertas via contrato mínimo.
 
 ## Estado do snapshot
 
-Branch `master`, HEAD `d9ff0a0`, com alterações funcionais locais ainda não
-commitadas. Os 13 scripts do `composer test`, `php -l` do controller alterado,
-`node --check` do painel e `git diff --check` foram aprovados localmente para
-`CR-20260908-RUNTIME-CLEANUP`.
+Branch `master`, base desta entrega `d847d66`, com a reorganização administrativa registrada em
+`CR-20260908-ADMIN-PREATTENDANCE-REORGANIZATION` incluída nesta entrega e ainda
+sem deploy/E2E.
+Os 13 scripts de regressão, lint PHP e `node --check` dos painéis foram aprovados.
 
 ## Confirmações no repositório real
 
@@ -43,6 +45,10 @@ commitadas. Os 13 scripts do `composer test`, `php -l` do controller alterado,
 - a UI e o proxy do Flow Studio estão removidos; testes de regressão cobrem essa ausência.
 - o painel não oferece emissão manual do link legado de localização; a coleta é
   iniciada automaticamente pelo fluxo vigente do Gateway em `/g/{token}`.
+- `os.observacoes` é visível no portal/PDF/e-mail, enquanto `anotacoes_os` não é
+  consultada por esses canais; metadados do intake passam a usar Anotações.
+- endereço de coleta não altera o endereço cadastral de cliente existente nem é
+  copiado silenciosamente ao criar cliente novo.
 
 ## Legado que não deve orientar novas mudanças
 

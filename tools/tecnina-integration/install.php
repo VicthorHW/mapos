@@ -15,6 +15,7 @@ if ($root === false || ! is_file($root . '/index.php')) {
 
 $required = [
     'application/controllers/Tecnina_integration_setup.php',
+    'application/controllers/Tecnina_whatsapp.php',
     'application/controllers/api/bot/Health.php',
     'application/controllers/api/bot/Outbox.php',
     'application/controllers/api/bot/Client_by_phone.php',
@@ -26,6 +27,11 @@ $required = [
     'application/models/Tecnina_client_open_os_model.php',
     'application/models/Tecnina_intake_approval_model.php',
     'application/models/Tecnina_outbox_model.php',
+    'application/views/tecnina_whatsapp/index.php',
+    'application/views/tecnina_whatsapp/pre_atendimentos.php',
+    'assets/tecnina/css/whatsapp-panel.css',
+    'assets/tecnina/js/whatsapp-panel.js',
+    'assets/tecnina/js/pre-attendance-panel.js',
 ];
 foreach ($required as $file) {
     if (! is_file($root . '/' . $file)) {

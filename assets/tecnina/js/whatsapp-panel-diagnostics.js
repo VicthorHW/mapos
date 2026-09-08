@@ -14,7 +14,8 @@
     window.addEventListener('error', function (event) {
         var page = String(window.location.pathname || '');
         var source = String(event.filename || '');
-        if (page.indexOf('tecnina_whatsapp') !== -1 && (!source || source.indexOf('tecnina_whatsapp') !== -1)) {
+        var panelScript = source.indexOf('whatsapp-panel') !== -1 || source.indexOf('pre-attendance-panel') !== -1;
+        if (page.indexOf('tecnina_whatsapp') !== -1 && (!source || panelScript)) {
             reportedError = true;
             show(
                 'erro de inicialização na linha ' + (event.lineno || '?') + ':' + (event.colno || '?') +

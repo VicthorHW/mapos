@@ -9,13 +9,12 @@ Scope: MapOS fork TecNina / pendências
 
 ## Desenvolvimento
 
-O escopo funcional CURRENT não possui implementação local pendente conhecida.
-Funcionalidades novas exigem change request próprio.
+A reorganização administrativa de WhatsApp/pré-atendimentos está implementada e
+validada localmente; aguarda deploy/E2E coordenado. Funcionalidades novas exigem
+change request próprio.
 
 ## P0 — preparação de release
 
-- revisar e, mediante autorização, fazer commit/push das alterações locais
-  validadas de `CR-20260908-RUNTIME-CLEANUP`;
 - executar limpeza controlada de homologação (`TECNINA_TEST_DATA_RESET.md`);
 
 ## P1

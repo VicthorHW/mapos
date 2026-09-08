@@ -28,13 +28,13 @@ expectLogisticsPanel(strpos($controller, 'location-request') === false, 'O emiss
 expectLogisticsPanel(strpos($controller, "userdata('id_admin')") !== false, 'Operador deve vir da sessão MapOS.');
 expectLogisticsPanel(strpos($controller, "post('operator_id'") === false, 'Navegador não pode escolher o operador.');
 expectLogisticsPanel(strpos($controller, 'strlen($rawPayload) > 20000') !== false, 'Proxy deve limitar o payload de configuração.');
-expectLogisticsPanel(strpos($panel, '>Logística<') !== false, 'Aba Logística ausente.');
-expectLogisticsPanel(strpos($panel, 'PICKUP') !== false && strpos($panel, 'DELIVERY') !== false, 'Coleta e entrega não compartilham a mesma interface.');
-expectLogisticsPanel(strpos($panel, 'America/Sao_Paulo') !== false, 'Timezone IANA não está explícito no painel.');
+expectLogisticsPanel(strpos($view, '>Logística<') === false && strpos($view, 'wa-logistica') === false, 'Aba logística legada ainda está visível.');
+expectLogisticsPanel(strpos($script, 'loadLogistics') === false && strpos($script, 'wa-log-') === false, 'JavaScript morto da aba logística ainda é entregue ao navegador.');
+expectLogisticsPanel(strpos($view, 'Cidades com coleta') !== false, 'Configuração operacional de cidades com coleta foi removida indevidamente.');
 expectLogisticsPanel(strpos($panel, 'wa-logistics-location-link') === false, 'O painel ainda reserva espaço para o link legado.');
 expectLogisticsPanel(strpos($panel, 'function esc(value)') !== false, 'Dados do Gateway devem ser escapados.');
 expectLogisticsPanel(strpos($panel, 'latitude') === false && strpos($panel, 'longitude') === false, 'Lista não deve expor coordenadas exatas.');
 expectLogisticsPanel(strpos($panel, 'Authorization: Bearer') === false, 'Token interno não pode aparecer na view.');
-expectLogisticsPanel(strpos($gateway, "'confirmed_location_required'") !== false, 'Erros logísticos seguros não atravessam o proxy.');
+expectLogisticsPanel(strpos($gateway, "'confirmed_location_required'") !== false, 'Contratos logísticos usados fora da aba não foram preservados no proxy.');
 
 echo 'TecninaLogisticsPanelTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

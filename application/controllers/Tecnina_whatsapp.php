@@ -8,7 +8,6 @@ class Tecnina_whatsapp extends MY_Controller
     {
         parent::__construct();
         $this->load->library('tecnina_bot_gateway');
-        $this->data['menuConfiguracoes'] = 'WhatsApp';
     }
 
     public function index()
@@ -17,10 +16,20 @@ class Tecnina_whatsapp extends MY_Controller
             return;
         }
 
-        $this->data['view'] = 'tecnina_whatsapp/index';
-        $this->data['gatewayConfigured'] = $this->tecnina_bot_gateway->available();
-        $this->data['csrfName'] = $this->security->get_csrf_token_name();
-        $this->data['csrfHash'] = $this->security->get_csrf_hash();
+        $this->data['menuConfiguracoes'] = 'WhatsApp';
+        $this->preparePanel('tecnina_whatsapp/index');
+
+        return $this->layout();
+    }
+
+    public function pre_atendimentos()
+    {
+        if (! $this->authorized()) {
+            return;
+        }
+
+        $this->data['menuPreAtendimentos'] = 'Pré-atendimentos';
+        $this->preparePanel('tecnina_whatsapp/pre_atendimentos');
 
         return $this->layout();
     }
@@ -54,6 +63,13 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         $result = $this->tecnina_bot_gateway->request('GET', $paths[$resource]);
+        if (
+            $result['ok']
+            && in_array($resource, ['intakes', 'intake-history'], true)
+            && is_array($result['data'])
+        ) {
+            $result['data'] = $this->withMaposClientNames($result['data']);
+        }
         return $this->json($result, $result['status']);
     }
 
@@ -69,6 +85,10 @@ class Tecnina_whatsapp extends MY_Controller
         $method = $this->input->method(true);
         if ($method === 'GET' && $action === '') {
             $result = $this->tecnina_bot_gateway->request('GET', '/admin/intakes/' . rawurlencode($intakeId));
+            if ($result['ok'] && is_array($result['data'])) {
+                $rows = $this->withMaposClientNames([$result['data']]);
+                $result['data'] = $rows[0];
+            }
             return $this->json($result, $result['status']);
         }
         if ($method !== 'POST' || ! in_array($action, ['save', 'reject', 'approve'], true)) {
@@ -375,6 +395,52 @@ class Tecnina_whatsapp extends MY_Controller
             redirect(base_url());
         }
         return false;
+    }
+
+    private function preparePanel($view)
+    {
+        $this->data['view'] = $view;
+        $this->data['gatewayConfigured'] = $this->tecnina_bot_gateway->available();
+        $this->data['csrfName'] = $this->security->get_csrf_token_name();
+        $this->data['csrfHash'] = $this->security->get_csrf_hash();
+    }
+
+    private function withMaposClientNames(array $rows)
+    {
+        $clientIds = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $clientId = (int) ($row['mapos_client_id'] ?? $row['possible_mapos_client_id'] ?? 0);
+            if ($clientId > 0) {
+                $clientIds[$clientId] = true;
+            }
+        }
+        if ($clientIds === []) {
+            return $rows;
+        }
+
+        $names = [];
+        $clients = $this->db
+            ->select('idClientes, nomeCliente')
+            ->from('clientes')
+            ->where_in('idClientes', array_keys($clientIds))
+            ->get()
+            ->result_array();
+        foreach ($clients as $client) {
+            $names[(int) $client['idClientes']] = (string) $client['nomeCliente'];
+        }
+        foreach ($rows as &$row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $clientId = (int) ($row['mapos_client_id'] ?? $row['possible_mapos_client_id'] ?? 0);
+            $row['mapos_client_name'] = $names[$clientId] ?? null;
+        }
+        unset($row);
+
+        return $rows;
     }
 
     private function json($body, $status = 200)

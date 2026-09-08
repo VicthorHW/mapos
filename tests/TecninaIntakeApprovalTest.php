@@ -19,6 +19,13 @@ $openOsModel = file_get_contents($root . '/application/models/Tecnina_client_ope
 $setup = file_get_contents($root . '/application/controllers/Tecnina_integration_setup.php');
 $routes = file_get_contents($root . '/application/config/routes.php');
 $installer = file_get_contents($root . '/tools/tecnina-integration/install.php');
+$customerSurfaces = implode("\n", [
+    file_get_contents($root . '/application/controllers/Mine.php'),
+    file_get_contents($root . '/application/models/Conecte_model.php'),
+    file_get_contents($root . '/application/views/conecte/visualizar_os.php'),
+    file_get_contents($root . '/application/views/conecte/imprimirOs.php'),
+    file_get_contents($root . '/application/views/os/emails/os.php'),
+]);
 
 expectIntakeApproval($controller !== false && $model !== false && $setup !== false, 'Arquivos da aprovação ausentes.');
 expectIntakeApproval($openOsModel !== false && strpos($openOsModel, "from('os AS bot_os')") !== false, 'Consulta de OS não usa alias compatível com DB_PREFIX.');
@@ -33,7 +40,12 @@ expectIntakeApproval(stripos($controller, 'credencial') === false, 'Endpoint nã
 expectIntakeApproval(stripos($controller, 'password') === false && stripos($controller, 'senha') === false, 'Endpoint não pode manipular senha do cliente.');
 expectIntakeApproval(strpos($model, "'credencial_tipo' => 'nao_informada'") !== false, 'OS de intake deve registrar credencial não informada.');
 expectIntakeApproval(strpos($model, "'credencial_dados' => null") !== false, 'OS de intake não pode inventar dados de credencial.');
-expectIntakeApproval(strpos($model, "'rua' => \$pickup['street'] ?? null") !== false, 'Novo cliente não recebe o endereço de coleta confirmado.');
+expectIntakeApproval(strpos($model, "'rua' => null") !== false && strpos($model, "'cep' => null") !== false, 'Endereço operacional de coleta não pode virar endereço cadastral silenciosamente.');
+expectIntakeApproval(strpos($model, "'observacoes' => null") !== false, 'Metadados internos não podem ir para Observações visíveis ao cliente.');
+expectIntakeApproval(strpos($model, "insert('anotacoes_os'") !== false, 'Metadados do intake não são registrados em Anotações internas.');
+expectIntakeApproval(strpos($model, "'[Pré-atendimento WhatsApp] '") !== false, 'Anotação interna não identifica sua origem.');
+expectIntakeApproval(strpos($model, '255 - mb_strlen($prefix)') !== false, 'Anotações longas precisam ser preservadas em blocos compatíveis com o schema.');
+expectIntakeApproval(strpos($customerSurfaces, 'anotacoes_os') === false && strpos($customerSurfaces, 'getAnotacoes') === false, 'Anotações internas estão sendo consultadas por uma superfície destinada ao cliente.');
 expectIntakeApproval(strpos($model, 'trans_begin()') !== false && strpos($model, 'trans_commit()') !== false && strpos($model, 'trans_rollback()') !== false, 'Cliente e OS devem ser criados em uma transação.');
 expectIntakeApproval(strpos($model, 'INSERT IGNORE') !== false && strpos($model, 'FOR UPDATE') !== false, 'Aprovação deve coordenar concorrência no banco.');
 expectIntakeApproval(strpos($model, "dbprefix('tecnina_intake_approvals')") !== false, 'Tabela de idempotência deve respeitar DB_PREFIX.');
