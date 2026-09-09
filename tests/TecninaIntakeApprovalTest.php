@@ -34,12 +34,13 @@ expectIntakeApproval(strpos($routes, 'api/bot/client/(:num)/open-os') !== false,
 expectIntakeApproval(strpos($controller, 'authorizeRequest()') < strpos($controller, '$this->post()'), 'Autorização deve ocorrer antes da leitura do payload.');
 expectIntakeApproval(strpos($controller, "['operator_id', 'client_action', 'client_id', 'force_create_new', 'intake_created_at', 'client', 'os']") !== false, 'Contrato superior não usa whitelist explícita.');
 expectIntakeApproval(strpos($controller, "['name', 'phone', 'city']") !== false, 'Contrato de cliente não usa whitelist explícita.');
-expectIntakeApproval(strpos($controller, "['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes', 'pickup_address']") !== false, 'Contrato de OS não usa whitelist explícita.');
-expectIntakeApproval(strpos($controller, "['DETERMINED', 'MANUAL_QUOTE']") !== false, 'Estado da taxa de coleta não usa whitelist explícita.');
-expectIntakeApproval(stripos($controller, 'credencial') === false, 'Endpoint não pode receber credencial do aparelho.');
-expectIntakeApproval(stripos($controller, 'password') === false && stripos($controller, 'senha') === false, 'Endpoint não pode manipular senha do cliente.');
-expectIntakeApproval(strpos($model, "'credencial_tipo' => 'nao_informada'") !== false, 'OS de intake deve registrar credencial não informada.');
-expectIntakeApproval(strpos($model, "'credencial_dados' => null") !== false, 'OS de intake não pode inventar dados de credencial.');
+expectIntakeApproval(strpos($controller, "['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes', 'pickup_address', 'credential']") !== false, 'Contrato de OS não usa whitelist explícita.');
+expectIntakeApproval(strpos($controller, "['DETERMINED', 'MANUAL_QUOTE', 'CONFIRMED']") !== false, 'Estado da taxa de coleta não usa whitelist explícita.');
+expectIntakeApproval(strpos($controller, "'status', 'type', 'grid', 'text', 'sequence'") !== false, 'Contrato da credencial não usa whitelist explícita.');
+expectIntakeApproval(strpos($controller, 'prepareForStorage') !== false, 'Credencial do intake não passa pela validação e criptografia do MapOS.');
+expectIntakeApproval(stripos($controller, 'client_password') === false, 'Endpoint não pode manipular senha do cliente.');
+expectIntakeApproval(strpos($model, "'credencial_tipo' => \$os['credential']['credencial_tipo']") !== false, 'OS de intake não persiste o tipo validado da credencial.');
+expectIntakeApproval(strpos($model, "'credencial_dados' => \$os['credential']['credencial_dados']") !== false, 'OS de intake não persiste a credencial criptografada pelo MapOS.');
 expectIntakeApproval(strpos($model, "'rua' => null") !== false && strpos($model, "'cep' => null") !== false, 'Endereço operacional de coleta não pode virar endereço cadastral silenciosamente.');
 expectIntakeApproval(strpos($model, "'observacoes' => null") !== false, 'Metadados internos não podem ir para Observações visíveis ao cliente.');
 expectIntakeApproval(strpos($model, "insert('anotacoes_os'") !== false, 'Metadados do intake não são registrados em Anotações internas.');
@@ -54,5 +55,6 @@ expectIntakeApproval(strpos($setup, "physicalName('tecnina_intake_approvals')") 
 expectIntakeApproval(strpos($setup, 'UNIQUE KEY `uq_tecnina_intake_approval` (`intake_id`)') !== false, 'Idempotência precisa de índice único por intake.');
 expectIntakeApproval(strpos($installer, 'Tecnina_intake_approval_model.php') !== false && strpos($installer, 'Intake_approval.php') !== false, 'Instalador não verifica os arquivos da aprovação.');
 expectIntakeApproval(strpos($installer, 'Tecnina_client_open_os_model.php') !== false && strpos($installer, 'Client_open_os.php') !== false, 'Instalador não verifica os arquivos da consulta mínima de OS.');
+expectIntakeApproval(strpos($installer, 'Tecnina_bot_client_model.php') !== false && strpos($installer, 'Client_profile.php') !== false, 'Instalador não verifica os contratos privados de cadastro do cliente.');
 
 echo 'TecninaIntakeApprovalTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

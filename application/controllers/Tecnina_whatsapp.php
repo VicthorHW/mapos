@@ -91,7 +91,7 @@ class Tecnina_whatsapp extends MY_Controller
             }
             return $this->json($result, $result['status']);
         }
-        if ($method !== 'POST' || ! in_array($action, ['save', 'reject', 'approve'], true)) {
+        if ($method !== 'POST' || ! in_array($action, ['save', 'reject', 'approve', 'pickup-fee'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
         }
 
@@ -185,6 +185,25 @@ class Tecnina_whatsapp extends MY_Controller
     {
         if (! $this->authorized(true)) {
             return;
+        }
+
+        if ($action === 'pickup-fee') {
+            $fee = str_replace(',', '.', trim((string) $this->input->post('fee', true)));
+            if (! is_numeric($fee) || (float) $fee < 0 || (float) $fee > 100000) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_pickup_fee'], 422);
+            }
+            $payload = [
+                'review_version' => $version,
+                'operator_id' => $operatorId,
+                'fee' => number_format((float) $fee, 2, '.', ''),
+            ];
+            $result = $this->tecnina_bot_gateway->request(
+                'POST',
+                '/admin/intakes/' . rawurlencode($intakeId) . '/pickup-fee',
+                $payload
+            );
+
+            return $this->json($result, $result['status']);
         }
         unset($osId, $action);
 

@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-08
+Last consolidated: 2026-09-09
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual
 
@@ -27,13 +27,20 @@ Scope: MapOS fork TecNina / estado atual
   automáticas;
 - Flow Studio removido da UI/proxy;
 - consulta vigente de reparo deve suportar cliente identificado pelo telefone e suas OS abertas via contrato mínimo.
+- contratos privados aditivos para perfil mínimo, atualização cadastral,
+  desvinculação segura de telefone, criação opcional de cliente e entrega de
+  código por e-mail;
+- aprovação de intake aceita credencial opcional e a grava pela biblioteca
+  protegida já usada nas OS, sem copiá-la para observações;
+- painel de pré-atendimentos permite ao operador oferecer taxa manual de coleta.
 
 ## Estado do snapshot
 
 Branch `master`, base desta entrega `d847d66`, com a reorganização administrativa registrada em
 `CR-20260908-ADMIN-PREATTENDANCE-REORGANIZATION` incluída nesta entrega e ainda
 sem deploy/E2E.
-Os 13 scripts de regressão, lint PHP e `node --check` dos painéis foram aprovados.
+Os 16 scripts PHP de regressão foram aprovados, assim como lint dos arquivos PHP
+alterados e `node --check` dos três painéis JavaScript ativos.
 
 ## Confirmações no repositório real
 
@@ -49,6 +56,8 @@ Os 13 scripts de regressão, lint PHP e `node --check` dos painéis foram aprova
   consultada por esses canais; metadados do intake passam a usar Anotações.
 - endereço de coleta não altera o endereço cadastral de cliente existente nem é
   copiado silenciosamente ao criar cliente novo.
+- revisão de pré-atendimento apresenta GPS em mapa OpenStreetMap e oferece link
+  de coordenadas para o Google Maps, sem API paga.
 
 ## Legado que não deve orientar novas mudanças
 
@@ -62,5 +71,6 @@ Os 13 scripts de regressão, lint PHP e `node --check` dos painéis foram aprova
 - deploy antes do Gateway;
 - validar contratos `/api/bot/*`, outbox, painel, intake e notificações em ambiente real.
 
-O escopo funcional CURRENT não possui implementação local pendente conhecida;
-os itens acima pertencem à preparação de release e à validação operacional.
+O escopo funcional CURRENT não possui implementação funcional local pendente
+conhecida; os itens acima pertencem à preparação de release e à validação
+operacional.

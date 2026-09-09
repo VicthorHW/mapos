@@ -159,9 +159,15 @@ class Tecnina_intake_approval_model extends CI_Model
         $serviceMode = $os['service_mode'] === 'PICKUP_REQUESTED'
             ? 'Coleta solicitada'
             : 'Cliente levará o equipamento';
+        $credentialDescription = 'não informada';
+        if ($os['credential']['credencial_tipo'] === 'sem_senha') {
+            $credentialDescription = 'equipamento sem senha';
+        } elseif (in_array($os['credential']['credencial_tipo'], ['texto', 'padrao'], true)) {
+            $credentialDescription = 'informada por canal seguro';
+        }
         $annotations = [
             'OS criada a partir do pré-atendimento WhatsApp #' . $intakeId . '.',
-            'Credencial do equipamento ainda não informada.',
+            'Credencial do equipamento: ' . $credentialDescription . '.',
             'Forma de atendimento: ' . $serviceMode . '.',
             'Cidade informada: ' . $os['city'] . '.',
         ];
@@ -200,10 +206,10 @@ class Tecnina_intake_approval_model extends CI_Model
             'status' => 'Aberto',
             'observacoes' => null,
             'laudoTecnico' => null,
-            'credencial_tipo' => 'nao_informada',
-            'credencial_dados' => null,
-            'credencial_grade' => null,
-            'credencial_atualizada_em' => null,
+            'credencial_tipo' => $os['credential']['credencial_tipo'],
+            'credencial_dados' => $os['credential']['credencial_dados'],
+            'credencial_grade' => $os['credential']['credencial_grade'],
+            'credencial_atualizada_em' => $os['credential']['credencial_atualizada_em'],
             'clientes_id' => (int) $clientId,
             'usuarios_id' => (int) $operatorId,
             'faturado' => 0,

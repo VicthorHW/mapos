@@ -14,6 +14,7 @@ class Intake_approval extends REST_Controller
         parent::__construct();
         $this->load->library('Tecnina_bot_auth');
         $this->load->library('Tecnina_phone');
+        $this->load->library('Device_credential');
         $this->load->model('Tecnina_intake_approval_model');
     }
 
@@ -34,7 +35,7 @@ class Intake_approval extends REST_Controller
             || ! is_array($input['client'] ?? null)
             || ! is_array($input['os'] ?? null)
             || ! $this->onlyKeys($input['client'], ['name', 'phone', 'city'])
-            || ! $this->onlyKeys($input['os'], ['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes', 'pickup_address'])
+            || ! $this->onlyKeys($input['os'], ['device_type', 'brand', 'model', 'problem_description', 'service_mode', 'city', 'notes', 'pickup_address', 'credential'])
             || (isset($input['os']['pickup_address']) && (
                 ! is_array($input['os']['pickup_address'])
                 || ! $this->onlyKeys($input['os']['pickup_address'], [
@@ -113,6 +114,7 @@ class Intake_approval extends REST_Controller
         $osCity = $this->bounded($input['os']['city'] ?? null, 80, false);
         $notes = $this->bounded($input['os']['notes'] ?? null, 2000, true);
         $pickupAddress = $this->pickupAddress($input['os']['pickup_address'] ?? null);
+        $credential = $this->credential($input['os']['credential'] ?? null);
         // Keep the private contract deployable in either order. Older Gateway
         // versions do not send this field yet; once the new Gateway is live it
         // always supplies the actual intake date.
@@ -123,6 +125,7 @@ class Intake_approval extends REST_Controller
             || $problem === false || $osCity === false || $model === false || $notes === false
             || $intakeDate === null
             || $pickupAddress === false
+            || $credential === false
             || ! in_array($serviceMode, self::SERVICE_MODES, true)
             || ($clientAction === 'CREATE_NEW' && ($name === null || $name === false))) {
             $this->response(['status' => false, 'reason' => 'invalid_intake_fields'], self::HTTP_UNPROCESSABLE_ENTITY);
@@ -146,8 +149,57 @@ class Intake_approval extends REST_Controller
                 'city' => $osCity,
                 'notes' => $notes,
                 'pickup_address' => $pickupAddress,
+                'credential' => $credential,
             ],
         ];
+    }
+
+    private function credential($value)
+    {
+        if ($value === null) {
+            return [
+                'credencial_tipo' => 'nao_informada',
+                'credencial_dados' => null,
+                'credencial_grade' => null,
+                'credencial_atualizada_em' => null,
+            ];
+        }
+        if (! is_array($value) || ! $this->onlyKeys($value, [
+            'status', 'type', 'grid', 'text', 'sequence',
+        ])) {
+            return false;
+        }
+        $status = (string) ($value['status'] ?? '');
+        if ($status === 'DECLINED') {
+            return [
+                'credencial_tipo' => 'nao_informada',
+                'credencial_dados' => null,
+                'credencial_grade' => null,
+                'credencial_atualizada_em' => null,
+            ];
+        }
+        if ($status === 'NONE') {
+            $prepared = $this->device_credential->prepareForStorage([
+                'credencial_sem_senha' => '1',
+            ], true, false);
+        } elseif ($status === 'PROVIDED' && ($value['type'] ?? null) === 'TEXT') {
+            $prepared = $this->device_credential->prepareForStorage([
+                'credencial_tipo' => 'texto',
+                'credencial_texto' => $value['text'] ?? '',
+                'credencial_acao' => 'substituir',
+            ], true, false);
+        } elseif ($status === 'PROVIDED' && ($value['type'] ?? null) === 'PATTERN') {
+            $prepared = $this->device_credential->prepareForStorage([
+                'credencial_tipo' => 'padrao',
+                'credencial_grade' => $value['grid'] ?? null,
+                'credencial_padrao' => json_encode($value['sequence'] ?? []),
+                'credencial_acao' => 'substituir',
+            ], true, false);
+        } else {
+            return false;
+        }
+
+        return ! empty($prepared['valid']) ? $prepared['data'] : false;
     }
 
     private function pickupAddress($value)
@@ -174,7 +226,7 @@ class Intake_approval extends REST_Controller
             || $neighborhood === false || preg_match('/^[A-Z]{2}$/', $state) !== 1
             || $complement === false || $reference === false
             || ($fee !== null && (! is_numeric($fee) || (float) $fee < 0))
-            || ! in_array($feeStatus, ['DETERMINED', 'MANUAL_QUOTE'], true)
+            || ! in_array($feeStatus, ['DETERMINED', 'MANUAL_QUOTE', 'CONFIRMED'], true)
             || ! is_bool($value['gps_available'] ?? false)) {
             return false;
         }

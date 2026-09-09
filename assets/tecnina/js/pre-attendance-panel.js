@@ -29,7 +29,9 @@
             mapos_unavailable: 'O MapOS não respondeu à aprovação. Tente novamente.',
             approval_unavailable: 'Não foi possível criar a OS. Nenhum cadastro parcial foi mantido.',
             gateway_not_configured: 'O Gateway não está configurado no MapOS.',
-            gateway_unavailable: 'O Gateway está indisponível no momento.'
+            gateway_unavailable: 'O Gateway está indisponível no momento.',
+            invalid_pickup_fee: 'Informe uma taxa de coleta válida.',
+            pickup_fee_not_confirmed: 'A taxa de coleta precisa ser informada e confirmada pelo cliente antes da aprovação.'
         };
         return messages[reason] || 'Não foi possível concluir a operação.';
     }
@@ -78,6 +80,20 @@
         }[value] || {label: 'Estado desconhecido', css: 'wa-status-closed'};
     }
     function displayName(row) { return row.mapos_client_name || row.name || 'Nome não informado'; }
+    function gpsPanel(data) {
+        if (!data.gps_available) { return '<br><strong>GPS opcional:</strong> Não informado'; }
+        var latitude = Number(data.gps_latitude);
+        var longitude = Number(data.gps_longitude);
+        if (!isFinite(latitude) || !isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            return '<br><strong>GPS opcional:</strong> Recebido, mas sem coordenadas válidas para exibição';
+        }
+        var delta = 0.003;
+        var bbox = [longitude - delta, latitude - delta, longitude + delta, latitude + delta].join(',');
+        var mapUrl = 'https://www.openstreetmap.org/export/embed.html?bbox=' + encodeURIComponent(bbox) + '&layer=mapnik&marker=' + encodeURIComponent(latitude + ',' + longitude);
+        var googleUrl = 'https://www.google.com/maps?q=' + encodeURIComponent(latitude + ',' + longitude);
+        var accuracy = data.gps_accuracy_meters ? ' · precisão aproximada de ' + esc(data.gps_accuracy_meters) + ' m' : '';
+        return '<div class="wa-gps-panel"><div class="wa-gps-heading"><div><strong>Localização enviada por GPS</strong><span>' + esc(latitude.toFixed(6) + ', ' + longitude.toFixed(6)) + accuracy + '</span></div><a class="btn btn-mini btn-primary" href="' + esc(googleUrl) + '" target="_blank" rel="noopener noreferrer">Abrir no Google Maps</a></div><iframe title="Mapa da localização de coleta" loading="lazy" referrerpolicy="no-referrer" src="' + esc(mapUrl) + '"></iframe><p class="muted">Mapa: OpenStreetMap. O botão do Google Maps usa somente um link de coordenadas, sem API paga.</p></div>';
+    }
     function intakeTable(rows, historical) {
         if (!rows.length) { return '<p class="muted">' + (historical ? 'Nenhum registro no histórico.' : 'Nenhum pré-atendimento aguardando revisão.') + '</p>'; }
         var html = '<div class="wa-table-wrap"><table class="table table-bordered wa-table wa-intake-table"><thead><tr><th class="wa-col-date">Atualizado</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th class="wa-col-city">Cidade</th><th class="wa-col-status">Status</th><th class="wa-col-action"></th></tr></thead><tbody>';
@@ -102,7 +118,19 @@
             (data.complement ? '<br><strong>Complemento:</strong> ' + esc(data.complement) : '') +
             (data.reference ? '<br><strong>Referência:</strong> ' + esc(data.reference) : '') +
             '<br><strong>Taxa:</strong> ' + esc(data.pickup_fee == null ? 'A confirmar pela equipe' : 'R$ ' + String(data.pickup_fee).replace('.', ',')) +
-            '<br><strong>GPS opcional:</strong> ' + (data.gps_available ? 'Recebido' : 'Não informado') + '</div>';
+            gpsPanel(data) + '</div>';
+    }
+    function pickupFeeAction(data, actionable) {
+        if (!actionable || data.service_mode !== 'PICKUP_REQUESTED' || data.pickup_fee_status !== 'MANUAL_QUOTE') { return ''; }
+        return '<div class="alert alert-warning wa-pickup-fee-action"><strong>Taxa aguardando definição</strong><p>Informe o valor calculado pela equipe. O cliente receberá a proposta no WhatsApp e deverá confirmar antes da criação da OS.</p><div class="input-append"><input class="input-small wa-i-pickup-fee" inputmode="decimal" placeholder="0,00"><button class="btn btn-warning wa-intake-offer-fee" type="button">Enviar taxa</button></div></div>';
+    }
+    function credentialSummary(data) {
+        var status = data.credential_status || 'DECLINED';
+        if (status === 'NONE') { return 'Equipamento informado como sem senha.'; }
+        if (status === 'PROVIDED') {
+            return data.credential_type === 'PATTERN' ? 'Padrão de desenho recebido por canal seguro.' : 'Senha/PIN recebida por canal seguro.';
+        }
+        return 'Credencial não informada; deverá ser tratada na triagem física.';
     }
     function loadIntake(id) {
         request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (data) {
@@ -123,8 +151,9 @@
                 '<label>Problema informado</label><textarea class="input-block-level wa-i-problem" maxlength="2000" rows="5">' + esc(data.problem_description || '') + '</textarea>' +
                 '<label>Forma de atendimento</label><select class="input-block-level wa-i-mode"><option value="DROP_OFF"' + (!pickup ? ' selected' : '') + '>Cliente traz o equipamento</option><option value="PICKUP_REQUESTED"' + (pickup ? ' selected' : '') + '>Solicitação de coleta</option></select>' +
                 pickupSummary(data) +
+                pickupFeeAction(data, actionable) +
                 '<label>Observações internas</label><textarea class="input-block-level wa-i-notes" maxlength="2000" rows="4">' + esc(data.notes || '') + '</textarea>' +
-                '<div class="well well-small"><strong>Destino no MapOS</strong><label class="radio"><input type="radio" name="wa-client-action" value="LINK_EXISTING"' + linkChecked + '> Vincular cliente existente</label><label>ID do cliente</label><input class="input-small wa-i-client-id" type="number" min="1" value="' + esc(existingId) + '"><label class="radio"><input type="radio" name="wa-client-action" value="CREATE_NEW"' + createChecked + '> Criar novo cliente</label><label class="checkbox"><input class="wa-i-force-create" type="checkbox"> Confirmo criar mesmo se o telefone já estiver cadastrado</label><p class="muted">O endereço de coleta não substituirá o endereço cadastral. A credencial do aparelho ficará como não informada para a triagem física.</p></div>' +
+                '<div class="well well-small"><strong>Destino no MapOS</strong><label class="radio"><input type="radio" name="wa-client-action" value="LINK_EXISTING"' + linkChecked + '> Vincular cliente existente</label><label>ID do cliente</label><input class="input-small wa-i-client-id" type="number" min="1" value="' + esc(existingId) + '"><label class="radio"><input type="radio" name="wa-client-action" value="CREATE_NEW"' + createChecked + '> Criar novo cliente</label><label class="checkbox"><input class="wa-i-force-create" type="checkbox"> Confirmo criar mesmo se o telefone já estiver cadastrado</label><p class="muted">O endereço de coleta não substituirá o endereço cadastral. ' + esc(credentialSummary(data)) + '</p></div>' +
                 '<div class="wa-form-actions">' + actions + '</div></div>';
             $('#wa-intake-detail').attr('class', '').html(html);
             if (!actionable) { $('#wa-intake-detail').find('input,select,textarea').prop('disabled', true); }
@@ -154,6 +183,17 @@
     $(document).on('click', '.wa-intake-save', function () {
         var form = $(this).closest('.wa-intake-form');
         request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/save', 'POST', formData(form), function (data) { loadList(); loadIntake(data.id); });
+    });
+    $(document).on('click', '.wa-intake-offer-fee', function () {
+        var form = $(this).closest('.wa-intake-form');
+        var fee = String(form.find('.wa-i-pickup-fee').val() || '').trim();
+        if (!fee) { error('Informe o valor da taxa de coleta.'); return; }
+        request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/pickup-fee', 'POST', {
+            review_version: form.data('version'), fee: fee
+        }, function () {
+            emptyDetail('Taxa enviada; aguardando confirmação do cliente');
+            loadList();
+        });
     });
     $(document).on('click', '.wa-intake-approve', function () {
         var form = $(this).closest('.wa-intake-form');

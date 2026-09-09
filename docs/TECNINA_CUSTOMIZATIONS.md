@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-08
+Last consolidated: 2026-09-09
 Source of truth: YES
 Scope: MapOS fork TecNina / manifesto de customizações
 
@@ -24,12 +24,18 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-09 | Flow Studio | SUPERSEDED/REMOVED | antiga aba/proxy | não reativar; histórico em archive |
 | MAP-10 | Código de 8 caracteres / consulta por OS | SUPERSEDED | rota/status + UI antiga | fluxo atual usa telefone + OS abertas |
 | MAP-11 | Gestão WhatsApp e pré-atendimentos separados | LOCAL/UNRELEASED | controller/view/JS/CSS TecNina + item no menu original | testes de painel, privacidade e aprovação |
+| MAP-12 | Prévia administrativa do GPS | LOCAL/UNRELEASED | JS/CSS da revisão de intake + detalhe autenticado do Gateway | mapa sem API paga; coordenadas fora da listagem |
+| MAP-13 | Perfil e cadastro privados do Bot | LOCAL/UNRELEASED | controllers/model TecNina + rotas `/api/bot/*` | whitelist, token interno, sem hash/secret |
+| MAP-14 | Credencial no intake aprovado | LOCAL/UNRELEASED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
+| MAP-15 | Oferta de taxa manual | LOCAL/UNRELEASED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
 
 ## Arquivo upstream alterado neste ciclo
 
 | Arquivo | Motivo | Necessidade | Alternativa avaliada | Proteção |
 |---|---|---|---|---|
 | `application/views/tema/menu.php` | entrada operacional Pré-atendimentos | a barra lateral central é a navegação padrão do MapOS | manter dentro de Configurações contrariaria o fluxo diário | `TecninaIntakeReviewPanelTest.php` |
+| `application/config/routes.php` | publicar contratos privados aditivos do Gateway | CodeIgniter centraliza o roteamento nesta configuração | rotas implícitas não preservariam os paths estáveis `/api/bot/*` | `TecninaBotClientProfileTest.php` e `TecninaIntakeApprovalTest.php` |
+| `application/views/os/emails/clientenovo.php` | orientar primeiro acesso do cliente criado pelo WhatsApp | o e-mail existente é a comunicação inicial já adotada pelo MapOS | criar e-mail paralelo duplicaria o gatilho e o template | testes estáticos da integração + E2E pendente |
 
 ## Regra para arquivos upstream
 

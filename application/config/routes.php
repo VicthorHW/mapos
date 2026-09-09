@@ -48,6 +48,10 @@ $route['api/bot/integration-context/(:num)'] = 'api/bot/integration_context/inde
 $route['api/bot/os/(:num)/status'] = 'api/bot/os_status/index/$1';
 $route['api/bot/client/by-phone'] = 'api/bot/client_by_phone/index';
 $route['api/bot/client/(:num)/open-os'] = 'api/bot/client_open_os/index/$1';
+$route['api/bot/client/(:num)/profile'] = 'api/bot/client_profile/index/$1';
+$route['api/bot/client/(:num)/unlink-phone'] = 'api/bot/client_profile/unlink_phone/$1';
+$route['api/bot/clients'] = 'api/bot/clients/index';
+$route['api/bot/client-registration/email-code'] = 'api/bot/client_registration/email_code';
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 
 // Rotas da API

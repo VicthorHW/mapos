@@ -48,6 +48,12 @@
 .wa-intake-form h4 { overflow-wrap: anywhere; }
 .wa-intake-form .wa-form-actions { border-top: 1px solid #ddd; margin-top: 18px; padding-top: 14px; }
 .wa-intake-form textarea { min-height: 80px; }
+.wa-gps-panel { border-top: 1px solid #ddd; margin-top: 14px; padding-top: 14px; }
+.wa-gps-heading { align-items: center; display: flex; justify-content: space-between; margin-bottom: 10px; }
+.wa-gps-heading strong, .wa-gps-heading span { display: block; }
+.wa-gps-heading span { color: #666; font-size: 12px; margin-top: 2px; }
+.wa-gps-panel iframe { border: 1px solid #ccc; border-radius: 4px; height: 220px; width: 100%; }
+.wa-gps-panel .muted { font-size: 11px; margin: 6px 0 0; }
 .wa-intake-table .wa-col-date { width: 86px; }
 .wa-intake-table .wa-col-city { width: 90px; }
 .wa-intake-table .wa-col-status { width: 100px; }
@@ -59,6 +65,8 @@
     .wa-intake-workspace { display: block; }
     .wa-intake-workspace > [class*="span"] { margin-left: 0; width: 100%; }
     .wa-intake-detail-column { margin-top: 18px !important; position: static; }
+    .wa-gps-heading { align-items: flex-start; display: block; }
+    .wa-gps-heading .btn { margin-top: 8px; }
 }
 @media (max-width: 600px) {
     .tecnina-wa-panel .widget-content { padding: 14px; }
