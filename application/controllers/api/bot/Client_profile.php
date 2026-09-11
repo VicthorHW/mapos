@@ -75,7 +75,7 @@ class Client_profile extends REST_Controller
             return;
         }
         $input = $this->post();
-        $phone = $this->tecnina_phone->normalizeBrazilianIdentity($input['phone'] ?? '');
+        $phone = $this->tecnina_phone->normalizeIdentity($input['phone'] ?? '');
         if (! is_array($input) || array_keys($input) !== ['phone'] || $phone === null) {
             $this->response(['status' => false, 'reason' => 'invalid_phone'], self::HTTP_UNPROCESSABLE_ENTITY);
 
@@ -91,8 +91,8 @@ class Client_profile extends REST_Controller
 
     private function profileResponse(array $row)
     {
-        $phone = $this->tecnina_phone->normalizeBrazilianIdentity($row['celular'])
-            ?: $this->tecnina_phone->normalizeBrazilianIdentity($row['telefone']);
+        $phone = $this->tecnina_phone->normalizeIdentity($row['celular'])
+            ?: $this->tecnina_phone->normalizeIdentity($row['telefone']);
         $address = null;
         if (trim((string) $row['rua']) !== '' && trim((string) $row['cidade']) !== '') {
             $address = [

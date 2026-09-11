@@ -30,9 +30,9 @@ foreach (['password', 'senha', 'documento', 'credencial', 'nome'] as $forbidden)
 
 require_once $root . '/application/libraries/Tecnina_phone.php';
 $phone = new Tecnina_phone();
-expectClientLookup($phone->normalizeBrazilianIdentity('+55 41 99740-3509') === '5541997403509', 'Celular atual inválido.');
-expectClientLookup($phone->normalizeBrazilianIdentity('4197403509') === '5541997403509', 'Número móvel legado inválido.');
-expectClientLookup($phone->normalizeBrazilianIdentity('4133334444') === null, 'Telefone fixo não deve casar.');
-expectClientLookup($phone->normalizeBrazilianIdentity('123') === null, 'Telefone curto não deve casar.');
+expectClientLookup($phone->normalizeIdentity('+55 41 99740-3509') === '5541997403509', 'Celular atual inválido.');
+expectClientLookup($phone->normalizeIdentity('4197403509') === '5541997403509', 'Número móvel legado inválido.');
+expectClientLookup($phone->normalizeIdentity('4133334444') === null, 'Telefone fixo não deve casar.');
+expectClientLookup($phone->normalizeIdentity('123') === null, 'Telefone curto não deve casar.');
 
 echo 'TecninaClientByPhoneTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

@@ -30,11 +30,11 @@ foreach (['password', 'senha', 'documento', 'credencial'] as $forbidden) {
 
 require_once $root . '/application/libraries/Tecnina_phone.php';
 $phone = new Tecnina_phone();
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('(41) 99740-3509') === '5541997403509', 'Celular formatado inválido.');
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('5541997403509') === '5541997403509', 'E.164 inválido.');
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('4197403509') === null, 'Número legado ambíguo deveria ser rejeitado.');
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('4133334444') === null, 'Telefone fixo deveria ser rejeitado.');
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('123') === null, 'Telefone curto deveria ser rejeitado.');
-expectIntegrationContext($phone->normalizeBrazilianWhatsApp('') === null, 'Telefone vazio deveria ser rejeitado.');
+expectIntegrationContext($phone->normalizeWhatsApp('(41) 99740-3509') === '5541997403509', 'Celular formatado inválido.');
+expectIntegrationContext($phone->normalizeWhatsApp('5541997403509') === '5541997403509', 'E.164 inválido.');
+expectIntegrationContext($phone->normalizeWhatsApp('4197403509') === null, 'Número legado ambíguo deveria ser rejeitado.');
+expectIntegrationContext($phone->normalizeWhatsApp('4133334444') === null, 'Telefone fixo deveria ser rejeitado.');
+expectIntegrationContext($phone->normalizeWhatsApp('123') === null, 'Telefone curto deveria ser rejeitado.');
+expectIntegrationContext($phone->normalizeWhatsApp('') === null, 'Telefone vazio deveria ser rejeitado.');
 
 echo 'TecninaIntegrationContextTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

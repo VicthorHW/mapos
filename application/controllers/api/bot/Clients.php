@@ -29,7 +29,7 @@ class Clients extends REST_Controller
         $name = trim((string) ($input['name'] ?? ''));
         $email = trim((string) ($input['email'] ?? ''));
         $cpf = preg_replace('/\D+/', '', (string) ($input['cpf'] ?? ''));
-        $phone = $this->tecnina_phone->normalizeBrazilianIdentity($input['phone'] ?? '');
+        $phone = $this->tecnina_phone->normalizeIdentity($input['phone'] ?? '');
         if (mb_strlen($name) < 2 || mb_strlen($name) > 255
             || ! filter_var($email, FILTER_VALIDATE_EMAIL)
             || ! $this->validCpf($cpf) || $phone === null) {

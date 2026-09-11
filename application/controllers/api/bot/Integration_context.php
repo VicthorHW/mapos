@@ -33,9 +33,9 @@ class Integration_context extends REST_Controller
             return;
         }
 
-        $phone = $this->tecnina_phone->normalizeBrazilianWhatsApp($row['celular']);
+        $phone = $this->tecnina_phone->normalizeWhatsApp($row['celular']);
         if ($phone === null) {
-            $phone = $this->tecnina_phone->normalizeBrazilianWhatsApp($row['telefone']);
+            $phone = $this->tecnina_phone->normalizeWhatsApp($row['telefone']);
         }
 
         $this->response([

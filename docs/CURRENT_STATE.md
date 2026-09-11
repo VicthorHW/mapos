@@ -35,6 +35,7 @@ Scope: MapOS fork TecNina / estado atual
 - painel de pré-atendimentos permite ao operador oferecer taxa manual de coleta.
 - a interface de pré-atendimentos exibe a origem do GPS (WhatsApp ou navegador) e os rótulos de status para o gate da taxa manual ("Aguardando envio da taxa").
 - o payload de aprovação do pré-atendimento (`Intake_approval.php`) foi atualizado para reconhecer a confirmação de taxa via WhatsApp (`ACCEPTED`) como estado de liberação válido.
+- a biblioteca `Tecnina_phone.php` agora suporta números de telefone internacionais, deixando de restringir a comunicação apenas a números brasileiros.
 
 ## Estado do snapshot
 

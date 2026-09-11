@@ -103,7 +103,7 @@ class Intake_approval extends REST_Controller
             return null;
         }
 
-        $phone = $this->tecnina_phone->normalizeBrazilianIdentity($input['client']['phone'] ?? '');
+        $phone = $this->tecnina_phone->normalizeIdentity($input['client']['phone'] ?? '');
         $name = $this->bounded($input['client']['name'] ?? null, 120, true);
         $clientCity = $this->bounded($input['client']['city'] ?? null, 80, false);
         $deviceType = $this->bounded($input['os']['device_type'] ?? null, 80, false);

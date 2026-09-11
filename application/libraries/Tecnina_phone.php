@@ -11,7 +11,7 @@ class Tecnina_phone
      * normalized by inserting the ninth digit. It is never treated as proof
      * of identity; callers must still handle unique and ambiguous matches.
      */
-    public function normalizeBrazilianIdentity($value)
+    public function normalizeIdentity($value)
     {
         $digits = preg_replace('/\D+/', '', (string) $value);
         if ($digits === '') {
@@ -19,39 +19,40 @@ class Tecnina_phone
         }
 
         if (substr($digits, 0, 2) === '55') {
-            $digits = substr($digits, 2);
+            $brDigits = substr($digits, 2);
+            $ddd = (int) substr($brDigits, 0, 2);
+            if ($ddd >= 11 && $ddd <= 99) {
+                if (strlen($brDigits) === 11 && $brDigits[2] === '9') {
+                    return $digits;
+                }
+                if (strlen($brDigits) === 10 && preg_match('/[6-9]/', $brDigits[2])) {
+                    return '55' . substr($brDigits, 0, 2) . '9' . substr($brDigits, 2);
+                }
+            }
+            return $digits;
         }
 
         $ddd = (int) substr($digits, 0, 2);
-        if ($ddd < 11 || $ddd > 99) {
-            return null;
+        if ($ddd >= 11 && $ddd <= 99) {
+            if (strlen($digits) === 11 && $digits[2] === '9') {
+                return '55' . $digits;
+            }
+            if (strlen($digits) === 10 && preg_match('/[6-9]/', $digits[2])) {
+                return '55' . substr($digits, 0, 2) . '9' . substr($digits, 2);
+            }
         }
 
-        if (strlen($digits) === 11 && $digits[2] === '9') {
-            return '55' . $digits;
-        }
-
-        // Legacy Brazilian mobile numbers had eight subscriber digits. Fixed
-        // lines (which begin with 2-5) are deliberately not matched here.
-        if (strlen($digits) === 10 && preg_match('/[6-9]/', $digits[2])) {
-            return '55' . substr($digits, 0, 2) . '9' . substr($digits, 2);
-        }
-
-        return null;
+        return $digits;
     }
 
-    public function normalizeBrazilianWhatsApp($value)
+    public function normalizeWhatsApp($value)
     {
-        $identity = $this->normalizeBrazilianIdentity($value);
+        $identity = $this->normalizeIdentity($value);
         if ($identity === null) {
             return null;
         }
 
-        $digits = substr($identity, 2);
-
-        return strlen(preg_replace('/\D+/', '', (string) $value)) === 13 ||
-            strlen(preg_replace('/\D+/', '', (string) $value)) === 11
-            ? $identity
-            : null;
+        $length = strlen(preg_replace('/\D+/', '', (string) $value));
+        return $length >= 8 && $length <= 15 ? $identity : null;
     }
 }
