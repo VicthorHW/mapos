@@ -33,6 +33,7 @@ Scope: MapOS fork TecNina / estado atual
 - aprovação de intake aceita credencial opcional e a grava pela biblioteca
   protegida já usada nas OS, sem copiá-la para observações;
 - painel de pré-atendimentos permite ao operador oferecer taxa manual de coleta.
+- a interface de pré-atendimentos exibe a origem do GPS (WhatsApp ou navegador) e os rótulos de status para o gate da taxa manual ("Aguardando envio da taxa").
 
 ## Estado do snapshot
 

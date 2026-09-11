@@ -57,6 +57,7 @@ class Tecnina_whatsapp extends MY_Controller
             'templates' => '/admin/templates',
             'settings' => '/admin/settings/status-notifications',
             'pickup-cities' => '/admin/pickup-cities',
+            'dropoff-schedule' => '/admin/dropoff-schedule',
         ];
         if (! isset($paths[$resource])) {
             return $this->json(['ok' => false, 'reason' => 'not_found'], 404);
@@ -147,12 +148,34 @@ class Tecnina_whatsapp extends MY_Controller
             return $this->json($result, $result['status']);
         }
 
+        if ($action === 'pickup-fee') {
+            $fee = str_replace(',', '.', trim((string) $this->input->post('fee', true)));
+            if (! is_numeric($fee) || (float) $fee < 0 || (float) $fee > 100000) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_pickup_fee'], 422);
+            }
+            $payload = [
+                'review_version' => $version,
+                'operator_id' => $operatorId,
+                'fee' => number_format((float) $fee, 2, '.', ''),
+            ];
+            $result = $this->tecnina_bot_gateway->request(
+                'POST',
+                '/admin/intakes/' . rawurlencode($intakeId) . '/pickup-fee',
+                $payload
+            );
+
+            return $this->json($result, $result['status']);
+        }
+
         $serviceMode = (string) $this->input->post('service_mode', true);
         $required = [
             'device_type' => trim((string) $this->input->post('device_type', true)),
             'problem_description' => trim((string) $this->input->post('problem_description', true)),
-            'city' => trim((string) $this->input->post('city', true)),
         ];
+        $city = trim((string) $this->input->post('city', true));
+        if ($serviceMode === 'PICKUP_REQUESTED') {
+            $required['city'] = $city;
+        }
         if (in_array('', $required, true) || ! in_array($serviceMode, ['DROP_OFF', 'PICKUP_REQUESTED'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_intake_fields'], 422);
         }
@@ -162,6 +185,7 @@ class Tecnina_whatsapp extends MY_Controller
             'brand' => trim((string) $this->input->post('brand', true)),
             'model' => trim((string) $this->input->post('model', true)),
             'service_mode' => $serviceMode,
+            'city' => $city === '' ? null : $city,
             'notes' => trim((string) $this->input->post('notes', true)),
         ]);
         $result = $this->tecnina_bot_gateway->request('PUT', '/admin/intakes/' . rawurlencode($intakeId), $payload);
@@ -181,30 +205,31 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status']);
     }
 
+    public function entrega_configuracao()
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $payload = json_decode((string) $this->input->post('schedule_json', false), true);
+        if (! is_array($payload)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_dropoff_schedule'], 422);
+        }
+
+        $result = $this->tecnina_bot_gateway->request('PUT', '/admin/dropoff-schedule', $payload);
+
+        return $this->json($result, $result['status']);
+    }
+
     public function os_acesso($osId = 0, $action = '')
     {
         if (! $this->authorized(true)) {
             return;
         }
 
-        if ($action === 'pickup-fee') {
-            $fee = str_replace(',', '.', trim((string) $this->input->post('fee', true)));
-            if (! is_numeric($fee) || (float) $fee < 0 || (float) $fee > 100000) {
-                return $this->json(['ok' => false, 'reason' => 'invalid_pickup_fee'], 422);
-            }
-            $payload = [
-                'review_version' => $version,
-                'operator_id' => $operatorId,
-                'fee' => number_format((float) $fee, 2, '.', ''),
-            ];
-            $result = $this->tecnina_bot_gateway->request(
-                'POST',
-                '/admin/intakes/' . rawurlencode($intakeId) . '/pickup-fee',
-                $payload
-            );
-
-            return $this->json($result, $result['status']);
-        }
         unset($osId, $action);
 
         return $this->json(['ok' => false, 'reason' => 'os_access_code_retired'], 410);

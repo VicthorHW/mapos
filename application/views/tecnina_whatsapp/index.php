@@ -13,6 +13,7 @@
                     <li class="active"><a href="#wa-status" data-toggle="tab">Visão geral</a></li>
                     <li><a href="#wa-conversas" data-toggle="tab">Conversas</a></li>
                     <li><a href="#wa-cidades" data-toggle="tab">Cidades com coleta</a></li>
+                    <li><a href="#wa-entrega" data-toggle="tab">Horários de entrega</a></li>
                     <li><a href="#wa-conexao" data-toggle="tab">Conexão e envios</a></li>
                     <li><a href="#wa-automaticas" data-toggle="tab">Mensagens automáticas</a></li>
                     <li><a href="#wa-logs" data-toggle="tab">Logs / Diagnóstico</a></li>
@@ -25,6 +26,7 @@
                     </div>
                     <div class="tab-pane" id="wa-conversas"><div id="wa-conversations" class="wa-loading">Carregando…</div></div>
                     <div class="tab-pane" id="wa-cidades"><div id="wa-pickup-cities" class="wa-loading">Carregando…</div></div>
+                    <div class="tab-pane" id="wa-entrega"><div id="wa-dropoff-schedule" class="wa-loading">Carregando…</div></div>
                     <div class="tab-pane" id="wa-conexao">
                         <div class="row-fluid">
                             <div class="span8"><h4>Fila de envios</h4><div id="wa-queue" class="wa-loading">Carregando…</div></div>

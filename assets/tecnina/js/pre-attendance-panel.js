@@ -68,10 +68,16 @@
         return date.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}) + ' ' +
             date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
     }
-    function statusMeta(value) {
+    function statusMeta(row) {
+        var value = typeof row === 'string' ? row : row.status;
+        if (value === 'COLLECTING' && typeof row === 'object' && row.service_mode === 'PICKUP_REQUESTED') {
+            if (row.pickup_fee_status === 'PENDING_TEAM') { return {label: 'Aguardando envio da taxa', css: 'wa-status-progress'}; }
+            if (row.pickup_fee_status === 'PENDING_CUSTOMER') { return {label: 'Aguardando confirmação da taxa', css: 'wa-status-progress'}; }
+        }
         return {
             READY: {label: 'Para revisar', css: 'wa-status-ready'},
             UNDER_REVIEW: {label: 'Em revisão', css: 'wa-status-review'},
+            COLLECTING: {label: 'Aguardando conclusão', css: 'wa-status-progress'},
             APPROVING: {label: 'Criando OS', css: 'wa-status-progress'},
             INCOMPLETE: {label: 'Incompleto', css: 'wa-status-closed'},
             EXPIRED: {label: 'Expirado', css: 'wa-status-closed'},
@@ -92,13 +98,14 @@
         var mapUrl = 'https://www.openstreetmap.org/export/embed.html?bbox=' + encodeURIComponent(bbox) + '&layer=mapnik&marker=' + encodeURIComponent(latitude + ',' + longitude);
         var googleUrl = 'https://www.google.com/maps?q=' + encodeURIComponent(latitude + ',' + longitude);
         var accuracy = data.gps_accuracy_meters ? ' · precisão aproximada de ' + esc(data.gps_accuracy_meters) + ' m' : '';
-        return '<div class="wa-gps-panel"><div class="wa-gps-heading"><div><strong>Localização enviada por GPS</strong><span>' + esc(latitude.toFixed(6) + ', ' + longitude.toFixed(6)) + accuracy + '</span></div><a class="btn btn-mini btn-primary" href="' + esc(googleUrl) + '" target="_blank" rel="noopener noreferrer">Abrir no Google Maps</a></div><iframe title="Mapa da localização de coleta" loading="lazy" referrerpolicy="no-referrer" src="' + esc(mapUrl) + '"></iframe><p class="muted">Mapa: OpenStreetMap. O botão do Google Maps usa somente um link de coordenadas, sem API paga.</p></div>';
+        var sourceText = data.gps_source === 'WEB_FORM' ? 'GPS recebido pelo navegador' : 'GPS recebido pelo WhatsApp';
+        return '<div class="wa-gps-panel"><div class="wa-gps-heading"><div><strong>' + esc(sourceText) + '</strong><span>' + esc(latitude.toFixed(6) + ', ' + longitude.toFixed(6)) + accuracy + '</span></div><a class="btn btn-mini btn-primary" href="' + esc(googleUrl) + '" target="_blank" rel="noopener noreferrer">Abrir no Google Maps</a></div><iframe title="Mapa da localização de coleta" loading="lazy" referrerpolicy="no-referrer" src="' + esc(mapUrl) + '"></iframe><p class="muted">Mapa: OpenStreetMap. O botão do Google Maps usa somente um link de coordenadas, sem API paga.</p></div>';
     }
     function intakeTable(rows, historical) {
         if (!rows.length) { return '<p class="muted">' + (historical ? 'Nenhum registro no histórico.' : 'Nenhum pré-atendimento aguardando revisão.') + '</p>'; }
         var html = '<div class="wa-table-wrap"><table class="table table-bordered wa-table wa-intake-table"><thead><tr><th class="wa-col-date">Atualizado</th><th>Contato</th><th>Nome</th><th>Equipamento</th><th class="wa-col-city">Cidade</th><th class="wa-col-status">Status</th><th class="wa-col-action"></th></tr></thead><tbody>';
         $.each(rows, function (_, row) {
-            var status = statusMeta(row.status);
+            var status = statusMeta(row);
             html += '<tr><td>' + esc(shortDate(row.ready_at || row.updated_at)) + '</td><td>' + esc(row.phone_display || '—') + '</td><td><strong>' + esc(displayName(row)) + '</strong></td><td>' + esc(row.equipment || '—') + '</td><td>' + esc(row.city || '—') + '</td><td><span class="wa-state-badge ' + status.css + '">' + esc(status.label) + '</span></td><td><button class="btn btn-mini ' + (historical ? '' : 'btn-primary') + ' wa-intake-open" data-id="' + esc(row.id) + '">' + (historical ? 'Consultar' : 'Revisar') + '</button></td></tr>';
         });
         return html + '</tbody></table></div>';
@@ -121,7 +128,7 @@
             gpsPanel(data) + '</div>';
     }
     function pickupFeeAction(data, actionable) {
-        if (!actionable || data.service_mode !== 'PICKUP_REQUESTED' || data.pickup_fee_status !== 'MANUAL_QUOTE') { return ''; }
+        if (!actionable || data.service_mode !== 'PICKUP_REQUESTED' || data.pickup_fee_status !== 'PENDING_TEAM') { return ''; }
         return '<div class="alert alert-warning wa-pickup-fee-action"><strong>Taxa aguardando definição</strong><p>Informe o valor calculado pela equipe. O cliente receberá a proposta no WhatsApp e deverá confirmar antes da criação da OS.</p><div class="input-append"><input class="input-small wa-i-pickup-fee" inputmode="decimal" placeholder="0,00"><button class="btn btn-warning wa-intake-offer-fee" type="button">Enviar taxa</button></div></div>';
     }
     function credentialSummary(data) {
@@ -136,12 +143,13 @@
         request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (data) {
             var pickup = data.service_mode === 'PICKUP_REQUESTED';
             var actionable = data.status === 'READY' || data.status === 'UNDER_REVIEW';
+            var feeActionable = data.status === 'COLLECTING' && pickup && data.pickup_fee_status === 'PENDING_TEAM';
             var existingId = data.possible_mapos_client_id || data.mapos_client_id || '';
             var linkChecked = existingId ? ' checked' : '';
             var createChecked = existingId ? '' : ' checked';
-            var status = statusMeta(data.status);
+            var status = statusMeta(data);
             var name = data.mapos_client_name || data.name || '';
-            var readonlyNotice = actionable ? '' : '<div class="alert alert-info">Registro histórico somente para consulta. Situação: <strong>' + esc(status.label) + '</strong>.</div>';
+            var readonlyNotice = (actionable || feeActionable) ? '' : '<div class="alert alert-info">Registro histórico somente para consulta. Situação: <strong>' + esc(status.label) + '</strong>.</div>';
             var actions = actionable ? '<button class="btn btn-primary wa-intake-save">Salvar revisão</button> <button class="btn btn-success wa-intake-approve">Aprovar e criar OS</button> <button class="btn btn-danger wa-intake-reject">Descartar</button>' : '';
             var html = '<div class="well wa-intake-form" data-id="' + esc(data.id) + '" data-version="' + esc(data.review_version) + '">' +
                 '<h4>Pré-atendimento</h4><p class="muted">Identificador ' + esc(data.id) + '</p>' +
@@ -151,12 +159,14 @@
                 '<label>Problema informado</label><textarea class="input-block-level wa-i-problem" maxlength="2000" rows="5">' + esc(data.problem_description || '') + '</textarea>' +
                 '<label>Forma de atendimento</label><select class="input-block-level wa-i-mode"><option value="DROP_OFF"' + (!pickup ? ' selected' : '') + '>Cliente traz o equipamento</option><option value="PICKUP_REQUESTED"' + (pickup ? ' selected' : '') + '>Solicitação de coleta</option></select>' +
                 pickupSummary(data) +
-                pickupFeeAction(data, actionable) +
+                pickupFeeAction(data, feeActionable) +
                 '<label>Observações internas</label><textarea class="input-block-level wa-i-notes" maxlength="2000" rows="4">' + esc(data.notes || '') + '</textarea>' +
                 '<div class="well well-small"><strong>Destino no MapOS</strong><label class="radio"><input type="radio" name="wa-client-action" value="LINK_EXISTING"' + linkChecked + '> Vincular cliente existente</label><label>ID do cliente</label><input class="input-small wa-i-client-id" type="number" min="1" value="' + esc(existingId) + '"><label class="radio"><input type="radio" name="wa-client-action" value="CREATE_NEW"' + createChecked + '> Criar novo cliente</label><label class="checkbox"><input class="wa-i-force-create" type="checkbox"> Confirmo criar mesmo se o telefone já estiver cadastrado</label><p class="muted">O endereço de coleta não substituirá o endereço cadastral. ' + esc(credentialSummary(data)) + '</p></div>' +
                 '<div class="wa-form-actions">' + actions + '</div></div>';
             $('#wa-intake-detail').attr('class', '').html(html);
-            if (!actionable) { $('#wa-intake-detail').find('input,select,textarea').prop('disabled', true); }
+            if (!actionable) {
+                $('#wa-intake-detail').find('input,select,textarea').not('.wa-i-pickup-fee').prop('disabled', true);
+            }
         });
     }
     function formData(form) {

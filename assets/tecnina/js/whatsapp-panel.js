@@ -191,6 +191,41 @@
         $('#wa-pickup-cities').html(html);
     }
     function loadPickupCities() { request('/dados/pickup-cities', 'GET', null, function (rows) { renderPickupCities(rows); loaded.cities = true; }); }
+    function renderDropoffSchedule(data) {
+        var html = '<div class="alert alert-info"><strong>Entrega presencial.</strong> Estes horários são apenas informativos e o bot mostra os próximos quatro dias disponíveis, sem criar reserva.</div>' +
+            '<div class="wa-city-card"><label><strong>Endereço da TecNina</strong></label><textarea id="wa-dropoff-address" class="input-block-level" rows="2" maxlength="500">' + esc(data.address || '') + '</textarea>' +
+            '<input id="wa-dropoff-timezone" type="hidden" value="' + esc(data.timezone || 'America/Sao_Paulo') + '">' +
+            '<div class="wa-schedule-days">';
+        $.each(data.days || [], function (_, day) {
+            html += '<div class="wa-schedule-day" data-weekday="' + day.weekday + '"><div class="wa-schedule-day-head"><label class="checkbox"><input class="wa-day-enabled" type="checkbox"' + (day.enabled ? ' checked' : '') + '> <strong>' + esc(day.label) + '</strong></label><button type="button" class="btn btn-mini wa-period-add">Adicionar período</button></div><div class="wa-periods">';
+            $.each(day.periods || [], function (_, period) {
+                html += periodRow(period.start, period.end);
+            });
+            html += '</div></div>';
+        });
+        html += '</div><div class="wa-form-actions"><button type="button" class="btn btn-primary" id="wa-dropoff-save">Salvar horários de entrega</button></div></div>';
+        $('#wa-dropoff-schedule').html(html);
+    }
+    function periodRow(start, end) {
+        return '<div class="wa-period-row"><label>Das <input class="input-small wa-period-start" type="time" value="' + esc(start || '09:00') + '"></label><label>até <input class="input-small wa-period-end" type="time" value="' + esc(end || '18:00') + '"></label><button type="button" class="btn btn-mini btn-danger wa-period-remove" aria-label="Remover período">Remover</button></div>';
+    }
+    function loadDropoffSchedule() {
+        request('/dados/dropoff-schedule', 'GET', null, function (data) {
+            renderDropoffSchedule(data);
+            loaded.dropoff = true;
+        });
+    }
+    function collectDropoffSchedule() {
+        var days = [];
+        $('.wa-schedule-day').each(function () {
+            var day = $(this), periods = [];
+            day.find('.wa-period-row').each(function () {
+                periods.push({start: String($(this).find('.wa-period-start').val() || ''), end: String($(this).find('.wa-period-end').val() || '')});
+            });
+            days.push({weekday: Number(day.data('weekday')), enabled: day.find('.wa-day-enabled').is(':checked'), periods: periods});
+        });
+        return {address: String($('#wa-dropoff-address').val() || '').trim(), timezone: String($('#wa-dropoff-timezone').val() || 'America/Sao_Paulo'), days: days};
+    }
 
     $(document).on('click', '.wa-lock,.wa-resume', function () { var button = $(this); button.prop('disabled', true); request('/conversa/' + button.data('id') + '/' + (button.hasClass('wa-lock') ? 'manual-lock' : 'resume'), 'POST', {}, loadConversations); });
     $(document).on('click', '.wa-retry', function () { request('/fila/' + $(this).data('id') + '/retry', 'POST', {}, loadQueue); });
@@ -200,10 +235,14 @@
     $(document).on('click', '.wa-pickup-city-save', function () { var card = $(this).closest('.wa-pickup-city'); request('/coleta/save-city/' + card.data('id'), 'POST', {city: card.find('.wa-pc-city').val(), uf: card.find('.wa-pc-uf').val(), pricing_mode: card.find('.wa-pc-mode').val(), flat_fee: card.find('.wa-pc-fee').val(), active: card.find('.wa-pc-active').is(':checked')}, loadPickupCities); });
     $(document).on('click', '.wa-pickup-rate-save', function () { var card = $(this).closest('.wa-pickup-city'); request('/coleta/save-neighborhood/' + card.data('id'), 'POST', {neighborhood: card.find('.wa-pr-name').val(), fee: card.find('.wa-pr-fee').val(), active: card.find('.wa-pr-active').is(':checked')}, loadPickupCities); });
     $(document).on('click', '.wa-pickup-rate-delete', function () { if (window.confirm('Excluir esta taxa de bairro?')) { request('/coleta/delete-neighborhood/' + $(this).data('city') + '/' + $(this).data('id'), 'POST', {}, loadPickupCities); } });
+    $(document).on('click', '.wa-period-add', function () { $(this).closest('.wa-schedule-day').find('.wa-periods').append(periodRow('', '')); });
+    $(document).on('click', '.wa-period-remove', function () { $(this).closest('.wa-period-row').remove(); });
+    $(document).on('click', '#wa-dropoff-save', function () { request('/entrega_configuracao', 'POST', {schedule_json: JSON.stringify(collectDropoffSchedule())}, loadDropoffSchedule); });
     $('a[data-toggle="tab"]').on('shown.bs.tab', function (event) {
         var target = $(event.target).attr('href');
         if (target === '#wa-conversas' && !loaded.conversations) { loadConversations(); }
         else if (target === '#wa-cidades' && !loaded.cities) { loadPickupCities(); }
+        else if (target === '#wa-entrega' && !loaded.dropoff) { loadDropoffSchedule(); }
         else if (target === '#wa-conexao') { if (!loaded.queue) { loadQueue(); } if (!overviewData) { loadOverview(); } else { renderConnection(); } }
         else if (target === '#wa-automaticas') { loadAutomaticMessages(); }
         else if (target === '#wa-logs' && !loaded.logs) { loadLogs(); }

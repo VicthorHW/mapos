@@ -36,6 +36,13 @@
 .wa-city-card-header h5 { font-size: 16px; margin: 0; }
 .wa-city-fields label { font-weight: 600; }
 .wa-city-neighborhoods { background: #fff; border-top: 1px solid #e4e4e4; margin-top: 15px; padding-top: 15px; }
+.wa-schedule-day { border-top: 1px solid #e4e4e4; padding: 14px 0; }
+.wa-schedule-day:first-child { border-top: 0; }
+.wa-schedule-day-head, .wa-period-row { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
+.wa-schedule-day-head { justify-content: space-between; }
+.wa-period-row { background: #fff; border: 1px solid #e4e4e4; border-radius: 4px; margin-top: 8px; padding: 9px; }
+.wa-period-row label { margin: 0; }
+.wa-period-row input { margin: 0 4px; }
 .wa-page-heading { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 18px; }
 .wa-page-heading h3 { margin-bottom: 4px; }
 .wa-intake-workspace { align-items: flex-start; display: flex; }

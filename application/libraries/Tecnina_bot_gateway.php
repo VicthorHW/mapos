@@ -120,6 +120,12 @@ class Tecnina_bot_gateway
                 'stale_flow_revision',
                 'invalid_os_id',
                 'mapos_context_unavailable',
+                'invalid_dropoff_address',
+                'invalid_dropoff_timezone',
+                'invalid_dropoff_period',
+                'overlapping_dropoff_periods',
+                'enabled_day_requires_period',
+                'seven_unique_weekdays_required',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
