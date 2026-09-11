@@ -130,7 +130,17 @@ class Tecnina_bot_gateway
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
                 : '';
-            $reason = in_array($detail, $safeReasons, true) ? $detail : 'gateway_request_failed';
+            $reason = 'gateway_request_failed';
+            if (in_array($detail, $safeReasons, true)) {
+                $reason = $detail;
+            } else {
+                foreach ($safeReasons as $safe) {
+                    if (strpos($detail, $safe . ':') === 0) {
+                        $reason = $detail;
+                        break;
+                    }
+                }
+            }
 
             return ['ok' => false, 'status' => $status, 'reason' => $reason, 'data' => null];
         }

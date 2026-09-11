@@ -16,11 +16,22 @@
         $('#wa-intake-detail').attr('class', 'wa-intake-empty').html('<i class="bx bx-list-check"></i><strong>' + esc(message || 'Selecione um pré-atendimento') + '</strong><span>Os dados para revisão aparecerão aqui.</span>');
     }
     function reasonMessage(reason) {
+        var debugMode = false;
+        try { debugMode = window.localStorage.getItem('tecnina_debug') === '1'; } catch (e) {}
+
+        var parsedReason = reason || 'unknown';
+        var detail = '';
+        if (parsedReason.indexOf(':') !== -1) {
+            var parts = parsedReason.split(':');
+            parsedReason = parts[0];
+            detail = parts.slice(1).join(':').trim();
+        }
+
         var messages = {
             intake_review_conflict: 'Este pré-atendimento foi alterado. Atualize a lista e revise novamente.',
             existing_client_required: 'Informe o ID do cliente existente.',
             client_name_required: 'Informe o nome antes de criar um cliente.',
-            incomplete_intake: 'Revise e salve todos os campos obrigatórios antes de aprovar.',
+            incomplete_intake: 'Revise os seguintes campos obrigatórios ausentes: ' + (detail ? detail : 'equipamento, cliente ou endereço') + '.',
             invalid_operator: 'O usuário atual não pode ser vinculado à OS.',
             ambiguous_client: 'Há mais de um cliente com este telefone. Localize o cadastro correto e informe seu ID.',
             client_match_changed: 'O cadastro correspondente ao telefone mudou. Atualize a revisão.',
@@ -34,7 +45,12 @@
             invalid_intake_fields: 'Revise os campos. Faltam informações obrigatórias do equipamento, cliente ou endereço.',
             pickup_fee_not_confirmed: 'A taxa de coleta precisa ser informada e confirmada pelo cliente antes da aprovação.'
         };
-        return messages[reason] || 'Não foi possível concluir a operação.';
+        var msg = messages[parsedReason] || 'Não foi possível concluir a operação.';
+        if (debugMode) {
+            msg += ' [Debug: ' + reason + ']';
+            console.error('TecNina Debug Error:', reason);
+        }
+        return msg;
     }
     function request(path, method, data, done, retryAttempt) {
         data = data || {};
