@@ -226,7 +226,7 @@ class Intake_approval extends REST_Controller
             || $neighborhood === false || preg_match('/^[A-Z]{2}$/', $state) !== 1
             || $complement === false || $reference === false
             || ($fee !== null && (! is_numeric($fee) || (float) $fee < 0))
-            || ! in_array($feeStatus, ['DETERMINED', 'MANUAL_QUOTE', 'CONFIRMED'], true)
+            || ! in_array($feeStatus, ['DETERMINED', 'MANUAL_QUOTE', 'CONFIRMED', 'ACCEPTED'], true)
             || ! is_bool($value['gps_available'] ?? false)) {
             return false;
         }

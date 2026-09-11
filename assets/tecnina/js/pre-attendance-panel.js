@@ -31,6 +31,7 @@
             gateway_not_configured: 'O Gateway não está configurado no MapOS.',
             gateway_unavailable: 'O Gateway está indisponível no momento.',
             invalid_pickup_fee: 'Informe uma taxa de coleta válida.',
+            invalid_intake_fields: 'Revise os campos. Faltam informações obrigatórias do equipamento, cliente ou endereço.',
             pickup_fee_not_confirmed: 'A taxa de coleta precisa ser informada e confirmada pelo cliente antes da aprovação.'
         };
         return messages[reason] || 'Não foi possível concluir a operação.';
