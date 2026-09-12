@@ -41,6 +41,7 @@ A correspondência de identidade telefônica separa formalmente a identidade can
 - **Armazenamento Canônico Brasileiro no MapOS**: Registros canônicos nacionais permanecem como dígitos iniciando explicitamente por `55` (ex: `5541997403509`).
 - **Armazenamento Local / Legado Brasileiro no MapOS**: Registros existentes no banco de dados sem `+` e sem `55` (ex: `4197403509`, `66912345678`) são interpretados **estritamente como dados locais/legados brasileiros**, gerando aliases canônicos 55. Um valor não marcado de 10/11 dígitos **não** é interpretado simultaneamente como internacional e brasileiro. Registros internacionais legados sem `+` exigem normalização para `+<canônico>`.
 - **Casamento Determinístico**: A consulta compara a identidade canônica de transporte contra o conjunto de identidades derivadas da proveniência do candidato. O uso de `LIKE` parcial é estritamente proibido. Resposta de identidade ambígua (>1 cliente) é reportada com segurança (`match: ambiguous`) e escala para atendimento humano.
+- **Leitura e Retorno de Perfil (`GET/PATCH /api/bot/client/{client_id}/profile`)**: Os valores armazenados no banco (`celular`, `telefone`) são convertidos de volta para a identidade canônica de transporte em dígitos puros (`canonicalIdentityFromStored()`). O marcador `+` de números internacionais nunca é exposto na resposta da API, e números legados locais retornam sua identidade canônica correspondente.
 
 ## Aprovação
 

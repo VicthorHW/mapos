@@ -85,6 +85,36 @@ class Tecnina_phone
     }
 
     /**
+     * Converts a single stored MapOS phone value into its canonical API transport identity
+     * according to storage provenance rules.
+     *
+     * Stored provenance rules:
+     * - Value beginning with '+' (e.g. '+66912345678') is explicit international storage;
+     *   returns canonical international digits ('66912345678').
+     * - Value beginning with '55' (e.g. '5541997403509') is explicit Brazilian canonical storage;
+     *   returns canonical Brazilian digits ('5541997403509').
+     * - Unmarked value (e.g. '4197403509' or '66912345678') is legacy local Brazilian storage;
+     *   returns canonical Brazilian alias digits ('5541997403509', '5566912345678').
+     * - Empty/null/unresolvable value returns null.
+     *
+     * @param string|null $value Stored database value (e.g. clientes.celular, clientes.telefone)
+     * @return string|null Canonical digits only, or null if empty/invalid
+     */
+    public function canonicalIdentityFromStored($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $candidates = $this->candidateIdentities($value, null);
+        if (count($candidates) === 1) {
+            return $candidates[0];
+        }
+
+        return null;
+    }
+
+    /**
      * Generates canonical Brazilian aliases for local/legacy inputs without country code.
      *
      * Used ONLY when the input is known to be potentially local Brazilian input

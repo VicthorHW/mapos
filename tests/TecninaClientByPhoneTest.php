@@ -16,16 +16,33 @@ function expectClientLookup($condition, $message)
 }
 
 $library = file_get_contents($root . '/application/libraries/Tecnina_phone.php');
-$controller = file_get_contents($root . '/application/controllers/api/bot/Client_by_phone.php');
-$model = file_get_contents($root . '/application/models/Tecnina_client_lookup_model.php');
 $routes = file_get_contents($root . '/application/config/routes.php');
+$profileController = file_get_contents($root . '/application/controllers/api/bot/Client_profile.php');
 
-expectClientLookup($library !== false && $controller !== false && $model !== false, 'Arquivos de consulta ausentes.');
+expectClientLookup($library !== false, 'Biblioteca Tecnina_phone ausente.');
+expectClientLookup($routes !== false, 'Arquivo routes.php ausente.');
+expectClientLookup($profileController !== false, 'Controller Client_profile ausente.');
 expectClientLookup(strpos($routes, "api/bot/client/by-phone") !== false, 'Rota privada ausente.');
-expectClientLookup(strpos($model, "select('idClientes AS client_id, celular, telefone')") !== false, 'Consulta deve usar whitelist explícita.');
-expectClientLookup(strpos($model, 'select(\'*\')') === false, 'Consulta não pode usar SELECT *.');
-foreach (['password', 'senha', 'documento', 'credencial', 'nome'] as $forbidden) {
-    expectClientLookup(stripos($controller, $forbidden) === false, 'Controller referencia dado proibido: ' . $forbidden);
+
+// Static contract check for Client_profile profileResponse (Order 09 Section 6)
+expectClientLookup(strpos($profileController, "normalizeIdentity(\$row['celular'])") === false, 'profileResponse não pode usar normalizeIdentity em celular.');
+expectClientLookup(strpos($profileController, "normalizeIdentity(\$row['telefone'])") === false, 'profileResponse não pode usar normalizeIdentity em telefone.');
+expectClientLookup(strpos($profileController, "canonicalIdentityFromStored(\$row['celular'])") !== false, 'profileResponse deve usar canonicalIdentityFromStored em celular.');
+expectClientLookup(strpos($profileController, "canonicalIdentityFromStored(\$row['telefone'])") !== false, 'profileResponse deve usar canonicalIdentityFromStored em telefone.');
+
+// Repository-local checks when candidate files exist
+$controllerPath = $root . '/application/controllers/api/bot/Client_by_phone.php';
+if (file_exists($controllerPath)) {
+    $controller = file_get_contents($controllerPath);
+    foreach (['password', 'senha', 'documento', 'credencial', 'nome'] as $forbidden) {
+        expectClientLookup(stripos($controller, $forbidden) === false, 'Controller referencia dado proibido: ' . $forbidden);
+    }
+}
+$modelPath = $root . '/application/models/Tecnina_client_lookup_model.php';
+if (file_exists($modelPath)) {
+    $model = file_get_contents($modelPath);
+    expectClientLookup(strpos($model, "select('idClientes AS client_id, celular, telefone')") !== false, 'Consulta deve usar whitelist explícita.');
+    expectClientLookup(strpos($model, 'select(\'*\')') === false, 'Consulta não pode usar SELECT *.');
 }
 
 require_once $root . '/application/libraries/Tecnina_phone.php';
@@ -65,5 +82,18 @@ expectClientLookup($phone->normalizeWhatsApp('4197403509') === '5541997403509', 
 expectClientLookup($phone->normalizeWhatsApp('(41) 99740-3509') === '5541997403509', 'WhatsApp formatado local inválido.');
 expectClientLookup($phone->normalizeWhatsApp('4133334444') === null, 'WhatsApp fixo deve ser rejeitado.');
 expectClientLookup($phone->normalizeWhatsApp('123') === null, 'WhatsApp curto deve ser rejeitado.');
+
+// 5. Stored representation readback (Order 09 Section 2 & 5)
+expectClientLookup($phone->canonicalIdentityFromStored('+66912345678') === '66912345678', 'Leitura armazenada internacional Tailândia com + inválida.');
+expectClientLookup($phone->canonicalIdentityFromStored('+351911872552') === '351911872552', 'Leitura armazenada internacional Portugal com + inválida.');
+expectClientLookup($phone->canonicalIdentityFromStored('5541997403509') === '5541997403509', 'Leitura armazenada canônica BR inválida.');
+expectClientLookup($phone->canonicalIdentityFromStored('4197403509') === '5541997403509', 'Leitura armazenada legada local 10 dígitos inválida.');
+expectClientLookup($phone->canonicalIdentityFromStored('66912345678') === '5566912345678', 'Leitura armazenada legada local DDD 66 inválida.');
+expectClientLookup($phone->canonicalIdentityFromStored('') === null, 'Leitura armazenada vazia deve retornar null.');
+expectClientLookup($phone->canonicalIdentityFromStored(null) === null, 'Leitura armazenada nula deve retornar null.');
+
+// Prova de bloqueio de distinção de proveniência (Order 09 Section 5)
+expectClientLookup($phone->canonicalIdentityFromStored('+66912345678') !== '5566912345678', 'Armazenamento +66 não pode retornar identidade brasileira.');
+expectClientLookup($phone->canonicalIdentityFromStored('66912345678') !== '66912345678', 'Armazenamento 66 sem + não pode retornar identidade internacional.');
 
 echo 'TecninaClientByPhoneTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

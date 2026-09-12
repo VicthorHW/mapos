@@ -91,8 +91,8 @@ class Client_profile extends REST_Controller
 
     private function profileResponse(array $row)
     {
-        $phone = $this->tecnina_phone->normalizeIdentity($row['celular'])
-            ?: $this->tecnina_phone->normalizeIdentity($row['telefone']);
+        $phone = $this->tecnina_phone->canonicalIdentityFromStored($row['celular'])
+            ?: $this->tecnina_phone->canonicalIdentityFromStored($row['telefone']);
         $address = null;
         if (trim((string) $row['rua']) !== '' && trim((string) $row['cidade']) !== '') {
             $address = [
