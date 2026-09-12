@@ -124,6 +124,7 @@
                                                             <option value="SUCCESS">SUCCESS (Código entregue)</option>
                                                             <option value="FAILURE">FAILURE (Falha na entrega)</option>
                                                         </select>
+                                                        <span class="help-block muted">Simula o envio do código sem enviar e-mail real. O código aparecerá na aba Entregas.</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -132,7 +133,7 @@
                                                     <label class="control-label" for="setup-create-client-id"><strong>ID do cliente a ser criado</strong> (opcional)</label>
                                                     <div class="controls">
                                                         <input type="number" id="setup-create-client-id" class="input-block-level" min="1" placeholder="Ex: 99">
-                                                        <span class="help-block muted">ID simulado devolvido na criação de novo cliente.</span>
+                                                        <span class="help-block muted">Para concluir o cadastro após validar o código, informe o ID fictício que o MapOS deverá retornar na criação.</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -238,6 +239,7 @@
                                         <li class="active"><a href="#tab-state" data-toggle="tab">Estado</a></li>
                                         <li><a href="#tab-steps" data-toggle="tab">Etapas</a></li>
                                         <li><a href="#tab-effects" data-toggle="tab">Efeitos</a></li>
+                                        <li><a href="#tab-deliveries" data-toggle="tab">Entregas</a></li>
                                     </ul>
                                 </div>
                                 <div class="widget-content tab-content bot-lab-inspector-body" id="wb-inspector-content">
@@ -259,6 +261,17 @@
                                                 <tr><td><strong>Tipos de capability</strong></td><td id="st-capability-purposes">—</td></tr>
                                             </tbody>
                                         </table>
+                                        <h5 style="margin-top:15px; margin-bottom:5px; font-size:12px; text-transform:uppercase; color:#666;">Configuração operacional da sessão</h5>
+                                        <table class="table table-bordered table-striped table-condensed wa-table">
+                                            <tbody>
+                                                <tr><td style="width:40%;"><strong>Snapshot</strong></td><td id="st-op-captured-at">—</td></tr>
+                                                <tr><td><strong>Cidades cadastradas</strong></td><td id="st-op-city-count">—</td></tr>
+                                                <tr><td><strong>Cidades ativas</strong></td><td id="st-op-active-city-count">—</td></tr>
+                                                <tr><td><strong>Taxas de bairro</strong></td><td id="st-op-rate-count">—</td></tr>
+                                                <tr><td><strong>Endereço de entrega</strong></td><td id="st-op-dropoff-address">—</td></tr>
+                                                <tr><td><strong>Dias de entrega habilitados</strong></td><td id="st-op-dropoff-days">—</td></tr>
+                                            </tbody>
+                                        </table>
                                     </div>
 
                                     <!-- Tab 2: Etapas -->
@@ -272,6 +285,13 @@
                                     <div class="tab-pane" id="tab-effects">
                                         <div id="wb-effects-list" class="bot-lab-effects-container">
                                             <p class="muted">Nenhum efeito externo registrado nesta sessão.</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tab 4: Entregas -->
+                                    <div class="tab-pane" id="tab-deliveries">
+                                        <div id="wb-deliveries-list" class="bot-lab-deliveries-container">
+                                            <p class="muted">Nenhuma entrega simulada nesta sessão.</p>
                                         </div>
                                     </div>
                                 </div>

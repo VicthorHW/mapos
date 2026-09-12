@@ -50,6 +50,7 @@
             simulation_runtime_state: 'A simulação não pode continuar no estado atual. Consulte a execução e resete a sessão.',
             simulation_execution_failed: 'A execução do simulador falhou inesperadamente. Consulte a última etapa registrada e resete a sessão.',
             simulation_manager_unavailable: 'O gerenciador de simulações está indisponível no Bot.',
+            simulation_operational_config_unavailable: 'Não foi possível carregar a configuração operacional do Bot para esta simulação. Tente novamente ou verifique a saúde do Bot.',
             invalid_simulator_payload: 'Payload de simulação inválido.',
             invalid_simulator_message: 'Mensagem de simulação inválida.',
             invalid_simulator_location: 'Localização de simulação inválida.',
@@ -252,6 +253,14 @@
         var caps = (st.capability_purposes && st.capability_purposes.length) ? st.capability_purposes.join(', ') : '—';
         $('#st-capability-purposes').text(caps);
 
+        var op = sessionView.operational_config || {};
+        $('#st-op-captured-at').text(op.captured_at ? op.captured_at : '—');
+        $('#st-op-city-count').text(op.pickup_city_count != null ? op.pickup_city_count : '—');
+        $('#st-op-active-city-count').text(op.active_pickup_city_count != null ? op.active_pickup_city_count : '—');
+        $('#st-op-rate-count').text(op.neighborhood_rate_count != null ? op.neighborhood_rate_count : '—');
+        $('#st-op-dropoff-address').text(op.dropoff_address_configured ? 'Configurado' : 'Não configurado');
+        $('#st-op-dropoff-days').text(op.dropoff_enabled_day_count != null ? op.dropoff_enabled_day_count : '—');
+
         // Steps Tab
         var stepsContainer = $('#wb-steps-list');
         stepsContainer.empty();
@@ -322,6 +331,35 @@
                     effCard.append('<pre class="bot-lab-json-snippet">' + esc(jsonText) + '</pre>');
                 }
                 effectsContainer.append(effCard);
+            }
+        }
+
+        // Deliveries Tab
+        var deliveriesContainer = $('#wb-deliveries-list');
+        deliveriesContainer.empty();
+        var allDeliveries = sessionView.deliveries || [];
+        if (allDeliveries.length === 0) {
+            deliveriesContainer.append('<p class="muted">Nenhuma entrega simulada nesta sessão.</p>');
+        } else {
+            for (var d = 0; d < allDeliveries.length; d++) {
+                var del = allDeliveries[d];
+                var delCard = $('<div class="bot-lab-delivery-card"></div>');
+                var delHeader = $('<div class="bot-lab-card-header"></div>');
+                var titleText = (del.kind === 'REGISTRATION_CODE') ? 'Código de cadastro simulado' : del.kind;
+                delHeader.append('<strong>' + esc(titleText) + '</strong>');
+                delHeader.append('<span class="label label-success">' + esc(del.status === 'DELIVERED' ? 'Entregue' : del.status) + '</span>');
+                delCard.append(delHeader);
+
+                var delBody = $('<div class="bot-lab-card-meta"></div>');
+                var channelLabel = (del.channel === 'EMAIL') ? 'E-mail' : del.channel;
+                delBody.append('<div><strong>Canal:</strong> ' + esc(channelLabel) + '</div>');
+                delBody.append('<div><strong>Destino:</strong> ' + esc(del.destination) + '</div>');
+                delBody.append('<div><strong>Código:</strong> <span class="badge badge-info bot-lab-code-badge">' + esc(del.content) + '</span></div>');
+                delBody.append('<div><strong>Status:</strong> ' + esc(del.status === 'DELIVERED' ? 'Entregue' : del.status) + '</div>');
+                delBody.append('<div class="muted" style="margin-top:6px; font-size:11px;">Esta entrega ocorreu somente dentro da simulação. Nenhum e-mail real foi enviado.</div>');
+                delCard.append(delBody);
+
+                deliveriesContainer.append(delCard);
             }
         }
     }

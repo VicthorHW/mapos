@@ -76,4 +76,31 @@ expectBotLab(strpos($script, 'alert(') === false, 'Browser JS ainda contém cham
 expectBotLab(strpos($view, 'location-validation-error') !== false, 'View não contém elemento location-validation-error.');
 expectBotLab(strpos($script, 'location-validation-error') !== false, 'Browser JS não utiliza o elemento location-validation-error.');
 
+// Contract L: Operational config is rendered in Estado tab and script
+expectBotLab(strpos($view, 'st-op-captured-at') !== false, 'View não contém st-op-captured-at.');
+expectBotLab(strpos($view, 'st-op-city-count') !== false, 'View não contém st-op-city-count.');
+expectBotLab(strpos($view, 'st-op-active-city-count') !== false, 'View não contém st-op-active-city-count.');
+expectBotLab(strpos($view, 'st-op-rate-count') !== false, 'View não contém st-op-rate-count.');
+expectBotLab(strpos($view, 'st-op-dropoff-address') !== false, 'View não contém st-op-dropoff-address.');
+expectBotLab(strpos($view, 'st-op-dropoff-days') !== false, 'View não contém st-op-dropoff-days.');
+expectBotLab(strpos($script, 'sessionView.operational_config') !== false, 'Browser JS não consome sessionView.operational_config.');
+expectBotLab(strpos($script, '#st-op-captured-at') !== false, 'Browser JS não atualiza #st-op-captured-at.');
+
+// Contract M: Deliveries tab exists in view and is rendered in script
+expectBotLab(strpos($view, 'href="#tab-deliveries"') !== false, 'Aba Entregas ausente na lista de abas.');
+expectBotLab(strpos($view, 'id="tab-deliveries"') !== false, 'Painel tab-deliveries ausente na view.');
+expectBotLab(strpos($view, 'wb-deliveries-list') !== false, 'Elemento wb-deliveries-list ausente na view.');
+expectBotLab(strpos($script, 'sessionView.deliveries') !== false, 'Browser JS não consome sessionView.deliveries.');
+expectBotLab(strpos($script, '#wb-deliveries-list') !== false, 'Browser JS não atualiza #wb-deliveries-list.');
+
+// Contract N: Registration code is rendered through escaped text semantics, never console logged
+expectBotLab(strpos($script, 'esc(del.content)') !== false, 'Browser JS não escapa o conteúdo/código de entrega.');
+expectBotLab(strpos($script, 'console.log') === false, 'Browser JS contém chamadas a console.log.');
+expectBotLab(strpos($script, 'console.info') === false, 'Browser JS contém chamadas a console.info.');
+expectBotLab(strpos($script, 'console.warn') === false, 'Browser JS contém chamadas a console.warn.');
+
+// Contract O: Gateway safeReasons includes simulation_operational_config_unavailable and JS handles it
+expectBotLab(strpos($gateway, "'simulation_operational_config_unavailable'") !== false, 'Gateway safeReasons não contém simulation_operational_config_unavailable.');
+expectBotLab(strpos($script, 'simulation_operational_config_unavailable:') !== false, 'Browser JS não mapeia simulation_operational_config_unavailable.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;

@@ -67,3 +67,7 @@
     font-size: 12px;
 }
 
+/* Deliveries Tab */
+.bot-lab-deliveries-container { padding: 4px 0; }
+.bot-lab-delivery-card { border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-bottom: 10px; background: #fff; border-left: 3px solid #0088cc; }
+.bot-lab-code-badge { font-size: 13px; font-family: monospace; letter-spacing: 2px; padding: 3px 8px; }

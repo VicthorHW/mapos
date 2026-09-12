@@ -134,6 +134,7 @@ class Tecnina_bot_gateway
                 'simulation_runtime_state',
                 'simulation_manager_unavailable',
                 'simulation_execution_failed',
+                'simulation_operational_config_unavailable',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
