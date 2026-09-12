@@ -37,9 +37,16 @@ class Client_registration extends REST_Controller
 
             return;
         }
-        $message = '<p>Use o código abaixo para confirmar seu e-mail no atendimento da TecNina:</p>'
-            . '<p style="font-size:24px;font-weight:bold;letter-spacing:4px">' . html_escape($code) . '</p>'
+        $message_body = '<p>Use o código abaixo para confirmar seu e-mail no atendimento da TecNina:</p>'
+            . '<p style="font-size:24px;font-weight:bold;letter-spacing:4px;text-align:center;">' . html_escape($code) . '</p>'
             . '<p>Se você não iniciou este atendimento, ignore esta mensagem.</p>';
+
+        $message = $this->load->view('emails/layout', [
+            'title' => 'Código de verificação',
+            'preheader' => 'Use o código para confirmar seu e-mail no atendimento.',
+            'content' => $message_body,
+            'emitente' => $issuer,
+        ], true);
         $queued = $this->email_model->add('email_queue', [
             'to' => $email,
             'message' => $message,
