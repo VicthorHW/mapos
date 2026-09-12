@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-09
+Last consolidated: 2026-09-12
 Source of truth: YES
 Scope: MapOS↔Bot Gateway / contratos privados
 
@@ -29,8 +29,30 @@ Scope: MapOS↔Bot Gateway / contratos privados
 | criar cliente opcional | `POST /api/bot/clients` | resultado `created`/`existing` e `client_id` |
 | enviar código de e-mail | `POST /api/bot/client-registration/email-code` | somente confirmação de enfileiramento |
 | aprovação intake | endpoint privado TecNina de aprovação | payload aprovado e credencial própria; criação idempotente |
+| proxy simulador (Bot Lab) | proxy server-to-server `/admin/simulator/*` | fixtures, mensagens, coordenadas, reset, delete |
 
 `GET /api/bot/os/{os_id}/status` e mecanismo de código de consulta pertencem a uma geração anterior. Não devem ser usados para restaurar o fluxo antigo sem uma nova decisão explícita.
+
+## Contrato do Gateway com o Simulador do Bot (Bot Lab Proxy)
+
+O `Tecnina_bot_gateway` implementa o proxy server-to-server entre o MapOS e a Admin API do Bot (`/admin/simulator/*`):
+
+### Mapeamento Seguro de Reason Codes do Bot
+Em caso de respostas de erro da Admin API do Bot, o Gateway extrai e preserva com segurança os códigos canônicos:
+- `simulation_not_found`: Sessão solicitada não existe ou foi descartada.
+- `simulation_fixture_incomplete`: Fixture obrigatória não fornecida para o cenário.
+- `simulation_runtime_state`: Operação inválida no estado atual do runtime (ex: envio em sessão `FAULTED` ou `CLOSED`).
+- `simulation_manager_unavailable`: Falha ou indisponibilidade interna no gerenciador de sessões.
+- `simulation_execution_failed`: Falha inesperada durante o processamento do passo pelo motor.
+
+### Tratamento Genérico de Respostas HTTP 204 (No Content)
+- Quando o Bot retorna HTTP 204 com corpo vazio (`empty body`), o `Tecnina_bot_gateway` interpreta a resposta como sucesso operacional (`success: true`) com carga útil nula (`data: null`).
+
+### Ciclo de Exclusão de Sessão pelo Navegador
+1. O navegador envia uma requisição `POST` autenticada por sessão ao MapOS (`tecnina_whatsapp/bot_lab_delete_session`) contendo o token CSRF obrigatório.
+2. O controller do MapOS invoca o método de gateway que emite um `DELETE` HTTP server-to-server autenticado com bearer token para o Bot (`/admin/simulator/sessions/{simulation_id}`).
+3. O Bot conclui a exclusão da sessão em memória e responde `HTTP 204 No Content`.
+4. O controller do MapOS intercepta o sucesso do gateway e responde com `HTTP 200 JSON` ao navegador contendo `{ success: true, ... }` e o token CSRF devidamente regenerado.
 
 ## Telefone e Proveniência de Armazenamento
 

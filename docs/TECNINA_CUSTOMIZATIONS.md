@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-09
+Last consolidated: 2026-09-12
 Source of truth: YES
 Scope: MapOS fork TecNina / manifesto de customizações
 
@@ -28,12 +28,14 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-13 | Perfil e cadastro privados do Bot | LOCAL/UNRELEASED | controllers/model TecNina + rotas `/api/bot/*` | whitelist, token interno, sem hash/secret |
 | MAP-14 | Credencial no intake aprovado | LOCAL/UNRELEASED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
 | MAP-15 | Oferta de taxa manual | LOCAL/UNRELEASED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
+| MAP-16 | Bot Lab (bancada do simulador) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
 
 ## Arquivo upstream alterado neste ciclo
 
 | Arquivo | Motivo | Necessidade | Alternativa avaliada | Proteção |
 |---|---|---|---|---|
 | `application/views/tema/menu.php` | entrada operacional Pré-atendimentos | a barra lateral central é a navegação padrão do MapOS | manter dentro de Configurações contrariaria o fluxo diário | `TecninaIntakeReviewPanelTest.php` |
+| `application/views/tema/menu.php` | entrada administrativa Bot Lab | navegação administrativa integrada no menu lateral sob `cSistema` | submenu secundário dificultaria acesso do operador técnico | `tests/TecninaBotLabPanelTest.php` |
 | `application/config/routes.php` | publicar contratos privados aditivos do Gateway | CodeIgniter centraliza o roteamento nesta configuração | rotas implícitas não preservariam os paths estáveis `/api/bot/*` | `TecninaBotClientProfileTest.php` e `TecninaIntakeApprovalTest.php` |
 | `application/views/os/emails/clientenovo.php` | orientar primeiro acesso do cliente criado pelo WhatsApp | o e-mail existente é a comunicação inicial já adotada pelo MapOS | criar e-mail paralelo duplicaria o gatilho e o template | testes estáticos da integração + E2E pendente |
 
