@@ -65,6 +65,9 @@ class Tecnina_bot_gateway
         if ($body === false) {
             return ['ok' => false, 'status' => 503, 'reason' => 'gateway_unavailable', 'data' => null];
         }
+        if ($status === 204 && trim((string) $body) === '') {
+            return ['ok' => true, 'status' => 204, 'reason' => 'ok', 'data' => null];
+        }
         $decoded = json_decode($body, true);
         if (! is_array($decoded)) {
             return ['ok' => false, 'status' => $status ?: 502, 'reason' => 'invalid_gateway_response', 'data' => null];
@@ -126,6 +129,11 @@ class Tecnina_bot_gateway
                 'overlapping_dropoff_periods',
                 'enabled_day_requires_period',
                 'seven_unique_weekdays_required',
+                'simulation_not_found',
+                'simulation_fixture_incomplete',
+                'simulation_runtime_state',
+                'simulation_manager_unavailable',
+                'simulation_execution_failed',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']

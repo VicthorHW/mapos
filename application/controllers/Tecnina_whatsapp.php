@@ -34,6 +34,18 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->layout();
     }
 
+    public function bot_lab()
+    {
+        if (! $this->authorized()) {
+            return;
+        }
+
+        $this->data['menuBotLab'] = 'Bot Lab';
+        $this->preparePanel('tecnina_whatsapp/bot_lab');
+
+        return $this->layout();
+    }
+
     public function dados($resource = '')
     {
         if (! $this->authorized(true)) {
@@ -425,6 +437,167 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+    }
+
+    public function simulador_criar()
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $rawPayload = (string) $this->input->post('payload', false);
+        if ($rawPayload === '' || strlen($rawPayload) > 65535) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulator_payload'], 422);
+        }
+
+        $payload = json_decode($rawPayload, true);
+        if (! is_array($payload)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulator_payload'], 422);
+        }
+
+        $result = $this->tecnina_bot_gateway->request('POST', '/admin/simulator/sessions', $payload);
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_sessao($simulationId = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'GET') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        if (! $this->validateSimulationId($simulationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulation_id'], 400);
+        }
+
+        $result = $this->tecnina_bot_gateway->request('GET', '/admin/simulator/sessions/' . rawurlencode($simulationId));
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_mensagem($simulationId = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        if (! $this->validateSimulationId($simulationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulation_id'], 400);
+        }
+
+        $text = $this->input->post('text', false);
+        if ($text === null || trim((string) $text) === '') {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulator_message'], 422);
+        }
+
+        $payload = ['text' => (string) $text];
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/simulator/sessions/' . rawurlencode($simulationId) . '/messages',
+            $payload
+        );
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_localizacao($simulationId = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        if (! $this->validateSimulationId($simulationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulation_id'], 400);
+        }
+
+        $latRaw = $this->input->post('latitude', true);
+        $lonRaw = $this->input->post('longitude', true);
+        $accRaw = $this->input->post('accuracy_meters', true);
+
+        if (! is_numeric($latRaw) || ! is_numeric($lonRaw)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulator_location'], 422);
+        }
+
+        $lat = (float) $latRaw;
+        $lon = (float) $lonRaw;
+        if ($lat < -90.0 || $lat > 90.0 || $lon < -180.0 || $lon > 180.0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulator_location'], 422);
+        }
+
+        $accuracy = null;
+        if ($accRaw !== null && trim((string) $accRaw) !== '') {
+            if (! is_numeric($accRaw) || (float) $accRaw < 0.0) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_simulator_location'], 422);
+            }
+            $accuracy = (float) $accRaw;
+        }
+
+        $payload = [
+            'latitude' => $lat,
+            'longitude' => $lon,
+            'accuracy_meters' => $accuracy,
+        ];
+
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/simulator/sessions/' . rawurlencode($simulationId) . '/locations',
+            $payload
+        );
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_reset($simulationId = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        if (! $this->validateSimulationId($simulationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulation_id'], 400);
+        }
+
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/simulator/sessions/' . rawurlencode($simulationId) . '/reset'
+        );
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_excluir($simulationId = '')
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        if (! $this->validateSimulationId($simulationId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_simulation_id'], 400);
+        }
+
+        $result = $this->tecnina_bot_gateway->request(
+            'DELETE',
+            '/admin/simulator/sessions/' . rawurlencode($simulationId)
+        );
+
+        if ($result['ok'] && $result['status'] === 204) {
+            return $this->json(['ok' => true, 'status' => 200, 'reason' => 'ok', 'data' => null], 200);
+        }
+
+        return $this->json($result, $result['status']);
+    }
+
+    private function validateSimulationId($simulationId)
+    {
+        return (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', (string) $simulationId);
     }
 
     private function authorized($json = false)

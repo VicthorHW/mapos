@@ -1,0 +1,56 @@
+.bot-lab-panel .widget-content { padding: 20px; }
+.bot-lab-setup-box { max-width: 780px; margin: 0 auto; background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.bot-lab-setup-box h4 { margin-top: 0; margin-bottom: 6px; }
+.bot-lab-conditional-box { background: #fbfbfb; border: 1px solid #e2e2e2; border-radius: 4px; padding: 16px; margin-bottom: 18px; }
+.bot-lab-conditional-box h5 { margin-top: 0; margin-bottom: 12px; }
+.bot-lab-sub-section { border-top: 1px solid #eaeaea; padding-top: 14px; margin-top: 14px; }
+.bot-lab-advanced-accordion { margin-top: 16px; margin-bottom: 18px; border: 1px solid #e0e0e0; border-radius: 4px; background: #fafafa; }
+.bot-lab-collapse-btn { display: block; text-align: left; padding: 10px 14px; font-weight: 600; color: #444; text-decoration: none; }
+.bot-lab-collapse-btn:hover { text-decoration: none; background: #f0f0f0; }
+.bot-lab-advanced-body { padding: 14px; background: #fff; border-top: 1px solid #e5e5e5; }
+.bot-lab-table-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.bot-lab-form-actions { margin-top: 20px; margin-bottom: 0; padding-top: 16px; border-top: 1px solid #eee; text-align: right; }
+
+/* Workbench Toolbar */
+.bot-lab-toolbar { display: flex; justify-content: space-between; align-items: center; background: #f5f5f5; border: 1px solid #ddd; border-radius: 5px; padding: 10px 15px; margin-bottom: 15px; }
+.bot-lab-toolbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.bot-lab-toolbar-right { display: flex; align-items: center; gap: 8px; }
+.bot-lab-brand { font-weight: bold; font-size: 15px; color: #222; }
+.wb-meta-item { font-size: 13px; color: #444; }
+.wb-meta-item strong { color: #111; }
+.wb-meta-item code { font-size: 12px; padding: 2px 4px; }
+
+/* Workspace Grid */
+.bot-lab-workspace-grid { margin-top: 12px; }
+.bot-lab-chat-column { display: flex; flex-direction: column; }
+.bot-lab-chat-container { border: 1px solid #ccc; border-radius: 6px 6px 0 0; background: #e5ddd5; }
+.bot-lab-chat-box { height: 420px; overflow-y: auto; padding: 14px; box-sizing: border-box; }
+
+/* Chat Bubbles */
+.bot-lab-msg-row { display: flex; margin-bottom: 10px; width: 100%; }
+.bot-lab-msg-row.is-customer { justify-content: flex-end; }
+.bot-lab-msg-row.is-bot { justify-content: flex-start; }
+.bot-lab-bubble { max-width: 75%; padding: 8px 12px; border-radius: 6px; word-wrap: break-word; font-size: 13px; line-height: 1.4; box-shadow: 0 1px 1px rgba(0,0,0,0.12); position: relative; }
+.bot-lab-msg-row.is-customer .bot-lab-bubble { background: #dcf8c6; color: #111; border-top-right-radius: 2px; }
+.bot-lab-msg-row.is-bot .bot-lab-bubble { background: #ffffff; color: #111; border-top-left-radius: 2px; }
+.bot-lab-location-card { background: #edf7ed; border: 1px solid #c8e6c9; border-radius: 4px; padding: 8px 10px; font-size: 12px; line-height: 1.3; }
+.bot-lab-location-card strong { color: #2e7d32; display: block; margin-bottom: 4px; }
+
+/* Quick Actions */
+.bot-lab-quick-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #ece5dd; border-left: 1px solid #ccc; border-right: 1px solid #ccc; padding: 6px 12px; }
+.wb-quick-btn { font-size: 11px; padding: 2px 7px; }
+
+/* Composer */
+.bot-lab-composer { border: 1px solid #ccc; border-top: 1px solid #ddd; border-radius: 0 0 6px 6px; background: #f0f0f0; padding: 10px 12px; }
+.bot-lab-composer-row { display: flex; gap: 8px; align-items: center; }
+.bot-lab-composer-row input { margin-bottom: 0; flex: 1; }
+.bot-lab-composer-tools { margin-top: 8px; }
+
+/* Inspector */
+.bot-lab-inspector-body { min-height: 480px; max-height: 560px; overflow-y: auto; padding: 12px; }
+.bot-lab-step-card, .bot-lab-effect-card { border: 1px solid #ddd; border-radius: 5px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+.bot-lab-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.bot-lab-card-header strong { font-size: 13px; }
+.bot-lab-card-meta { font-size: 12px; color: #666; margin-bottom: 6px; }
+.bot-lab-card-details { border-top: 1px dashed #e0e0e0; padding-top: 6px; margin-top: 6px; font-size: 11px; }
+.bot-lab-json-snippet { background: #f8f8f8; border: 1px solid #eee; border-radius: 3px; padding: 6px; font-size: 11px; font-family: monospace; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin: 4px 0 0; }

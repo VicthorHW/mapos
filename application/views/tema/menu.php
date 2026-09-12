@@ -118,6 +118,14 @@
                             <span class="title-tooltip">Pré-atendimentos</span>
                         </a>
                     </li>
+                    <li class="<?php if (isset($menuBotLab)) {
+                        echo 'active';
+                    }; ?>">
+                        <a class="tip-bottom" title="" href="<?= site_url('tecnina_whatsapp/bot_lab') ?>"><i class='bx bx-bot iconX'></i>
+                            <span class="title">Bot Lab</span>
+                            <span class="title-tooltip">Bot Lab</span>
+                        </a>
+                    </li>
                 <?php } ?>
 
                 <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'vGarantia')) { ?>
