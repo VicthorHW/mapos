@@ -120,6 +120,8 @@ class Tecnina_intake_approval_model extends CI_Model
 
     private function insertClient(array $client)
     {
+        $this->load->library('Tecnina_phone');
+        $storagePhone = $this->tecnina_phone->storageValueFromCanonical($client['phone']);
         $password = password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
         $created = $this->db->insert('clientes', [
             'nomeCliente' => $this->limited($client['name'], 255),
@@ -127,7 +129,7 @@ class Tecnina_intake_approval_model extends CI_Model
             'pessoa_fisica' => 1,
             'documento' => '',
             'telefone' => '',
-            'celular' => $client['phone'],
+            'celular' => $storagePhone ?: $client['phone'],
             'email' => '',
             'senha' => $password,
             // Coleta é endereço operacional da OS, não endereço cadastral.

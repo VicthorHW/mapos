@@ -8,17 +8,18 @@ class Tecnina_phone
      * Normalizes a canonical international identity.
      *
      * Rules:
-     * - Strips non-digits and transport characters.
+     * - Strips non-digits and transport characters (+, spaces, dashes, etc.).
      * - Valid boundary: 8 to 15 digits (ITU-T E.164 boundary).
      * - If DDI == 55 (Brazil):
      *   - DDD must be between 11 and 99.
-     *   - 11-digit mobile with 9th digit '9' is preserved (55XXXXXXXXXXX).
+     *   - 11-digit mobile/subscriber structure is preserved (55XXXXXXXXXXX).
      *   - 10-digit legacy mobile ([6-9]) is normalized by inserting '9' (55XX9XXXXXXXX).
-     *   - Fixed-line numbers (subscriber starting with 2-5) are rejected (returns null).
+     *   - Fixed-line shaped numbers (2-5) are preserved as canonical identities.
      *   - Other lengths or invalid Brazilian structures return null.
      * - If DDI != 55 (International):
      *   - Preserves exact international canonical digits.
      *   - NEVER infers Brazil merely based on length or prefix heuristics.
+     *   - NEVER rejects an international canonical identity because it looks like a BR fixed line.
      * - Short values (< 8 digits) or exceeding 15 digits return null.
      */
     public function normalizeCanonicalIdentity($value)
@@ -38,22 +39,17 @@ class Tecnina_phone
                 return null;
             }
 
-            if (strlen($brDigits) === 11 && $brDigits[2] === '9') {
+            if (strlen($brDigits) === 11) {
                 return $digits;
             }
-            if (strlen($brDigits) === 10 && preg_match('/[6-9]/', $brDigits[2])) {
-                return '55' . substr($brDigits, 0, 2) . '9' . substr($brDigits, 2);
+            if (strlen($brDigits) === 10) {
+                if (preg_match('/[6-9]/', $brDigits[2])) {
+                    return '55' . substr($brDigits, 0, 2) . '9' . substr($brDigits, 2);
+                }
+                return $digits;
             }
 
             return null;
-        }
-
-        // If without 55 it matches Brazilian local fixed line, reject as identity
-        if (strlen($digits) === 10) {
-            $ddd = (int) substr($digits, 0, 2);
-            if ($ddd >= 11 && $ddd <= 99 && preg_match('/[2-5]/', $digits[2])) {
-                return null;
-            }
         }
 
         // Canonical international identity (DDI != 55)
@@ -70,10 +66,29 @@ class Tecnina_phone
     }
 
     /**
+     * Converts a canonical identity into its MapOS storage representation.
+     * Brazilian canonical (55...) remains digits only.
+     * Non-Brazilian canonical receives leading '+'.
+     */
+    public function storageValueFromCanonical($canonical)
+    {
+        $digits = $this->normalizeCanonicalIdentity($canonical);
+        if ($digits === null) {
+            return null;
+        }
+
+        if (substr($digits, 0, 2) === '55') {
+            return $digits;
+        }
+
+        return '+' . $digits;
+    }
+
+    /**
      * Generates canonical Brazilian aliases for local/legacy inputs without country code.
      *
      * Used ONLY when the input is known to be potentially local Brazilian input
-     * (e.g. candidate phone numbers stored in MapOS without country code).
+     * (e.g. candidate phone numbers stored in MapOS without country code and without '+').
      */
     public function brazilianIdentityAliases($value)
     {
@@ -106,20 +121,53 @@ class Tecnina_phone
 
     /**
      * Returns candidate identities for matching against an incoming canonical identity.
-     * Combines exact canonical identity and any Brazilian local/legacy aliases.
+     *
+     * Provenance rules:
+     * CASE 1: Raw trimmed value begins with '+' -> explicit international canonical.
+     *         Does NOT generate Brazilian aliases.
+     * CASE 2: Digits explicitly begin with '55' -> canonical Brazilian storage.
+     * CASE 3: Unmarked local/legacy storage (no '+', not starting with 55).
+     *         Interpreted strictly as Brazilian local/legacy.
+     *         Generates Brazilian canonical alias(es). Does NOT treat as international.
      */
     public function candidateIdentities($celular, $telefone = null)
     {
         $identities = [];
-        foreach ([$celular, $telefone] as $val) {
-            if ($val === null || $val === '') {
+        foreach ([$celular, $telefone] as $raw) {
+            if ($raw === null) {
                 continue;
             }
-            $canonical = $this->normalizeCanonicalIdentity($val);
-            if ($canonical !== null) {
-                $identities[] = $canonical;
+            $trimmed = trim((string) $raw);
+            if ($trimmed === '') {
+                continue;
             }
-            foreach ($this->brazilianIdentityAliases($val) as $alias) {
+
+            // CASE 1: Explicit international stored value beginning with '+'
+            if (substr($trimmed, 0, 1) === '+') {
+                $canonical = $this->normalizeCanonicalIdentity($trimmed);
+                if ($canonical !== null) {
+                    $identities[] = $canonical;
+                }
+                continue;
+            }
+
+            $digits = preg_replace('/\D+/', '', $trimmed);
+            if ($digits === '') {
+                continue;
+            }
+
+            // CASE 2: Digits explicitly begin with '55' -> Brazilian canonical storage
+            if (substr($digits, 0, 2) === '55') {
+                $canonical = $this->normalizeCanonicalIdentity($digits);
+                if ($canonical !== null) {
+                    $identities[] = $canonical;
+                }
+                continue;
+            }
+
+            // CASE 3: Unmarked local/legacy storage -> interpret strictly as Brazilian local legacy
+            $aliases = $this->brazilianIdentityAliases($digits);
+            foreach ($aliases as $alias) {
                 $identities[] = $alias;
             }
         }
@@ -133,11 +181,12 @@ class Tecnina_phone
      */
     public function matchesCandidate($canonicalPhone, $celular, $telefone = null)
     {
-        if ($canonicalPhone === null || $canonicalPhone === '') {
+        $canonical = $this->normalizeCanonicalIdentity($canonicalPhone);
+        if ($canonical === null) {
             return false;
         }
 
-        return in_array($canonicalPhone, $this->candidateIdentities($celular, $telefone), true);
+        return in_array($canonical, $this->candidateIdentities($celular, $telefone), true);
     }
 
     /**
@@ -145,32 +194,35 @@ class Tecnina_phone
      */
     public function normalizeWhatsApp($value)
     {
-        $digits = preg_replace('/\D+/', '', (string) $value);
-        if ($digits === '') {
+        if ($value === null) {
+            return null;
+        }
+        $trimmed = trim((string) $value);
+        if ($trimmed === '') {
             return null;
         }
 
+        // Explicit '+' international stored representation
+        if (substr($trimmed, 0, 1) === '+') {
+            $canonical = $this->normalizeCanonicalIdentity($trimmed);
+            return (strlen((string) $canonical) >= 8 && strlen((string) $canonical) <= 15) ? $canonical : null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $trimmed);
+        if (strlen($digits) < 8 || strlen($digits) > 15) {
+            return null;
+        }
+
+        // Brazilian canonical storage (starts with 55)
         if (substr($digits, 0, 2) === '55') {
-            $identity = $this->normalizeCanonicalIdentity($value);
-            return (strlen((string) $identity) === 13) ? $identity : null;
+            $canonical = $this->normalizeCanonicalIdentity($digits);
+            return (strlen((string) $canonical) === 13) ? $canonical : null;
         }
 
-        // Brazilian local fixed line or 10-digit legacy mobile without DDI: reject for WhatsApp delivery
-        if (strlen($digits) === 10) {
-            return null;
-        }
-
-        // Brazilian 11-digit mobile without 55: normalize to 55XXXXXXXXXXX
-        if (strlen($digits) === 11) {
-            $ddd = (int) substr($digits, 0, 2);
-            if ($ddd >= 11 && $ddd <= 99 && $digits[2] === '9') {
-                return '55' . $digits;
-            }
-        }
-
-        // Non-Brazilian international number
-        if (strlen($digits) >= 8 && strlen($digits) <= 15) {
-            return $digits;
+        // Brazilian local legacy storage (no '+', no '55')
+        $aliases = $this->brazilianIdentityAliases($digits);
+        if (count($aliases) === 1) {
+            return $aliases[0];
         }
 
         return null;

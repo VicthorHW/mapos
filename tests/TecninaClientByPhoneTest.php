@@ -30,16 +30,40 @@ foreach (['password', 'senha', 'documento', 'credencial', 'nome'] as $forbidden)
 
 require_once $root . '/application/libraries/Tecnina_phone.php';
 $phone = new Tecnina_phone();
+
+// 1. Canonical normalization
 expectClientLookup($phone->normalizeCanonicalIdentity('+55 41 99740-3509') === '5541997403509', 'Celular atual inválido.');
 expectClientLookup($phone->normalizeIdentity('+55 41 99740-3509') === '5541997403509', 'Celular atual inválido via normalizeIdentity.');
-expectClientLookup($phone->matchesCandidate('5541997403509', '4197403509', null), 'Número móvel legado inválido.');
-expectClientLookup($phone->normalizeCanonicalIdentity('4133334444') === null, 'Telefone fixo não deve casar.');
-expectClientLookup($phone->normalizeIdentity('4133334444') === null, 'Telefone fixo não deve casar via normalizeIdentity.');
+expectClientLookup($phone->normalizeCanonicalIdentity('4133334444') === '4133334444', 'Canônico 4133334444 não deve ser rejeitado por heurística.');
+expectClientLookup($phone->normalizeIdentity('4133334444') === '4133334444', 'Canônico 4133334444 via normalizeIdentity.');
+expectClientLookup($phone->normalizeCanonicalIdentity('554133334444') === '554133334444', 'Canônico 554133334444 deve ser preservado.');
 expectClientLookup($phone->normalizeCanonicalIdentity('123') === null, 'Telefone curto não deve casar.');
 expectClientLookup($phone->normalizeIdentity('123') === null, 'Telefone curto não deve casar via normalizeIdentity.');
 expectClientLookup($phone->normalizeCanonicalIdentity('66912345678') === '66912345678', 'Internacional não deve virar Brasil.');
 expectClientLookup($phone->normalizeCanonicalIdentity('351911872552') === '351911872552', 'Portugal deve ser preservado.');
-expectClientLookup(! $phone->matchesCandidate('66912345678', '4197403509', null), 'Internacional não deve casar com candidato legado.');
-expectClientLookup(! $phone->matchesCandidate('5541997403509', '4133334444', null), 'Fixo não deve casar como móvel.');
+
+// 2. Storage representation conversion
+expectClientLookup($phone->storageValueFromCanonical('5541997403509') === '5541997403509', 'Armazenamento canônico BR incorreto.');
+expectClientLookup($phone->storageValueFromCanonical('351911872552') === '+351911872552', 'Armazenamento internacional Portugal incorreto.');
+expectClientLookup($phone->storageValueFromCanonical('66912345678') === '+66912345678', 'Armazenamento internacional Tailândia incorreto.');
+expectClientLookup($phone->storageValueFromCanonical('14155552671') === '+14155552671', 'Armazenamento internacional EUA incorreto.');
+
+// 3. Candidate provenance and collision tests (Order 08 Section 7)
+expectClientLookup($phone->matchesCandidate('66912345678', '+66912345678', null), 'Consulta internacional em armazenamento explícito + deve casar.');
+expectClientLookup(! $phone->matchesCandidate('5566912345678', '+66912345678', null), 'Consulta BR não deve casar com internacional explícito + (prevenção de colisão).');
+expectClientLookup($phone->matchesCandidate('5566912345678', '66912345678', null), 'Consulta BR deve casar com legado local não marcado.');
+expectClientLookup(! $phone->matchesCandidate('66912345678', '66912345678', null), 'Consulta internacional não deve casar com legado local não marcado.');
+expectClientLookup($phone->matchesCandidate('351911872552', '+351911872552', null), 'Consulta Portugal em +351 deve casar.');
+expectClientLookup($phone->matchesCandidate('14155552671', '+14155552671', null), 'Consulta EUA em +1415 deve casar.');
+expectClientLookup($phone->matchesCandidate('5541997403509', '4197403509', null), 'Consulta BR em legado local 4197403509 deve casar.');
+expectClientLookup(! $phone->matchesCandidate('5541997403509', '4133334444', null), 'Consulta celular não deve casar com fixo local.');
+
+// 4. normalizeWhatsApp with provenance (Order 08 Section 14)
+expectClientLookup($phone->normalizeWhatsApp('+66912345678') === '66912345678', 'WhatsApp internacional com + inválido.');
+expectClientLookup($phone->normalizeWhatsApp('5541997403509') === '5541997403509', 'WhatsApp canônico BR inválido.');
+expectClientLookup($phone->normalizeWhatsApp('4197403509') === '5541997403509', 'WhatsApp legado local 10 dígitos inválido.');
+expectClientLookup($phone->normalizeWhatsApp('(41) 99740-3509') === '5541997403509', 'WhatsApp formatado local inválido.');
+expectClientLookup($phone->normalizeWhatsApp('4133334444') === null, 'WhatsApp fixo deve ser rejeitado.');
+expectClientLookup($phone->normalizeWhatsApp('123') === null, 'WhatsApp curto deve ser rejeitado.');
 
 echo 'TecninaClientByPhoneTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

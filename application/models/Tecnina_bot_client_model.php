@@ -54,13 +54,16 @@ class Tecnina_bot_client_model extends CI_Model
             return ['ok' => false, 'reason' => 'identity_already_registered'];
         }
 
+        $this->load->library('Tecnina_phone');
+        $storagePhone = $this->tecnina_phone->storageValueFromCanonical($client['phone']);
+
         $created = $this->db->insert('clientes', [
             'nomeCliente' => $client['name'],
             'contato' => null,
             'pessoa_fisica' => 1,
             'documento' => $client['cpf'],
             'telefone' => '',
-            'celular' => $client['phone'],
+            'celular' => $storagePhone ?: $client['phone'],
             'email' => $client['email'],
             'senha' => password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT),
             'rua' => null,

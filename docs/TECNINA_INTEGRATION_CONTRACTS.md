@@ -32,13 +32,15 @@ Scope: MapOS↔Bot Gateway / contratos privados
 
 `GET /api/bot/os/{os_id}/status` e mecanismo de código de consulta pertencem a uma geração anterior. Não devem ser usados para restaurar o fluxo antigo sem uma nova decisão explícita.
 
-## Telefone
+## Telefone e Proveniência de Armazenamento
 
-A correspondência de identidade telefônica separa estritamente a identidade canônica internacional dos aliases locais/legados brasileiros:
+A correspondência de identidade telefônica separa formalmente a identidade canônica de transporte da proveniência de armazenamento no MapOS:
 
-- **Identidade Canônica Internacional**: Aplicada às consultas de entrada oriundas do bot (`GET /api/bot/client/by-phone`). Preserva integralmente o DDI internacional e dígitos canônicos (8 a 15 dígitos), nunca presumindo Brasil com base em extensão de dígitos ou prefixos locais. Para DDI 55, normaliza o 9º dígito móvel quando aplicável e rejeita estritamente telefones fixos.
-- **Aliases Locais / Legados Brasileiros**: Aplicados exclusivamente aos registros de candidatos armazenados no MapOS (`celular`, `telefone`) quando cadastrados sem DDI, gerando compatibilidade com o formato canônico 55.
-- **Casamento Determinístico**: A busca compara a identidade canônica exata contra o conjunto de identidades/aliases válidos do candidato. O uso de `LIKE` parcial é estritamente proibido. Identidade ambígua (>1 cliente correspondente) é reportada com segurança (`match: ambiguous`) e escala para atendimento humano.
+- **Identidade Canônica de Transporte**: Utilizada nas trocas internas entre Evolution, Bot e API do MapOS (`GET /api/bot/client/by-phone`). É representada **estritamente em dígitos** (8 a 15 dígitos). O DDI internacional é preservado integralmente; nunca se infere Brasil com base em extensão de dígitos ou prefixos locais coincidentes. Se o DDI for explicitamente 55, a estrutura brasileira é preservada e o 9º dígito móvel legado é normalizado. Identidades canônicas não são rejeitadas apenas por terem formato semelhante a telefone fixo.
+- **Armazenamento de Identidade Canônica Internacional no MapOS**: Registros internacionais gravados por integrações da TecNina utilizam **obrigatoriamente o prefixo `+`** (ex: `+351911872552`, `+66912345678`, `+14155552671`). O marcador `+` define proveniência inequívoca e impede colisão com números legados locais.
+- **Armazenamento Canônico Brasileiro no MapOS**: Registros canônicos nacionais permanecem como dígitos iniciando explicitamente por `55` (ex: `5541997403509`).
+- **Armazenamento Local / Legado Brasileiro no MapOS**: Registros existentes no banco de dados sem `+` e sem `55` (ex: `4197403509`, `66912345678`) são interpretados **estritamente como dados locais/legados brasileiros**, gerando aliases canônicos 55. Um valor não marcado de 10/11 dígitos **não** é interpretado simultaneamente como internacional e brasileiro. Registros internacionais legados sem `+` exigem normalização para `+<canônico>`.
+- **Casamento Determinístico**: A consulta compara a identidade canônica de transporte contra o conjunto de identidades derivadas da proveniência do candidato. O uso de `LIKE` parcial é estritamente proibido. Resposta de identidade ambígua (>1 cliente) é reportada com segurança (`match: ambiguous`) e escala para atendimento humano.
 
 ## Aprovação
 
