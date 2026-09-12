@@ -94,7 +94,8 @@ expectBotLab(strpos($script, 'sessionView.deliveries') !== false, 'Browser JS n�
 expectBotLab(strpos($script, '#wb-deliveries-list') !== false, 'Browser JS não atualiza #wb-deliveries-list.');
 
 // Contract N: Registration code is rendered through escaped text semantics, never console logged
-expectBotLab(strpos($script, 'esc(del.content)') !== false, 'Browser JS não escapa o conteúdo/código de entrega.');
+expectBotLab(strpos($script, 'esc(del.code)') !== false, 'Browser JS não escapa o código de entrega com esc(del.code).');
+expectBotLab(strpos($script, 'del.content') === false, 'Browser JS ainda faz referência a del.content.');
 expectBotLab(strpos($script, 'console.log') === false, 'Browser JS contém chamadas a console.log.');
 expectBotLab(strpos($script, 'console.info') === false, 'Browser JS contém chamadas a console.info.');
 expectBotLab(strpos($script, 'console.warn') === false, 'Browser JS contém chamadas a console.warn.');

@@ -354,7 +354,7 @@
                 var channelLabel = (del.channel === 'EMAIL') ? 'E-mail' : del.channel;
                 delBody.append('<div><strong>Canal:</strong> ' + esc(channelLabel) + '</div>');
                 delBody.append('<div><strong>Destino:</strong> ' + esc(del.destination) + '</div>');
-                delBody.append('<div><strong>Código:</strong> <span class="badge badge-info bot-lab-code-badge">' + esc(del.content) + '</span></div>');
+                delBody.append('<div><strong>Código:</strong> <span class="badge badge-info bot-lab-code-badge">' + esc(del.code) + '</span></div>');
                 delBody.append('<div><strong>Status:</strong> ' + esc(del.status === 'DELIVERED' ? 'Entregue' : del.status) + '</div>');
                 delBody.append('<div class="muted" style="margin-top:6px; font-size:11px;">Esta entrega ocorreu somente dentro da simulação. Nenhum e-mail real foi enviado.</div>');
                 delCard.append(delBody);
