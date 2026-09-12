@@ -11,7 +11,7 @@ Scope: MapOS fork TecNina / pendências
 
 A reorganização administrativa de WhatsApp/pré-atendimentos está implementada e validada localmente.
 A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp/bot_lab` foi **totalmente implementada e validada localmente** (Fase D1), com suite de 5 testes de contrato PHP, lint PHP e JS syntax check aprovados, além do gate local de integração E2E com a API real do Bot.
-O código está pronto para publicação de código-fonte (`PUBLISHED / SYNCED`). Implantação e ativação em ambiente operacional permanecem pendentes.
+Estado do codigo-fonte: PUBLISHED / SYNCED. Implantacao operacional e validacao em ambiente de producao: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
 
 ## Pendências operacionais do Bot Lab
 

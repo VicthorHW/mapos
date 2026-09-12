@@ -42,11 +42,17 @@ Scope: MapOS fork TecNina / estado atual
 - **Fonte da verdade**: a sessão de simulação no Bot é a única fonte da verdade para o estado da conversa, histórico e efeitos. O MapOS NÃO armazena estado conversacional nem histórico de simulação independente.
 - **Papel da funcionalidade**: o Bot Lab é exclusivamente uma bancada administrativa de testes interativos (`admin test workbench`). NÃO é Flow Studio, NÃO é editor de FSM, NÃO é autoria de workflows, NÃO é um segundo motor de conversação e NÃO é visualizador de conversas de produção.
 - **Capacidades da UI**: setup de fixtures, console de envio de mensagens e localização, visualizador de estado do runtime, inspetor do ledger de passos e inspetor de efeitos externos observáveis. Nenhum executor de cenários existe na implementação.
-- **Status da entrega**: `IMPLEMENTED_LOCAL` / pronto para publicação de código-fonte (`ready for source publication / not deployed`).
+- **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
+- **Estado do codigo-fonte**: PUBLISHED / SYNCED
+- **Implantacao operacional**: NOT DEPLOYED
+- **Habilitacao em producao**: NOT PERFORMED
 
 ## Estado do snapshot
 
-Branch `feature/bot-lab` consolidado em 2026-09-12.
+- Branch: master
+- HEAD: 8d10caddfd6871a893771849e907c7ede165c0ec
+- Source State: PUBLISHED / SYNCED
+- Deployment: NOT DEPLOYED
 - 5 testes de contrato PHP executados com 93 asserções (incluindo 33 asserções em `TecninaBotLabPanelTest.php`);
 - lints de PHP limpos;
 - validação de sintaxe JavaScript limpa (`node --check assets/tecnina/js/bot-lab.js`);
