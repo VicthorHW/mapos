@@ -106,7 +106,7 @@ class Tecnina_bot_client_model extends CI_Model
 
         $changes = [];
         foreach (['celular', 'telefone'] as $field) {
-            if ($phoneLibrary->normalizeIdentity($row[$field]) === $canonicalPhone) {
+            if ($phoneLibrary->matchesCandidate($canonicalPhone, $row[$field])) {
                 $changes[$field] = '';
             }
         }
@@ -129,8 +129,7 @@ class Tecnina_bot_client_model extends CI_Model
             ->get()
             ->result_array();
         foreach ($rows as $row) {
-            if ($this->tecnina_phone->normalizeIdentity($row['celular']) === $phone
-                || $this->tecnina_phone->normalizeIdentity($row['telefone']) === $phone) {
+            if ($this->tecnina_phone->matchesCandidate($phone, $row['celular'], $row['telefone'])) {
                 $matches[(int) $row['idClientes']] = true;
             }
         }

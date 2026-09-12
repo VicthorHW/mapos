@@ -20,7 +20,7 @@ class Client_by_phone extends REST_Controller
             return;
         }
 
-        $phone = $this->tecnina_phone->normalizeIdentity(
+        $phone = $this->tecnina_phone->normalizeCanonicalIdentity(
             $this->input->get('phone', true)
         );
         if ($phone === null) {
@@ -31,10 +31,7 @@ class Client_by_phone extends REST_Controller
 
         $clientIds = [];
         foreach ($this->Tecnina_client_lookup_model->mobileCandidates() as $candidate) {
-            if (
-                $this->tecnina_phone->normalizeIdentity($candidate['celular']) === $phone ||
-                $this->tecnina_phone->normalizeIdentity($candidate['telefone']) === $phone
-            ) {
+            if ($this->tecnina_phone->matchesCandidate($phone, $candidate['celular'], $candidate['telefone'])) {
                 $clientIds[(int) $candidate['client_id']] = true;
             }
         }

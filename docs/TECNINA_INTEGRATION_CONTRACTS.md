@@ -34,7 +34,11 @@ Scope: MapOS↔Bot Gateway / contratos privados
 
 ## Telefone
 
-Normalizar identidade de forma determinística, suportando DDI internacional e mantendo regras para alias brasileiro (9º dígito). Identidade ambígua é rejeitada/escalada. O uso de `LIKE` parcial é estritamente proibido.
+A correspondência de identidade telefônica separa estritamente a identidade canônica internacional dos aliases locais/legados brasileiros:
+
+- **Identidade Canônica Internacional**: Aplicada às consultas de entrada oriundas do bot (`GET /api/bot/client/by-phone`). Preserva integralmente o DDI internacional e dígitos canônicos (8 a 15 dígitos), nunca presumindo Brasil com base em extensão de dígitos ou prefixos locais. Para DDI 55, normaliza o 9º dígito móvel quando aplicável e rejeita estritamente telefones fixos.
+- **Aliases Locais / Legados Brasileiros**: Aplicados exclusivamente aos registros de candidatos armazenados no MapOS (`celular`, `telefone`) quando cadastrados sem DDI, gerando compatibilidade com o formato canônico 55.
+- **Casamento Determinístico**: A busca compara a identidade canônica exata contra o conjunto de identidades/aliases válidos do candidato. O uso de `LIKE` parcial é estritamente proibido. Identidade ambígua (>1 cliente correspondente) é reportada com segurança (`match: ambiguous`) e escala para atendimento humano.
 
 ## Aprovação
 

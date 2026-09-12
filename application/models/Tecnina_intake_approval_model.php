@@ -110,8 +110,7 @@ class Tecnina_intake_approval_model extends CI_Model
             ->get()
             ->result_array();
         foreach ($rows as $row) {
-            if ($this->tecnina_phone->normalizeIdentity($row['celular']) === $phone
-                || $this->tecnina_phone->normalizeIdentity($row['telefone']) === $phone) {
+            if ($this->tecnina_phone->matchesCandidate($phone, $row['celular'], $row['telefone'])) {
                 $matches[(int) $row['idClientes']] = true;
             }
         }
