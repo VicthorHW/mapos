@@ -292,6 +292,7 @@
         <h3 id="modal-location-title">Enviar Localização</h3>
     </div>
     <div class="modal-body">
+        <div id="location-validation-error" class="bot-lab-location-error"></div>
         <div class="control-group">
             <label class="control-label" for="loc-lat"><strong>Latitude</strong> <span class="text-error">*</span></label>
             <div class="controls">

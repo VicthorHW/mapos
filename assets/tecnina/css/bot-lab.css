@@ -54,3 +54,16 @@
 .bot-lab-card-meta { font-size: 12px; color: #666; margin-bottom: 6px; }
 .bot-lab-card-details { border-top: 1px dashed #e0e0e0; padding-top: 6px; margin-top: 6px; font-size: 11px; }
 .bot-lab-json-snippet { background: #f8f8f8; border: 1px solid #eee; border-radius: 3px; padding: 6px; font-size: 11px; font-family: monospace; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin: 4px 0 0; }
+
+/* Location Modal Validation Error */
+.bot-lab-location-error {
+    display: none;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    color: #b94a48;
+    background-color: #f2dede;
+    border: 1px solid #eed3d7;
+    border-radius: 4px;
+    font-size: 12px;
+}
+

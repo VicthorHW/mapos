@@ -24,6 +24,14 @@
         $('#bot-lab-error').hide().text('');
     }
 
+    function showLocationError(message) {
+        $('#location-validation-error').text(message).show();
+    }
+
+    function clearLocationError() {
+        $('#location-validation-error').text('').hide();
+    }
+
     function showSuccess(message) {
         $('#bot-lab-success').text(message).show();
         $('#bot-lab-error').hide();
@@ -551,10 +559,15 @@
     // UI Event: Open location modal
     $('#btn-open-location').on('click', function () {
         clearError();
+        clearLocationError();
         $('#loc-lat').val('');
         $('#loc-lng').val('');
         $('#loc-acc').val('');
         $('#modal-location').modal('show');
+    });
+
+    $('#modal-location').on('show', function () {
+        clearLocationError();
     });
 
     // UI Event: Submit Location
@@ -562,25 +575,39 @@
         if (!currentSimulationId || inFlight) {
             return;
         }
-        var lat = $('#loc-lat').val();
-        var lng = $('#loc-lng').val();
-        var acc = $('#loc-acc').val();
+        var lat = $.trim($('#loc-lat').val());
+        var lng = $.trim($('#loc-lng').val());
+        var acc = $.trim($('#loc-acc').val());
 
-        if (!lat || isNaN(parseFloat(lat)) || parseFloat(lat) < -90 || parseFloat(lat) > 90) {
-            alert('Informe uma latitude válida entre -90.0 e 90.0');
+        var latNum = parseFloat(lat);
+        if (!lat || isNaN(latNum) || isNaN(Number(lat)) || latNum < -90 || latNum > 90) {
+            showLocationError('Informe uma latitude válida entre -90 e 90.');
             $('#loc-lat').focus();
             return;
         }
-        if (!lng || isNaN(parseFloat(lng)) || parseFloat(lng) < -180 || parseFloat(lng) > 180) {
-            alert('Informe uma longitude válida entre -180.0 e 180.0');
+
+        var lngNum = parseFloat(lng);
+        if (!lng || isNaN(lngNum) || isNaN(Number(lng)) || lngNum < -180 || lngNum > 180) {
+            showLocationError('Informe uma longitude válida entre -180 e 180.');
             $('#loc-lng').focus();
             return;
         }
 
+        if (acc !== '') {
+            var accNum = parseFloat(acc);
+            if (isNaN(accNum) || isNaN(Number(acc)) || accNum < 0) {
+                showLocationError('Informe uma precisão válida maior ou igual a zero.');
+                $('#loc-acc').focus();
+                return;
+            }
+        }
+
+        clearLocationError();
+
         var data = {
             latitude: lat,
             longitude: lng,
-            accuracy_meters: acc ? acc : ''
+            accuracy_meters: acc !== '' ? acc : ''
         };
 
         setInFlight(true);

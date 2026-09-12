@@ -32,7 +32,7 @@ expectBotLab(strpos($controller, 'function simulador_reset(') !== false, 'Proxy 
 expectBotLab(strpos($controller, 'function simulador_excluir(') !== false, 'Proxy simulador_excluir ausente no controller.');
 
 // Contract B: Bot Lab page is cSistema protected
-expectBotLab(strpos($controller, '$this->data['menuBotLab'] = 'Bot Lab';') !== false, 'Marker menuBotLab não definido na página.');
+expectBotLab(strpos($controller, "\$this->data['menuBotLab'] = 'Bot Lab';") !== false, 'Marker menuBotLab não definido na página.');
 expectBotLab(strpos($controller, "preparePanel('tecnina_whatsapp/bot_lab')") !== false, 'preparePanel para bot_lab ausente.');
 
 // Contract C: menu.php contains Bot Lab link and menuBotLab marker under cSistema
@@ -64,11 +64,16 @@ expectBotLab(strpos($gateway, "'simulation_execution_failed'") !== false, 'Gatew
 expectBotLab(strpos($gateway, '$status === 204') !== false && strpos($gateway, "'status' => 204") !== false, 'Gateway não suporta HTTP 204 vazio.');
 
 // Contract I: controller delete proxy returns browser JSON/CSRF using HTTP 200 after upstream 204
-expectBotLab(strpos($controller, "$result['status'] === 204") !== false && strpos($controller, "'status' => 200") !== false, 'Proxy simulador_excluir não converte upstream 204 em HTTP 200 para emissão de CSRF.');
+expectBotLab(strpos($controller, "\$result['status'] === 204") !== false && strpos($controller, "'status' => 200") !== false, 'Proxy simulador_excluir não converte upstream 204 em HTTP 200 para emissão de CSRF.');
 
 // Contract J: WIP simulator source is NOT referenced from current implementation
 expectBotLab(strpos($controller, '/simulator/message') === false, 'Controller ainda referencia rota rejeitada /simulator/message do WIP.');
 expectBotLab(strpos($view, 'sim-chat-box') === false, 'View atual referencia DOM do WIP simulador.php.');
 expectBotLab(strpos($script, 'addMessage') === false, 'Script atual referencia funções do WIP.');
+
+// Contract K: Location validation UX uses inline element and no native alert()
+expectBotLab(strpos($script, 'alert(') === false, 'Browser JS ainda contém chamadas nativas de alert().');
+expectBotLab(strpos($view, 'location-validation-error') !== false, 'View não contém elemento location-validation-error.');
+expectBotLab(strpos($script, 'location-validation-error') !== false, 'Browser JS não utiliza o elemento location-validation-error.');
 
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
