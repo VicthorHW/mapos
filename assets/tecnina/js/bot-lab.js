@@ -827,27 +827,140 @@
                 }
             }
 
-            var scenSelect = $('#sc-filter-scenario');
-            scenSelect.empty().append($('<option>').val('').text('Todos os cenários (' + scCount + ')'));
-            if (data.scenarios && data.scenarios.length) {
-                for (var s = 0; s < data.scenarios.length; s++) {
-                    var sc = data.scenarios[s];
-                    var label = sc.title ? (sc.title + ' [' + sc.id + ']') : sc.id;
-                    scenSelect.append($('<option>').val(sc.id).text(label));
-                }
-            }
+            renderCatalogList(data.scenarios || []);
         }, function (reason, status) {
             $('#sc-header-count').text('Erro ao carregar catálogo');
             showError('Não foi possível carregar o catálogo de cenários: ' + formatErrorMessage(reason, status));
         });
     }
 
+    function renderCatalogList(scenarios) {
+        var catalogList = $('#sc-catalog-list');
+        catalogList.empty();
+
+        if (!scenarios || !scenarios.length) {
+            var emptyNotice = $('<div>').addClass('alert alert-info').text('Nenhum cenário disponível no catálogo.');
+            catalogList.append(emptyNotice);
+            $('#sc-catalog-count-label').text('0');
+            return;
+        }
+
+        var filterText = ($('#sc-filter-text').val() || '').trim().toLowerCase();
+        var filterTag = ($('#sc-filter-tag').val() || '').trim();
+
+        var visibleCount = 0;
+
+        for (var i = 0; i < scenarios.length; i++) {
+            var sc = scenarios[i];
+            var title = String(sc.title || '');
+            var id = String(sc.id || '');
+            var desc = String(sc.description || '');
+            var tags = sc.tags || [];
+
+            if (filterText) {
+                var searchCorpus = (title + ' ' + id + ' ' + desc).toLowerCase();
+                if (searchCorpus.indexOf(filterText) === -1) {
+                    continue;
+                }
+            }
+
+            if (filterTag) {
+                var hasTag = false;
+                for (var t = 0; t < tags.length; t++) {
+                    if (tags[t] === filterTag) {
+                        hasTag = true;
+                        break;
+                    }
+                }
+                if (!hasTag) {
+                    continue;
+                }
+            }
+
+            visibleCount++;
+
+            var item = $('<div>').addClass('sc-catalog-item');
+            if (!sc.valid) {
+                item.addClass('sc-catalog-invalid');
+            }
+
+            var header = $('<div>').addClass('sc-catalog-header');
+            var left = $('<div>').addClass('sc-catalog-left');
+
+            var checkbox = $('<input>')
+                .attr('type', 'checkbox')
+                .addClass('sc-select-checkbox')
+                .val(id);
+
+            if (!sc.valid) {
+                checkbox.prop('disabled', true);
+            }
+
+            var titleEl = $('<strong>').addClass('sc-catalog-title').text(title || id);
+            var idBadge = $('<code>').addClass('sc-catalog-id').text(id);
+
+            var statusBadge = $('<span>');
+            if (sc.valid) {
+                statusBadge.addClass('badge badge-success').text('VALID');
+            } else {
+                statusBadge.addClass('badge badge-important').text('INVALID');
+            }
+
+            left.append(checkbox).append(titleEl).append(idBadge).append(statusBadge);
+
+            var right = $('<div>').addClass('sc-catalog-right');
+            var caseCount = sc.case_count != null ? sc.case_count : (sc.cases ? sc.cases.length : 0);
+            var caseBadge = $('<span>').addClass('badge badge-info').text(caseCount + ' ' + (caseCount === 1 ? 'caso' : 'casos'));
+            right.append(caseBadge);
+
+            header.append(left).append(right);
+            item.append(header);
+
+            if (desc) {
+                var descEl = $('<div>').addClass('sc-catalog-desc').text(desc);
+                item.append(descEl);
+            }
+
+            if (tags.length > 0) {
+                var tagsContainer = $('<div>').addClass('sc-catalog-tags');
+                for (var tg = 0; tg < tags.length; tg++) {
+                    var tagChip = $('<span>').addClass('sc-chip sc-chip-tag').text(tags[tg]);
+                    tagsContainer.append(tagChip);
+                }
+                item.append(tagsContainer);
+            }
+
+            if (!sc.valid && sc.validation_error) {
+                var errDiv = $('<div>').addClass('alert alert-error sc-catalog-error-msg').text(sc.validation_error);
+                item.append(errDiv);
+            }
+
+            catalogList.append(item);
+        }
+
+        $('#sc-catalog-count-label').text(visibleCount);
+
+        if (visibleCount === 0) {
+            var noMatch = $('<div>').addClass('alert alert-info').text('Nenhum cenário encontrado para os filtros informados.');
+            catalogList.append(noMatch);
+        }
+    }
+
     function setScenariosBusy(busy) {
         scenariosInFlight = busy;
+        $('#btn-run-selected').prop('disabled', busy);
         $('#btn-run-scenarios').prop('disabled', busy);
         $('#btn-run-all-scenarios').prop('disabled', busy);
         $('#sc-filter-tag').prop('disabled', busy);
-        $('#sc-filter-scenario').prop('disabled', busy);
+        $('#sc-filter-text').prop('disabled', busy);
+        $('#sc-catalog-list input.sc-select-checkbox').each(function () {
+            var item = $(this).closest('.sc-catalog-item');
+            if (item.hasClass('sc-catalog-invalid')) {
+                $(this).prop('disabled', true);
+            } else {
+                $(this).prop('disabled', busy);
+            }
+        });
         if (busy) {
             $('#sc-running-alert').show();
         } else {
@@ -881,6 +994,7 @@
         $('#sc-stat-total').text(suite.total || 0);
         $('#sc-stat-passed').text(suite.passed || 0);
         $('#sc-stat-failed').text(suite.failed || 0);
+        $('#sc-stat-errors').text(suite.errors || 0);
         $('#sc-stat-time').text(Math.round(suite.duration_ms || 0) + 'ms');
 
         var tagsStr = (suite.tags_covered && suite.tags_covered.length) ? suite.tags_covered.join(', ') : 'nenhuma';
@@ -933,7 +1047,7 @@
 
         var right = $('<div>').addClass('sc-result-meta');
         var timeBadge = $('<span>').css({ fontSize: '11px', color: '#888' }).text(Math.round(res.duration_ms || 0) + 'ms');
-        var assertBadge = $('<span>').addClass('badge').text(res.passed_assertion_count + '/' + res.assertion_count + ' asserts');
+        var assertBadge = $('<span>').addClass('badge').text((res.passed_assertion_count || 0) + '/' + (res.assertion_count || 0) + ' asserts');
         var statusBadge = $('<span>').addClass(badgeClass).text(res.status);
 
         right.append(timeBadge).append(assertBadge).append(statusBadge);
@@ -948,6 +1062,22 @@
         header.on('click', function () {
             body.slideToggle(150);
         });
+
+        // Final state rendering
+        var finalStateDiv = $('<div>').addClass('sc-result-final-state');
+        var finalStateLabel = $('<strong>').text('Estado final: ');
+        var finalStateVal = $('<code>').text(res.final_state || 'N/A');
+        finalStateDiv.append(finalStateLabel).append(finalStateVal);
+        body.append(finalStateDiv);
+
+        // For failing/error case: show states visited
+        if (res.status !== 'PASS' && res.states_visited && res.states_visited.length) {
+            var statesDiv = $('<div>').addClass('sc-result-states-visited');
+            var statesLabel = $('<strong>').text('Estados visitados: ');
+            var statesChain = $('<span>').text(res.states_visited.join(' \u2192 '));
+            statesDiv.append(statesLabel).append(statesChain);
+            body.append(statesDiv);
+        }
 
         if (res.error_message) {
             var errMsg = $('<div>').addClass('alert alert-error').css({ marginBottom: '10px', fontSize: '12px' }).text(res.error_message);
@@ -982,22 +1112,45 @@
         return card;
     }
 
-    // UI Event: Run Scenarios by Filter
+    // UI Events: Filters
+    $('#sc-filter-text').on('input keyup', function () {
+        if (scenariosCatalog && scenariosCatalog.scenarios) {
+            renderCatalogList(scenariosCatalog.scenarios);
+        }
+    });
+
+    $('#sc-filter-tag').on('change', function () {
+        if (scenariosCatalog && scenariosCatalog.scenarios) {
+            renderCatalogList(scenariosCatalog.scenarios);
+        }
+    });
+
+    // UI Event: Run Selected Scenarios
+    $('#btn-run-selected').on('click', function () {
+        var selectedIds = [];
+        $('#sc-catalog-list input.sc-select-checkbox:checked').each(function () {
+            if (!$(this).prop('disabled')) {
+                selectedIds.push($(this).val());
+            }
+        });
+
+        if (selectedIds.length === 0) {
+            $('#sc-selection-warning').show();
+            return;
+        }
+
+        $('#sc-selection-warning').hide();
+        executeScenariosSuite({ scenario_ids: selectedIds });
+    });
+
+    // Backward compatibility trigger for btn-run-scenarios
     $('#btn-run-scenarios').on('click', function () {
-        var tag = $('#sc-filter-tag').val();
-        var scenario = $('#sc-filter-scenario').val();
-        var payload = {};
-        if (tag) {
-            payload.tags = [tag];
-        }
-        if (scenario) {
-            payload.scenario_ids = [scenario];
-        }
-        executeScenariosSuite(payload);
+        $('#btn-run-selected').trigger('click');
     });
 
     // UI Event: Run All Scenarios
     $('#btn-run-all-scenarios').on('click', function () {
+        $('#sc-selection-warning').hide();
         executeScenariosSuite({});
     });
 

@@ -315,39 +315,51 @@
                         <div class="row-fluid">
                             <div class="span8">
                                 <h4>Testes Automáticos de Cenários (FSM Declarativa)</h4>
-                                <p class="muted">Bancada de execução estrita dos cenários declarativos sobre o SimulationRuntime, com asserções completas e isolamento de banco.</p>
+                                <p class="muted">Catálogo e bancada de execução estrita dos cenários declarativos sobre o SimulationRuntime, com asserções completas e isolamento de banco.</p>
                             </div>
                             <div class="span4 text-right" style="text-align: right;">
                                 <span class="badge badge-info" id="sc-header-count" style="font-size: 13px; padding: 6px 12px;">Carregando catálogo...</span>
                             </div>
                         </div>
 
-                        <!-- Filter Controls -->
+                        <!-- Filter Controls & Execution Buttons -->
                         <div class="row-fluid" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                            <div class="span5">
+                                <label for="sc-filter-text"><strong>Busca Livre:</strong></label>
+                                <input type="text" id="sc-filter-text" class="input-block-level" placeholder="Buscar por título, ID ou descrição...">
+                            </div>
                             <div class="span4">
                                 <label for="sc-filter-tag"><strong>Filtrar por Tag:</strong></label>
                                 <select id="sc-filter-tag" class="input-block-level">
                                     <option value="">Todas as tags</option>
                                 </select>
                             </div>
-                            <div class="span5">
-                                <label for="sc-filter-scenario"><strong>Filtrar por Cenário:</strong></label>
-                                <select id="sc-filter-scenario" class="input-block-level">
-                                    <option value="">Todos os cenários</option>
-                                </select>
-                            </div>
                             <div class="span3" style="padding-top: 24px;">
-                                <button type="button" class="btn btn-primary btn-block" id="btn-run-scenarios">
-                                    <i class="bx bx-play"></i> Executar Filtro
+                                <button type="button" class="btn btn-primary btn-block" id="btn-run-selected" data-action="btn-run-scenarios">
+                                    <i class="bx bx-check-square"></i> Executar selecionados
                                 </button>
                             </div>
                         </div>
                         <div class="row-fluid" style="margin-top: 10px;">
                             <div class="span12 text-right" style="text-align: right;">
                                 <button type="button" class="btn btn-success" id="btn-run-all-scenarios">
-                                    <i class="bx bx-play-circle"></i> Executar Todos os Cenários
+                                    <i class="bx bx-play-circle"></i> Executar todos
                                 </button>
                             </div>
+                        </div>
+                        <div id="sc-selection-warning" class="alert alert-warning" style="display:none; margin-top: 12px; margin-bottom: 0;">
+                            <i class="bx bx-info-circle" style="margin-right: 6px;"></i>
+                            Selecione ao menos um cenário válido para executar.
+                        </div>
+                    </div>
+
+                    <!-- Visible Catalog List Section -->
+                    <div id="sc-catalog-box" style="margin-top: 15px;">
+                        <h5 style="margin-bottom: 8px; font-size: 13px; text-transform: uppercase; color: #555;">
+                            <i class="bx bx-list-ul" style="margin-right: 4px;"></i> Catálogo de Cenários (<span id="sc-catalog-count-label">0</span>)
+                        </h5>
+                        <div id="sc-catalog-list" class="sc-catalog-list">
+                            <!-- Populated dynamically via safe DOM creation -->
                         </div>
                     </div>
 
@@ -358,31 +370,37 @@
                         <span id="sc-running-text" style="margin-left: 10px;">Aguarde a execução em lote da FSM.</span>
                     </div>
 
-                    <!-- Suite Summary Card -->
+                    <!-- Suite Summary Card (5 Distinct Metrics: Total, PASS, FAIL, ERROR, Duration) -->
                     <div id="sc-summary-box" class="bot-lab-summary-card" style="display: none; margin-top: 15px;">
                         <div class="row-fluid">
-                            <div class="span3">
+                            <div class="span2" style="width: 20%; margin-left: 0;">
                                 <div class="bot-lab-stat-box">
                                     <div class="stat-value" id="sc-stat-total">0</div>
-                                    <div class="stat-label">Total de Casos</div>
+                                    <div class="stat-label">Total</div>
                                 </div>
                             </div>
-                            <div class="span3">
+                            <div class="span2" style="width: 20%; margin-left: 0;">
                                 <div class="bot-lab-stat-box stat-pass">
                                     <div class="stat-value text-success" id="sc-stat-passed">0</div>
-                                    <div class="stat-label">Passaram</div>
+                                    <div class="stat-label">PASS</div>
                                 </div>
                             </div>
-                            <div class="span3">
+                            <div class="span2" style="width: 20%; margin-left: 0;">
                                 <div class="bot-lab-stat-box stat-fail">
                                     <div class="stat-value text-error" id="sc-stat-failed">0</div>
-                                    <div class="stat-label">Falharam</div>
+                                    <div class="stat-label">FAIL</div>
                                 </div>
                             </div>
-                            <div class="span3">
+                            <div class="span2" style="width: 20%; margin-left: 0;">
+                                <div class="bot-lab-stat-box stat-error">
+                                    <div class="stat-value text-warning" id="sc-stat-errors" style="color: #f39c12;">0</div>
+                                    <div class="stat-label">ERROR</div>
+                                </div>
+                            </div>
+                            <div class="span2" style="width: 20%; margin-left: 0;">
                                 <div class="bot-lab-stat-box">
                                     <div class="stat-value" id="sc-stat-time">0ms</div>
-                                    <div class="stat-label">Tempo Total</div>
+                                    <div class="stat-label">Duração</div>
                                 </div>
                             </div>
                         </div>

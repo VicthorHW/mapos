@@ -153,4 +153,43 @@ expectBotLab(strpos($style, '.bot-lab-mode-tabs') !== false, 'Classe .bot-lab-mo
 expectBotLab(strpos($style, '.scenario-result-card') !== false, 'Classe .scenario-result-card ausente no bot-lab.css.');
 expectBotLab(strpos($style, '.scenario-chip') !== false, 'Classe .scenario-chip ausente no bot-lab.css.');
 
+// Contract X: Section 38 - Catalog list, filters, and rendering logic
+expectBotLab(strpos($view, 'id="sc-catalog-list"') !== false, 'Elemento #sc-catalog-list ausente na view.');
+expectBotLab(strpos($view, 'id="sc-filter-text"') !== false, 'Campo de busca livre #sc-filter-text ausente na view.');
+expectBotLab(strpos($view, 'id="sc-filter-tag"') !== false, 'Filtro de tags #sc-filter-tag ausente na view.');
+expectBotLab(strpos($script, 'renderCatalogList') !== false, 'Função renderCatalogList ausente no script.');
+expectBotLab(strpos($script, '#sc-filter-text') !== false, 'Script não observa #sc-filter-text.');
+expectBotLab(strpos($script, 'VALID') !== false && strpos($script, 'INVALID') !== false, 'Script não renderiza badges VALID / INVALID.');
+expectBotLab(strpos($style, '.sc-catalog-invalid') !== false, 'Classe .sc-catalog-invalid ausente no CSS.');
+expectBotLab(strpos($script, 'sc-catalog-desc') !== false, 'Script não renderiza descrição do cenário.');
+expectBotLab(strpos($script, 'sc-select-checkbox') !== false, 'Script não gera checkbox de seleção sc-select-checkbox.');
+expectBotLab(strpos($script, "!sc.valid") !== false && strpos($script, "checkbox.prop('disabled', true)") !== false, 'Script não desabilita checkbox para cenários inválidos.');
+
+// Contract Y: Section 38 - Execution controls and inline warnings
+expectBotLab(strpos($view, 'id="btn-run-selected"') !== false, 'Botão #btn-run-selected ausente na view.');
+expectBotLab(strpos($view, 'Executar selecionados') !== false, 'Rótulo "Executar selecionados" ausente na view.');
+expectBotLab(strpos($view, 'id="btn-run-all-scenarios"') !== false, 'Botão #btn-run-all-scenarios ausente na view.');
+expectBotLab(strpos($view, 'Executar todos') !== false, 'Rótulo "Executar todos" ausente na view.');
+expectBotLab(strpos($view, 'id="sc-selection-warning"') !== false, 'Alerta de validação #sc-selection-warning ausente na view.');
+expectBotLab(strpos($script, '#btn-run-selected') !== false, 'Script não escuta evento de #btn-run-selected.');
+expectBotLab(strpos($script, '#btn-run-all-scenarios') !== false, 'Script não escuta evento de #btn-run-all-scenarios.');
+expectBotLab(strpos($script, 'scenario_ids: selectedIds') !== false, 'Script não envia scenario_ids selecionados.');
+
+// Contract Z: Section 38 - Summary metrics and result card enrichment
+expectBotLab(strpos($view, 'id="sc-stat-errors"') !== false, 'Métrica distinta #sc-stat-errors ausente na view.');
+expectBotLab(strpos($view, 'stat-error') !== false, 'Classe stat-error ausente na view.');
+expectBotLab(strpos($style, '.bot-lab-stat-box.stat-error') !== false, 'Classe .bot-lab-stat-box.stat-error ausente no CSS.');
+expectBotLab(strpos($script, 'suite.errors') !== false, 'Script não consome suite.errors separadamente de failed.');
+expectBotLab(strpos($script, '#sc-stat-errors') !== false, 'Script não atualiza #sc-stat-errors.');
+expectBotLab(strpos($script, 'sc-result-final-state') !== false && strpos($script, 'res.final_state') !== false, 'Script não renderiza estado final no card.');
+expectBotLab(strpos($script, 'sc-result-states-visited') !== false && strpos($script, 'res.states_visited') !== false, 'Script não renderiza estados visitados para falhas/erros.');
+expectBotLab(strpos($style, '.sc-result-final-state') !== false, 'Classe .sc-result-final-state ausente no CSS.');
+expectBotLab(strpos($style, '.sc-result-states-visited') !== false, 'Classe .sc-result-states-visited ausente no CSS.');
+
+// Contract AA: Section 38 - No YAML editor, no direct bot API, no bearer token
+expectBotLab(strpos($view, 'CodeMirror') === false && strpos($script, 'CodeMirror') === false, 'Editor CodeMirror encontrado.');
+expectBotLab(strpos($view, 'monaco') === false && strpos($script, 'monaco') === false, 'Editor monaco encontrado.');
+expectBotLab(strpos($view, '<textarea name="yaml"') === false, 'Campo textarea de YAML encontrado.');
+expectBotLab(strpos($script, 'Bearer') === false, 'Token Bearer encontrado no script do navegador.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
