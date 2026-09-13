@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-12
+Last consolidated: 2026-09-13
 Source of truth: YES
 Scope: MapOS↔Bot Gateway / contratos privados
 
@@ -53,6 +53,29 @@ Em caso de respostas de erro da Admin API do Bot, o Gateway extrai e preserva co
 2. O controller do MapOS invoca o método de gateway que emite um `DELETE` HTTP server-to-server autenticado com bearer token para o Bot (`/admin/simulator/sessions/{simulation_id}`).
 3. O Bot conclui a exclusão da sessão em memória e responde `HTTP 204 No Content`.
 4. O controller do MapOS intercepta o sucesso do gateway e responde com `HTTP 200 JSON` ao navegador contendo `{ success: true, ... }` e o token CSRF devidamente regenerado.
+
+### Extensões de Contrato do Simulador V2.1
+
+#### Campos Expandidos da Sessão
+A resposta da sessão do simulador inclui campos adicionais de observabilidade estruturada:
+- `operational_config`: snapshot imutável de cidades, taxas e agenda de entrega presencial capturado no início da sessão;
+- `deliveries`: lista de entregas simuladas de saída capturadas durante a execução do motor conversacional.
+
+#### Contrato de Campos de Entrega (`deliveries`)
+Cada registro do array `deliveries` segue a especificação canônica:
+- `sequence` (inteiro): identificador sequencial do evento de entrega;
+- `kind` (string): categoria da entrega (ex: `REGISTRATION_CODE`);
+- `channel` (string): canal simulado de despacho (ex: `EMAIL`);
+- `destination` (string): endereço ou identificador de destino mascarado;
+- `code` (string): código de validação emitido pelo motor (o campo canônico é estritamente `code`, **NÃO** `content`);
+- `status` (string): estado da entrega simulada (ex: `DELIVERED`).
+
+#### Separação Arquitetural de Acesso (Admin vs. Capability Pública)
+- **Chamadas Administrativas XHR (Bot Lab)**:
+  `Navegador` → `MapOS tecnina_whatsapp/simulador_*` (autenticação de sessão MapOS + CodeIgniter CSRF) → `Tecnina_bot_gateway` (HTTP server-to-server com `MAPOS_BOT_TOKEN`) → `Bot /admin/simulator/*`.
+  O Bearer token reside unicamente no backend MapOS e nunca alcança o navegador.
+- **Links de Capability Pública (`/s/{simulation_id}/...`)**:
+  Os links gerados na conversa para capabilities (`/s/{simulation_id}/p/{token}`, `/s/{simulation_id}/g/{token}`, `/s/{simulation_id}/c/{token}`) **NÃO são roteados por proxy no MapOS**. O navegador do operador/usuário abre os formulários diretamente no hostname público do Bot. O MapOS atua exclusivamente gerando links clicáveis seguros via DOM (`document.createElement`), sem expor credenciais ou intermediar o tráfego HTTP dessas páginas.
 
 ## Telefone e Proveniência de Armazenamento
 

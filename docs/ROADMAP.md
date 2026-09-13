@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-12
+Last consolidated: 2026-09-13
 Source of truth: YES
 Scope: MapOS fork TecNina / pendências
 
@@ -10,18 +10,28 @@ Scope: MapOS fork TecNina / pendências
 ## Desenvolvimento
 
 A reorganização administrativa de WhatsApp/pré-atendimentos está implementada e validada localmente.
-A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp/bot_lab` foi **totalmente implementada e validada localmente** (Fase D1), com suite de 5 testes de contrato PHP, lint PHP e JS syntax check aprovados, além do gate local de integração E2E com a API real do Bot.
-Estado do codigo-fonte: PUBLISHED / SYNCED. Implantacao operacional e validacao em ambiente de producao: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
+A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp/bot_lab` e sua evolução **V2.1** foram **totalmente implementadas e validadas localmente**:
+- Resumo de configuração operacional no inspetor do Estado;
+- Aba Entregas com inbox de código de registro simulado;
+- Links de capability clicáveis seguros gerados via nós do DOM (`document.createElement`);
+- Cards estruturados de eventos CAPABILITY na transcrição e passos técnicos no inspetor de Etapas;
+- Suíte de 5 testes de contrato PHP aprovados com 129 asserções no total, lints limpos e validação de sintaxe JS limpa.
 
-## Pendências operacionais do Bot Lab
+Estado do código-fonte: APPROVED LOCAL (pronto para publicação e integração fast-forward). Implantação operacional e validação em ambiente de produção: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
 
-As únicas tarefas pendentes relativas ao Bot Lab são:
-- deploy coordenado das versões compatíveis de MapOS e Bot;
-- habilitação explícita da API do Simulador (`SIMULATOR_ENABLED`) apenas em ambiente autorizado;
-- validação visual e via navegador da bancada interativa no MapOS;
+## Pendências operacionais do Bot Lab V2.1
+
+As únicas tarefas pendentes relativas ao Bot Lab V2.1 são:
+- deploy coordenado das versões compatíveis de MapOS V2.1 e Bot V2.1;
+- validação visual e via navegador da bancada interativa no MapOS em homologação/produção:
+  - comportamento do snapshot de configuração operacional;
+  - código de registro na aba Entregas;
+  - links clicáveis para formulários /p, /g, /c;
+  - eventos e passos de capability;
+  - invalidação de tokens pós reset e exclusão de sessão;
 - confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real.
 
-*Nota de arquitetura*: O MapOS NÃO possui como responsabilidade a criação de motor de cenários (scenario engine), editor de fluxos (Flow editor) ou novas lógicas de conversação.
+*Nota de arquitetura*: O suporte a links clicáveis de capabilities foi implementado na V2.1 e não é mais item futuro. O MapOS NÃO possui como responsabilidade a criação de motor de cenários (scenario engine), editor de fluxos (Flow editor) ou novas lógicas de conversação.
 
 ## P0 — preparação de release
 

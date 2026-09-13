@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-12
+Last consolidated: 2026-09-13
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual
 
@@ -33,7 +33,7 @@ Scope: MapOS fork TecNina / estado atual
 - payload de aprovação do pré-atendimento (`Intake_approval.php`) reconhece confirmação de taxa via WhatsApp (`ACCEPTED`) como liberação válida;
 - biblioteca `Tecnina_phone.php` suporta números de telefone internacionais preservando proveniência de armazenamento.
 
-## Bot Lab (Bancada Administrativa do Simulador)
+## Bot Lab V2.1 (Bancada Administrativa do Simulador)
 
 - **URL**: `tecnina_whatsapp/bot_lab`
 - **Permissão de acesso**: protegida estritamente por `cSistema`.
@@ -41,22 +41,39 @@ Scope: MapOS fork TecNina / estado atual
 - **Proxy Server-Side**: o controller `Tecnina_whatsapp.php` faz o papel de proxy seguro no backend, e a biblioteca `Tecnina_bot_gateway.php` efetua as chamadas HTTP server-to-server com bearer token.
 - **Fonte da verdade**: a sessão de simulação no Bot é a única fonte da verdade para o estado da conversa, histórico e efeitos. O MapOS NÃO armazena estado conversacional nem histórico de simulação independente.
 - **Papel da funcionalidade**: o Bot Lab é exclusivamente uma bancada administrativa de testes interativos (`admin test workbench`). NÃO é Flow Studio, NÃO é editor de FSM, NÃO é autoria de workflows, NÃO é um segundo motor de conversação e NÃO é visualizador de conversas de produção.
-- **Capacidades da UI**: setup de fixtures, console de envio de mensagens e localização, visualizador de estado do runtime, inspetor do ledger de passos e inspetor de efeitos externos observáveis. Nenhum executor de cenários existe na implementação.
+- **Capacidades da UI (V2.1)**:
+  - Setup de fixtures e visualização de estado do runtime;
+  - Resumo de configuração operacional no inspetor do Estado (cidades atendidas, taxas e agenda de entrega presencial);
+  - Aba de inspeção de Entregas (inbox de código de registro simulado);
+  - Geração segura de links clicáveis para formulários de capability via nós do DOM (`document.createElement`), sem injeção HTML;
+  - Cards de eventos estruturados de CAPABILITY na transcrição da conversa;
+  - Representação técnica refinada de passos CAPABILITY no inspetor de Etapas;
+  - Console de envio de mensagens e localização, visualizador do ledger de passos e inspetor de efeitos externos observáveis.
+- **Isolamento de Domínio**: O MapOS NÃO possui `SimulationRuntime`, NÃO gerencia tokens de capability, NÃO executa FSM, NÃO armazena snapshots de configuração operacional e NÃO faz roteamento HTTP de capabilities públicas. As páginas públicas de capability (`/s/{simulation_id}/...`) são servidas diretamente pelo Bot.
 - **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
-- **Estado do codigo-fonte**: PUBLISHED / SYNCED
-- **Implantacao operacional**: NOT DEPLOYED
-- **Habilitacao em producao**: NOT PERFORMED
+- **Estado do código-fonte**: APPROVED LOCAL (pronto para publicação e integração fast-forward)
+- **Implantação operacional**: NOT DEPLOYED
+- **Habilitação em produção**: NOT PERFORMED
 
-## Estado do snapshot
+## Baselines de Produção e Desenvolvimento
 
-- Branch: master
-- HEAD: 8d10caddfd6871a893771849e907c7ede165c0ec
-- Source State: PUBLISHED / SYNCED
-- Deployment: NOT DEPLOYED
-- 5 testes de contrato PHP executados com 93 asserções (incluindo 33 asserções em `TecninaBotLabPanelTest.php`);
-- lints de PHP limpos;
-- validação de sintaxe JavaScript limpa (`node --check assets/tecnina/js/bot-lab.js`);
-- validação E2E local cruzada entre `Tecnina_bot_gateway` e a Admin API real do Bot executada com 45 asserções e 0 falhas.
+### Produção Vigente (Current Production)
+- **Linha de base implantada (Deployed Implementation Baseline)**: `1ed2354a8c69810d44049944aa5065ec778fdc45`
+- **Aceite humano via browser / Core Bot Lab**: aprovado (passed)
+- **Status do Simulador V2.1 em produção**: NOT DEPLOYED
+
+### Simulator V2.1 (Release Candidate Local)
+- **Status de implementação**: APPROVED LOCAL
+- **Implantação operacional**: NOT DEPLOYED
+- **Validação de produção**: NÃO REIVINDICADA (NOT PERFORMED)
+- **Validação automatizada local**:
+  - 5 testes de contrato PHP executados com 129 asserções no total:
+    - `tests/TecninaBotLabPanelTest.php`: 69 asserções
+    - `tests/TecninaIntakeReviewPanelTest.php`: 29 asserções
+    - `tests/TecninaLogisticsPanelTest.php`: 17 asserções
+    - `tests/TecninaOsAccessPanelTest.php`: 8 asserções
+    - `tests/TecninaFlowStudioRemovalTest.php`: 6 asserções
+  - Sintaxe JavaScript limpa (`node --check assets/tecnina/js/bot-lab.js`).
 
 ## Confirmações no repositório real
 
@@ -80,7 +97,11 @@ Scope: MapOS fork TecNina / estado atual
 
 ## Próxima validação necessária
 
-- deploy coordenado das versões compatíveis de MapOS e Bot;
-- habilitação explícita de `SIMULATOR_ENABLED` apenas em ambiente autorizado;
-- validação visual e via navegador do Bot Lab no MapOS;
+- deploy coordenado das versões compatíveis de MapOS V2.1 e Bot V2.1;
+- validação visual e via navegador da bancada interativa V2.1 no MapOS:
+  - resumo da configuração operacional no Estado (cidades, taxas e agenda presencial);
+  - aba Entregas com código de cadastro;
+  - abertura de links clicáveis /p, /g, /c;
+  - renderização de eventos e passos CAPABILITY;
+  - invalidação e limpeza de tokens pós reset e exclusão de sessão;
 - confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real.
