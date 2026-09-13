@@ -32,11 +32,13 @@ Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produ�
 
 ## Nova Iniciativa de Desenvolvimento
 
-### AUTOMATED CONVERSATION SCENARIO TESTING
-- O MapOS fornecerá a bancada administrativa e de operação (administrative and operator workbench);
-- O MapOS NÃO reintroduz editor visual de fluxos (Flow editor / Flow Studio);
-- A criação, edição e execução de cenários alavancam a fundação do `SimulationRuntime` do Bot Gateway;
-- A especificação detalhada da iniciativa será conduzida pelo Technical Lead na Ordem Técnica 21A. Não projetar a implementação nesta ordem.
+### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLEMENTADA / PUBLICADA)
+- **Status de ciclo de vida**: IMPLEMENTED_LOCAL (Deploy de produção pendente).
+- **Escopo e Posse Técnica**:
+  - O MapOS é exclusivamente a bancada administrativa e de operação (administrative and operator test workbench).
+  - O MapOS possui apenas: apresentação de catálogo/resultados, filtragem/seleção de cenários e proxy server-side.
+  - O Bot Gateway possui: schema v1, catálogo sob controle de versão, runner sequencial, especificações YAML, execução isolada em SQLite efêmero, asserções e segurança de resultados.
+  - O MapOS **NÃO** reintroduz editor visual de fluxos (Flow Studio), **NÃO** edita arquivos YAML e **NÃO** executa um segundo motor de conversação.
 
 ## P0 — preparação de release
 

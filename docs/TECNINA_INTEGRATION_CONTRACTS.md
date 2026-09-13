@@ -30,6 +30,7 @@ Scope: MapOS↔Bot Gateway / contratos privados
 | enviar código de e-mail | `POST /api/bot/client-registration/email-code` | somente confirmação de enfileiramento |
 | aprovação intake | endpoint privado TecNina de aprovação | payload aprovado e credencial própria; criação idempotente |
 | proxy simulador (Bot Lab) | proxy server-to-server `/admin/simulator/*` | fixtures, mensagens, coordenadas, reset, delete |
+| proxy cenários automatizados | proxy server-to-server `/admin/simulator/scenarios*` | listagem de catálogo, filtros por tag/id/case, execução e resultados |
 
 `GET /api/bot/os/{os_id}/status` e mecanismo de código de consulta pertencem a uma geração anterior. Não devem ser usados para restaurar o fluxo antigo sem uma nova decisão explícita.
 

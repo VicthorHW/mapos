@@ -58,6 +58,18 @@ Scope: MapOS fork TecNina / estado atual
 - **Validação humana por navegador (Human Browser Acceptance)**: PENDING
 - **Operação do V2.1**: Código V2.1 implantado em produção juntamente com Bot V2.1. Backups pré-deploy 20B mantidos no servidor (`/var/backups/tecnina/pre-20b/`).
 
+## Bot Lab Automated Scenario Testing Workbench
+
+- **URL**: `tecnina_whatsapp/bot_lab` (Aba Cenários Automatizados)
+- **Papel da funcionalidade**: Bancada de testes e inspeção para cenários declarativos de conversação (`automated scenario test workbench`).
+- **Divisão estrita de responsabilidades**:
+  - **MapOS possui apenas**: apresentação do catálogo e resultados, UX de seleção e filtragem por tags/texto, e proxy administrativo server-side.
+  - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
+- **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
+- **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
+- **Implantação operacional (Deployment)**: NOT DEPLOYED (Código fonte em controle de versão; não implantado em produção).
+- **Validação de produção**: NOT PERFORMED.
+
 ## Baselines de Produção e Desenvolvimento
 
 ### Produção Vigente (Current Production — Bot Lab V2.1)

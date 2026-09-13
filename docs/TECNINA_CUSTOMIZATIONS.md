@@ -29,6 +29,7 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-14 | Credencial no intake aprovado | LOCAL/UNRELEASED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
 | MAP-15 | Oferta de taxa manual | LOCAL/UNRELEASED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
 | MAP-16 | Bot Lab V2.1 (bancada do simulador com config operacional, entregas e capabilities) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
+| MAP-17 | Bot Lab Automated Scenario Workbench (catálogo, filtros e execução de cenários declarativos) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
 
 ## Arquivo upstream alterado neste ciclo
 
