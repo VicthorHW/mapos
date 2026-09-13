@@ -324,9 +324,14 @@
                 header.append('<span class="label ' + (isOk ? 'label-success' : 'label-important') + '">' + esc(step.outcome) + '</span>');
                 card.append(header);
 
-                var inputDesc = (step.input && step.input.kind === 'LOCATION')
-                    ? ('Localização (' + esc(step.input.latitude) + ', ' + esc(step.input.longitude) + ')')
-                    : ('Texto: "' + esc(step.input ? step.input.text : '') + '"');
+                var inputDesc = '';
+                if (step.input && step.input.kind === 'LOCATION') {
+                    inputDesc = 'Localização (' + esc(step.input.latitude) + ', ' + esc(step.input.longitude) + ')';
+                } else if (step.input && step.input.kind === 'CAPABILITY') {
+                    inputDesc = 'Capability: ' + esc(step.input.capability_kind || '') + ' — ' + esc(step.input.action || '');
+                } else {
+                    inputDesc = 'Texto: "' + esc(step.input ? step.input.text : '') + '"';
+                }
                 var meta = $('<div class="bot-lab-card-meta"></div>');
                 meta.append('<div><strong>Entrada:</strong> ' + inputDesc + '</div>');
 

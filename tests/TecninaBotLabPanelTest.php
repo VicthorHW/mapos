@@ -121,4 +121,13 @@ expectBotLab(strpos($style, '.bot-lab-event-card') !== false, 'bot-lab.css não 
 // Contract R: Passive escaping preservation
 expectBotLab(strpos($script, 'esc(') !== false, 'Função esc ausente no script.');
 
+// Contract S: Capability step input display
+expectBotLab(strpos($script, "step.input.kind === 'CAPABILITY'") !== false, 'Script não contém ramo explícito para step.input.kind === CAPABILITY.');
+expectBotLab(strpos($script, 'step.input.capability_kind') !== false, 'Script não referencia step.input.capability_kind.');
+expectBotLab(strpos($script, 'step.input.action') !== false, 'Script não referencia step.input.action.');
+expectBotLab(strpos($script, "'Capability: ' + esc(step.input.capability_kind") !== false, 'Script não formata a descrição da capability corretamente.');
+preg_match('/else if\s*\(\s*step\.input\s*&&\s*step\.input\.kind\s*===\s*[\'"]CAPABILITY[\'"]\s*\)\s*\{([^}]+)\}/', $script, $capMatch);
+expectBotLab(!empty($capMatch), 'Bloco do ramo CAPABILITY não encontrado.');
+expectBotLab(strpos($capMatch[1], 'step.input.text') === false, 'Ramo de CAPABILITY não deve renderizar step.input.text.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
