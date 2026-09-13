@@ -51,9 +51,10 @@ Scope: MapOS fork TecNina / estado atual
   - Console de envio de mensagens e localização, visualizador do ledger de passos e inspetor de efeitos externos observáveis.
 - **Isolamento de Domínio**: O MapOS NÃO possui `SimulationRuntime`, NÃO gerencia tokens de capability, NÃO executa FSM, NÃO armazena snapshots de configuração operacional e NÃO faz roteamento HTTP de capabilities públicas. As páginas públicas de capability (`/s/{simulation_id}/...`) são servidas diretamente pelo Bot.
 - **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
-- **Estado do código-fonte**: APPROVED LOCAL (pronto para publicação e integração fast-forward)
-- **Implantação operacional**: NOT DEPLOYED
-- **Habilitação em produção**: NOT PERFORMED
+- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED (publicado no branch `master` em `89356133ec7327eb4ff81113c1558162273f52cb`)
+- **Implantação operacional (Deployment)**: NOT DEPLOYED
+- **Validação de produção (Production Validation)**: NOT PERFORMED FOR V2.1 (NÃO EXECUTADA / NÃO REIVINDICADA)
+- **Operação do V2.1**: O feature gate do simulador pertence ao Bot e já está ativo (`SIMULATOR_ENABLED=true`) para o Simulator V2 em produção. O código V2.1 do MapOS torna-se operacional apenas após o deploy coordenado das revisões compatíveis de Bot e MapOS.
 
 ## Baselines de Produção e Desenvolvimento
 
@@ -62,10 +63,13 @@ Scope: MapOS fork TecNina / estado atual
 - **Aceite humano via browser / Core Bot Lab**: aprovado (passed)
 - **Status do Simulador V2.1 em produção**: NOT DEPLOYED
 
-### Simulator V2.1 (Release Candidate Local)
-- **Status de implementação**: APPROVED LOCAL
-- **Implantação operacional**: NOT DEPLOYED
-- **Validação de produção**: NÃO REIVINDICADA (NOT PERFORMED)
+### Simulator V2.1 (Publicação Concluída — Não Implantado)
+- **Status de código-fonte (Source State)**: PUBLISHED / SYNCED
+- **Branch de publicação vigente**: `master`
+- **Linha de base de código publicada (Published Source Baseline)**: `89356133ec7327eb4ff81113c1558162273f52cb`
+- **Ciclo de vida de implementação (ADR-009)**: IMPLEMENTED_LOCAL
+- **Implantação operacional (Deployment)**: NOT DEPLOYED
+- **Validação em produção (Production Validation)**: NOT PERFORMED FOR V2.1 (NÃO EXECUTADA / NÃO REIVINDICADA)
 - **Validação automatizada local**:
   - 5 testes de contrato PHP executados com 129 asserções no total:
     - `tests/TecninaBotLabPanelTest.php`: 69 asserções

@@ -17,7 +17,7 @@ A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp
 - Cards estruturados de eventos CAPABILITY na transcrição e passos técnicos no inspetor de Etapas;
 - Suíte de 5 testes de contrato PHP aprovados com 129 asserções no total, lints limpos e validação de sintaxe JS limpa.
 
-Estado do código-fonte: APPROVED LOCAL (pronto para publicação e integração fast-forward). Implantação operacional e validação em ambiente de produção: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
+Estado do código-fonte: PUBLISHED / SYNCED (publicado no branch `master` em `89356133ec7327eb4ff81113c1558162273f52cb`). Implantação operacional e validação em ambiente de produção: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
 
 ## Pendências operacionais do Bot Lab V2.1
 
