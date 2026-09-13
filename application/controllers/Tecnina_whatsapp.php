@@ -595,6 +595,42 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status']);
     }
 
+    public function simulador_cenarios()
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'GET') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $result = $this->tecnina_bot_gateway->request('GET', '/admin/simulator/scenarios');
+        return $this->json($result, $result['status']);
+    }
+
+    public function simulador_executar_cenarios()
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $rawPayload = (string) $this->input->post('payload', false);
+        $payload = [];
+        if ($rawPayload !== '') {
+            $decoded = json_decode($rawPayload, true);
+            if (! is_array($decoded)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_scenario_payload'], 422);
+            }
+            $payload = $decoded;
+        }
+
+        $result = $this->tecnina_bot_gateway->request('POST', '/admin/simulator/scenarios/run', $payload);
+        return $this->json($result, $result['status']);
+    }
+
     private function validateSimulationId($simulationId)
     {
         return (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', (string) $simulationId);

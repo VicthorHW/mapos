@@ -775,6 +775,232 @@
         });
     });
 
+    // ==========================================
+    // Automated Conversation Scenarios Workbench
+    // ==========================================
+    var scenariosCatalogLoaded = false;
+    var scenariosCatalog = null;
+    var scenariosInFlight = false;
+
+    function switchPanelMode(mode) {
+        if (mode === 'SCENARIOS') {
+            $('#tab-nav-interactive').parent().removeClass('active');
+            $('#tab-nav-scenarios').parent().addClass('active');
+            $('#panel-interactive-mode').hide();
+            $('#panel-scenarios-mode').show();
+            if (!scenariosCatalogLoaded) {
+                loadScenariosCatalog();
+            }
+        } else {
+            $('#tab-nav-scenarios').parent().removeClass('active');
+            $('#tab-nav-interactive').parent().addClass('active');
+            $('#panel-scenarios-mode').hide();
+            $('#panel-interactive-mode').show();
+        }
+    }
+
+    $('#tab-nav-interactive').on('click', function (e) {
+        e.preventDefault();
+        switchPanelMode('INTERACTIVE');
+    });
+
+    $('#tab-nav-scenarios').on('click', function (e) {
+        e.preventDefault();
+        switchPanelMode('SCENARIOS');
+    });
+
+    function loadScenariosCatalog() {
+        request('/simulador_cenarios', 'GET', {}, function (data) {
+            scenariosCatalogLoaded = true;
+            scenariosCatalog = data;
+            var scCount = data.scenario_count || (data.scenarios ? data.scenarios.length : 0);
+            var caseCount = data.case_count || 0;
+
+            $('#sc-nav-badge').text(caseCount);
+            $('#sc-header-count').text(scCount + ' cenários (' + caseCount + ' casos)');
+
+            var tagSelect = $('#sc-filter-tag');
+            tagSelect.empty().append($('<option>').val('').text('Todas as tags (' + (data.tags ? data.tags.length : 0) + ')'));
+            if (data.tags && data.tags.length) {
+                for (var t = 0; t < data.tags.length; t++) {
+                    tagSelect.append($('<option>').val(data.tags[t]).text(data.tags[t]));
+                }
+            }
+
+            var scenSelect = $('#sc-filter-scenario');
+            scenSelect.empty().append($('<option>').val('').text('Todos os cenários (' + scCount + ')'));
+            if (data.scenarios && data.scenarios.length) {
+                for (var s = 0; s < data.scenarios.length; s++) {
+                    var sc = data.scenarios[s];
+                    var label = sc.title ? (sc.title + ' [' + sc.id + ']') : sc.id;
+                    scenSelect.append($('<option>').val(sc.id).text(label));
+                }
+            }
+        }, function (reason, status) {
+            $('#sc-header-count').text('Erro ao carregar catálogo');
+            showError('Não foi possível carregar o catálogo de cenários: ' + formatErrorMessage(reason, status));
+        });
+    }
+
+    function setScenariosBusy(busy) {
+        scenariosInFlight = busy;
+        $('#btn-run-scenarios').prop('disabled', busy);
+        $('#btn-run-all-scenarios').prop('disabled', busy);
+        $('#sc-filter-tag').prop('disabled', busy);
+        $('#sc-filter-scenario').prop('disabled', busy);
+        if (busy) {
+            $('#sc-running-alert').show();
+        } else {
+            $('#sc-running-alert').hide();
+        }
+    }
+
+    function executeScenariosSuite(filterPayload) {
+        if (scenariosInFlight) return;
+        clearError();
+        setScenariosBusy(true);
+
+        var container = $('#sc-results-container');
+        container.empty();
+        $('#sc-summary-box').hide();
+
+        request('/simulador_executar_cenarios', 'POST', {
+            payload: JSON.stringify(filterPayload || {})
+        }, function (suite) {
+            setScenariosBusy(false);
+            renderScenarioResults(suite);
+        }, function (reason, status) {
+            setScenariosBusy(false);
+            showError('Falha ao executar cenários: ' + formatErrorMessage(reason, status));
+        });
+    }
+
+    function renderScenarioResults(suite) {
+        if (!suite) return;
+
+        $('#sc-stat-total').text(suite.total || 0);
+        $('#sc-stat-passed').text(suite.passed || 0);
+        $('#sc-stat-failed').text(suite.failed || 0);
+        $('#sc-stat-time').text(Math.round(suite.duration_ms || 0) + 'ms');
+
+        var tagsStr = (suite.tags_covered && suite.tags_covered.length) ? suite.tags_covered.join(', ') : 'nenhuma';
+        $('#sc-summary-tags').text(tagsStr);
+
+        var statesCount = (suite.states_visited && suite.states_visited.length) ? suite.states_visited.length : 0;
+        $('#sc-summary-states').text(statesCount);
+
+        var capsCount = (suite.capability_kinds_visited && suite.capability_kinds_visited.length) ? suite.capability_kinds_visited.length : 0;
+        $('#sc-summary-caps').text(capsCount);
+
+        $('#sc-summary-box').show();
+
+        var container = $('#sc-results-container');
+        container.empty();
+
+        if (!suite.results || !suite.results.length) {
+            container.append($('<div class="alert alert-info">').text('Nenhum caso executado.'));
+            return;
+        }
+
+        for (var i = 0; i < suite.results.length; i++) {
+            var res = suite.results[i];
+            var card = createScenarioResultCard(res);
+            container.append(card);
+        }
+    }
+
+    function createScenarioResultCard(res) {
+        var cardClass = 'sc-result-card';
+        var badgeClass = 'badge';
+        if (res.status === 'PASS') {
+            cardClass += ' card-pass';
+            badgeClass += ' badge-success';
+        } else if (res.status === 'FAIL') {
+            cardClass += ' card-fail';
+            badgeClass += ' badge-important';
+        } else {
+            cardClass += ' card-error';
+            badgeClass += ' badge-warning';
+        }
+
+        var card = $('<div>').addClass(cardClass);
+        var header = $('<div>').addClass('sc-result-header');
+
+        var left = $('<div>');
+        var title = $('<div>').addClass('sc-result-title').text(res.title || res.case_id);
+        var subtitle = $('<div>').addClass('sc-result-subtitle').text(res.scenario_id + ' :: ' + res.case_id);
+        left.append(title).append(subtitle);
+
+        var right = $('<div>').addClass('sc-result-meta');
+        var timeBadge = $('<span>').css({ fontSize: '11px', color: '#888' }).text(Math.round(res.duration_ms || 0) + 'ms');
+        var assertBadge = $('<span>').addClass('badge').text(res.passed_assertion_count + '/' + res.assertion_count + ' asserts');
+        var statusBadge = $('<span>').addClass(badgeClass).text(res.status);
+
+        right.append(timeBadge).append(assertBadge).append(statusBadge);
+        header.append(left).append(right);
+        card.append(header);
+
+        var body = $('<div>').addClass('sc-result-body');
+        if (res.status === 'PASS') {
+            body.hide();
+        }
+
+        header.on('click', function () {
+            body.slideToggle(150);
+        });
+
+        if (res.error_message) {
+            var errMsg = $('<div>').addClass('alert alert-error').css({ marginBottom: '10px', fontSize: '12px' }).text(res.error_message);
+            body.append(errMsg);
+        }
+
+        if (res.steps && res.steps.length) {
+            var stepsContainer = $('<div>').addClass('sc-steps-container');
+            for (var s = 0; s < res.steps.length; s++) {
+                var step = res.steps[s];
+                var stepRow = $('<div>').addClass('sc-step-row');
+                var stepHeader = $('<div>').css({ display: 'flex', justifyContent: 'space-between' });
+                var stepTitle = $('<strong>').text('Passo #' + step.sequence + ' [' + step.action + ']');
+                var stepStatusBadge = $('<span>').addClass(step.status === 'PASS' ? 'badge badge-success' : 'badge badge-important').text(step.status);
+                stepHeader.append(stepTitle).append(stepStatusBadge);
+
+                var stepSummary = $('<div>').css({ color: '#555', marginTop: '2px' }).text(step.safe_summary || '');
+                stepRow.append(stepHeader).append(stepSummary);
+
+                if (step.failed_assertions && step.failed_assertions.length) {
+                    for (var f = 0; f < step.failed_assertions.length; f++) {
+                        var failBox = $('<div>').addClass('sc-step-failure').text(step.failed_assertions[f]);
+                        stepRow.append(failBox);
+                    }
+                }
+                stepsContainer.append(stepRow);
+            }
+            body.append(stepsContainer);
+        }
+
+        card.append(body);
+        return card;
+    }
+
+    // UI Event: Run Scenarios by Filter
+    $('#btn-run-scenarios').on('click', function () {
+        var tag = $('#sc-filter-tag').val();
+        var scenario = $('#sc-filter-scenario').val();
+        var payload = {};
+        if (tag) {
+            payload.tags = [tag];
+        }
+        if (scenario) {
+            payload.scenario_ids = [scenario];
+        }
+        executeScenariosSuite(payload);
+    });
+
+    // UI Event: Run All Scenarios
+    $('#btn-run-all-scenarios').on('click', function () {
+        executeScenariosSuite({});
+    });
+
     // Initialization: Check for restored session
     var initialId = getInitialSimulationId();
     if (initialId) {

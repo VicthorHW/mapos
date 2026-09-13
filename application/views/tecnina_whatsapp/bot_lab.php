@@ -16,8 +16,17 @@
                 <div id="bot-lab-error" class="alert alert-error" style="display:none"></div>
                 <div id="bot-lab-success" class="alert alert-success" style="display:none"></div>
 
-                <!-- Mode A: Session Setup -->
-                <div id="bot-lab-setup" class="bot-lab-section">
+                <div class="bot-lab-nav-header">
+                    <ul class="nav nav-tabs" id="bot-lab-mode-tabs" style="margin-bottom: 0;">
+                        <li class="active"><a href="#" id="tab-nav-interactive"><i class="bx bx-chat"></i> Sessão Interativa</a></li>
+                        <li><a href="#" id="tab-nav-scenarios"><i class="bx bx-check-double"></i> Testes Automáticos de Cenários <span id="sc-nav-badge" class="badge badge-info" style="margin-left: 5px;">0</span></a></li>
+                    </ul>
+                </div>
+
+                <!-- Panel: Interactive Mode -->
+                <div id="panel-interactive-mode">
+                    <!-- Mode A: Session Setup -->
+                    <div id="bot-lab-setup" class="bot-lab-section">
                     <div class="bot-lab-setup-box">
                         <h4>Nova Sessão de Simulação</h4>
                         <p class="muted">Configure os parâmetros e fixtures iniciais para isolar a execução da FSM.</p>
@@ -298,7 +307,101 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> <!-- End #panel-interactive-mode -->
+
+                <!-- Panel: Automated Scenarios Mode -->
+                <div id="panel-scenarios-mode" style="display:none;">
+                    <div class="bot-lab-setup-box">
+                        <div class="row-fluid">
+                            <div class="span8">
+                                <h4>Testes Automáticos de Cenários (FSM Declarativa)</h4>
+                                <p class="muted">Bancada de execução estrita dos cenários declarativos sobre o SimulationRuntime, com asserções completas e isolamento de banco.</p>
+                            </div>
+                            <div class="span4 text-right" style="text-align: right;">
+                                <span class="badge badge-info" id="sc-header-count" style="font-size: 13px; padding: 6px 12px;">Carregando catálogo...</span>
+                            </div>
+                        </div>
+
+                        <!-- Filter Controls -->
+                        <div class="row-fluid" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                            <div class="span4">
+                                <label for="sc-filter-tag"><strong>Filtrar por Tag:</strong></label>
+                                <select id="sc-filter-tag" class="input-block-level">
+                                    <option value="">Todas as tags</option>
+                                </select>
+                            </div>
+                            <div class="span5">
+                                <label for="sc-filter-scenario"><strong>Filtrar por Cenário:</strong></label>
+                                <select id="sc-filter-scenario" class="input-block-level">
+                                    <option value="">Todos os cenários</option>
+                                </select>
+                            </div>
+                            <div class="span3" style="padding-top: 24px;">
+                                <button type="button" class="btn btn-primary btn-block" id="btn-run-scenarios">
+                                    <i class="bx bx-play"></i> Executar Filtro
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row-fluid" style="margin-top: 10px;">
+                            <div class="span12 text-right" style="text-align: right;">
+                                <button type="button" class="btn btn-success" id="btn-run-all-scenarios">
+                                    <i class="bx bx-play-circle"></i> Executar Todos os Cenários
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Running Progress Alert -->
+                    <div id="sc-running-alert" class="alert alert-info" style="display: none; margin-top: 15px;">
+                        <i class="bx bx-loader-alt bx-spin" style="margin-right: 8px;"></i>
+                        <strong>Executando cenários automatizados...</strong>
+                        <span id="sc-running-text" style="margin-left: 10px;">Aguarde a execução em lote da FSM.</span>
+                    </div>
+
+                    <!-- Suite Summary Card -->
+                    <div id="sc-summary-box" class="bot-lab-summary-card" style="display: none; margin-top: 15px;">
+                        <div class="row-fluid">
+                            <div class="span3">
+                                <div class="bot-lab-stat-box">
+                                    <div class="stat-value" id="sc-stat-total">0</div>
+                                    <div class="stat-label">Total de Casos</div>
+                                </div>
+                            </div>
+                            <div class="span3">
+                                <div class="bot-lab-stat-box stat-pass">
+                                    <div class="stat-value text-success" id="sc-stat-passed">0</div>
+                                    <div class="stat-label">Passaram</div>
+                                </div>
+                            </div>
+                            <div class="span3">
+                                <div class="bot-lab-stat-box stat-fail">
+                                    <div class="stat-value text-error" id="sc-stat-failed">0</div>
+                                    <div class="stat-label">Falharam</div>
+                                </div>
+                            </div>
+                            <div class="span3">
+                                <div class="bot-lab-stat-box">
+                                    <div class="stat-value" id="sc-stat-time">0ms</div>
+                                    <div class="stat-label">Tempo Total</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row-fluid" style="margin-top: 10px; font-size: 12px; color: #555;">
+                            <div class="span6">
+                                <strong>Tags Cobertas:</strong> <span id="sc-summary-tags">—</span>
+                            </div>
+                            <div class="span6 text-right" style="text-align: right;">
+                                <strong>Estados FSM:</strong> <span id="sc-summary-states">0</span> |
+                                <strong>Capabilities:</strong> <span id="sc-summary-caps">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results List Container -->
+                    <div id="sc-results-container" class="scenarios-results-container" style="margin-top: 20px;">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div> <!-- End #panel-scenarios-mode -->
 
             </div>
         </div>

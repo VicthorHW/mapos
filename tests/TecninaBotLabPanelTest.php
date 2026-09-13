@@ -130,4 +130,27 @@ preg_match('/else if\s*\(\s*step\.input\s*&&\s*step\.input\.kind\s*===\s*[\'"]CA
 expectBotLab(!empty($capMatch), 'Bloco do ramo CAPABILITY não encontrado.');
 expectBotLab(strpos($capMatch[1], 'step.input.text') === false, 'Ramo de CAPABILITY não deve renderizar step.input.text.');
 
+// Contract T: Scenario testing proxy endpoints exist in controller
+expectBotLab(strpos($controller, 'function simulador_cenarios(') !== false, 'Proxy simulador_cenarios ausente no controller.');
+expectBotLab(strpos($controller, 'function simulador_executar_cenarios(') !== false, 'Proxy simulador_executar_cenarios ausente no controller.');
+
+// Contract U: Mode switcher and Scenario workbench markup exist in view
+expectBotLab(strpos($view, 'bot-lab-mode-tabs') !== false, 'Tabs de modo (interativo / cenários) ausentes na view.');
+expectBotLab(strpos($view, 'panel-interactive-mode') !== false, 'Painel interativo ausente na view.');
+expectBotLab(strpos($view, 'panel-scenarios-mode') !== false, 'Painel de cenários automatizados ausente na view.');
+expectBotLab(strpos($view, 'sc-filter-tag') !== false, 'Filtro por tag ausente no painel de cenários.');
+expectBotLab(strpos($view, 'btn-run-scenarios') !== false, 'Botão de execução de cenários ausente na view.');
+expectBotLab(strpos($view, 'scenarios-results-container') !== false, 'Container de resultados de cenários ausente na view.');
+
+// Contract V: Scenario runner script logic exists
+expectBotLab(strpos($script, 'loadScenariosCatalog') !== false, 'Função loadScenariosCatalog ausente no script.');
+expectBotLab(strpos($script, 'executeScenariosSuite') !== false, 'Função executeScenariosSuite ausente no script.');
+expectBotLab(strpos($script, 'renderScenarioResults') !== false, 'Função renderScenarioResults ausente no script.');
+expectBotLab(strpos($script, 'switchPanelMode') !== false, 'Função switchPanelMode ausente no script.');
+
+// Contract W: Scenario runner CSS classes exist
+expectBotLab(strpos($style, '.bot-lab-mode-tabs') !== false, 'Classe .bot-lab-mode-tabs ausente no bot-lab.css.');
+expectBotLab(strpos($style, '.scenario-result-card') !== false, 'Classe .scenario-result-card ausente no bot-lab.css.');
+expectBotLab(strpos($style, '.scenario-chip') !== false, 'Classe .scenario-chip ausente no bot-lab.css.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
