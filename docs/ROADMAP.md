@@ -17,21 +17,26 @@ A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp
 - Cards estruturados de eventos CAPABILITY na transcrição e passos técnicos no inspetor de Etapas;
 - Suíte de 5 testes de contrato PHP aprovados com 129 asserções no total, lints limpos e validação de sintaxe JS limpa.
 
-Estado do código-fonte: PUBLISHED / SYNCED (publicado no branch `master` em `89356133ec7327eb4ff81113c1558162273f52cb`). Implantação operacional e validação em ambiente de produção: PENDENTES (NOT DEPLOYED / NOT PERFORMED).
+Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produção: DEPLOYED (Coolify Deployment #223, baseline `91857c92ec40c54c9d255c8109783164f3d0e848`). Status de ciclo de vida (ADR-009): DEPLOYED_UNVERIFIED. Validação server-side: APROVADA (PASSED). Validação humana via browser: PENDENTE (PENDING).
 
-## Pendências operacionais do Bot Lab V2.1
+## Operações pendentes (Pós-deploy V2.1)
 
-As únicas tarefas pendentes relativas ao Bot Lab V2.1 são:
-- deploy coordenado das versões compatíveis de MapOS V2.1 e Bot V2.1;
-- validação visual e via navegador da bancada interativa no MapOS em homologação/produção:
+- validação visual e via navegador da bancada interativa no MapOS em homologação/produção por operador humano:
   - comportamento do snapshot de configuração operacional;
   - código de registro na aba Entregas;
   - links clicáveis para formulários /p, /g, /c;
   - eventos e passos de capability;
   - invalidação de tokens pós reset e exclusão de sessão;
-- confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real.
+- confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real;
+- estabilização pós-deploy e monitoramento de logs de produção.
 
-*Nota de arquitetura*: O suporte a links clicáveis de capabilities foi implementado na V2.1 e não é mais item futuro. O MapOS NÃO possui como responsabilidade a criação de motor de cenários (scenario engine), editor de fluxos (Flow editor) ou novas lógicas de conversação.
+## Nova Iniciativa de Desenvolvimento
+
+### AUTOMATED CONVERSATION SCENARIO TESTING
+- O MapOS fornecerá a bancada administrativa e de operação (administrative and operator workbench);
+- O MapOS NÃO reintroduz editor visual de fluxos (Flow editor / Flow Studio);
+- A criação, edição e execução de cenários alavancam a fundação do `SimulationRuntime` do Bot Gateway;
+- A especificação detalhada da iniciativa será conduzida pelo Technical Lead na Ordem Técnica 21A. Não projetar a implementação nesta ordem.
 
 ## P0 — preparação de release
 

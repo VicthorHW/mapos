@@ -50,26 +50,23 @@ Scope: MapOS fork TecNina / estado atual
   - Representação técnica refinada de passos CAPABILITY no inspetor de Etapas;
   - Console de envio de mensagens e localização, visualizador do ledger de passos e inspetor de efeitos externos observáveis.
 - **Isolamento de Domínio**: O MapOS NÃO possui `SimulationRuntime`, NÃO gerencia tokens de capability, NÃO executa FSM, NÃO armazena snapshots de configuração operacional e NÃO faz roteamento HTTP de capabilities públicas. As páginas públicas de capability (`/s/{simulation_id}/...`) são servidas diretamente pelo Bot.
-- **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
-- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED (publicado no branch `master` em `89356133ec7327eb4ff81113c1558162273f52cb`)
-- **Implantação operacional (Deployment)**: NOT DEPLOYED
-- **Validação de produção (Production Validation)**: NOT PERFORMED FOR V2.1 (NÃO EXECUTADA / NÃO REIVINDICADA)
-- **Operação do V2.1**: O feature gate do simulador pertence ao Bot e já está ativo (`SIMULATOR_ENABLED=true`) para o Simulator V2 em produção. O código V2.1 do MapOS torna-se operacional apenas após o deploy coordenado das revisões compatíveis de Bot e MapOS.
+- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
+- **Linha de base de código implantada (Deployed Implementation Baseline)**: `91857c92ec40c54c9d255c8109783164f3d0e848`
+- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #223)
+- **Validação server-side**: PASS (rotas proxy do Bot Lab, autorização cSistema, contratos com o Bot Gateway validados no servidor)
+- **Validação humana por navegador (Human Browser Acceptance)**: PENDING
+- **Operação do V2.1**: Código V2.1 implantado em produção juntamente com Bot V2.1. Backups pré-deploy 20B mantidos no servidor (`/var/backups/tecnina/pre-20b/`).
 
 ## Baselines de Produção e Desenvolvimento
 
-### Produção Vigente (Current Production)
-- **Linha de base implantada (Deployed Implementation Baseline)**: `1ed2354a8c69810d44049944aa5065ec778fdc45`
-- **Aceite humano via browser / Core Bot Lab**: aprovado (passed)
-- **Status do Simulador V2.1 em produção**: NOT DEPLOYED
-
-### Simulator V2.1 (Publicação Concluída — Não Implantado)
-- **Status de código-fonte (Source State)**: PUBLISHED / SYNCED
+### Produção Vigente (Current Production — Bot Lab V2.1)
+- **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Linha de base implantada (Deployed Implementation Baseline)**: `91857c92ec40c54c9d255c8109783164f3d0e848`
+- **Validação server-side**: PASS (aprovada na Ordem Técnica 20B/20B-R1)
+- **Aceite humano via browser (Bot Lab V2.1)**: PENDING
+- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
-- **Linha de base de código publicada (Published Source Baseline)**: `89356133ec7327eb4ff81113c1558162273f52cb`
-- **Ciclo de vida de implementação (ADR-009)**: IMPLEMENTED_LOCAL
-- **Implantação operacional (Deployment)**: NOT DEPLOYED
-- **Validação em produção (Production Validation)**: NOT PERFORMED FOR V2.1 (NÃO EXECUTADA / NÃO REIVINDICADA)
 - **Validação automatizada local**:
   - 5 testes de contrato PHP executados com 129 asserções no total:
     - `tests/TecninaBotLabPanelTest.php`: 69 asserções
@@ -101,11 +98,12 @@ Scope: MapOS fork TecNina / estado atual
 
 ## Próxima validação necessária
 
-- deploy coordenado das versões compatíveis de MapOS V2.1 e Bot V2.1;
-- validação visual e via navegador da bancada interativa V2.1 no MapOS:
+- validação visual e via navegador da bancada interativa V2.1 no MapOS por operador humano:
   - resumo da configuração operacional no Estado (cidades, taxas e agenda presencial);
   - aba Entregas com código de cadastro;
   - abertura de links clicáveis /p, /g, /c;
   - renderização de eventos e passos CAPABILITY;
   - invalidação e limpeza de tokens pós reset e exclusão de sessão;
-- confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real.
+- confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real;
+- estabilização pós-deploy e monitoramento de logs de produção;
+- futura iniciativa de testes automatizados de cenários de conversação (AUTOMATED CONVERSATION SCENARIO TESTING).
