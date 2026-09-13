@@ -15,6 +15,44 @@
         return $('<div>').text(value == null ? '' : String(value)).html();
     }
 
+    function appendTextWithSafeLinks(container, rawText) {
+        if (rawText == null) return;
+        var str = String(rawText);
+        var urlRegex = /(https?:\/\/[^\s<]+)/g;
+        var lines = str.split('\n');
+
+        for (var l = 0; l < lines.length; l++) {
+            if (l > 0) {
+                container.appendChild(document.createElement('br'));
+            }
+            var line = lines[l];
+            var lastIndex = 0;
+            var match;
+
+            while ((match = urlRegex.exec(line)) !== null) {
+                var url = match[0];
+                var matchStart = match.index;
+                if (matchStart > lastIndex) {
+                    var beforeText = line.substring(lastIndex, matchStart);
+                    container.appendChild(document.createTextNode(beforeText));
+                }
+                var a = document.createElement('a');
+                a.href = url;
+                a.textContent = url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                container.appendChild(a);
+                lastIndex = matchStart + url.length;
+            }
+
+            if (lastIndex < line.length) {
+                var remaining = line.substring(lastIndex);
+                container.appendChild(document.createTextNode(remaining));
+            }
+        }
+    }
+
+
     function showError(message) {
         $('#bot-lab-error').text(message).show();
         $('#bot-lab-success').hide();
@@ -214,6 +252,16 @@
         } else {
             for (var i = 0; i < transcript.length; i++) {
                 var entry = transcript[i];
+                if (entry.actor === 'CAPABILITY' || entry.kind === 'CAPABILITY') {
+                    var eventRow = $('<div class="bot-lab-event-row"></div>');
+                    var eventCard = $('<div class="bot-lab-event-card"></div>');
+                    var eventText = entry.label || entry.text || 'Ação de link concluída';
+                    eventCard.text('[' + eventText + ']');
+                    eventRow.append(eventCard);
+                    chatBox.append(eventRow);
+                    continue;
+                }
+
                 var isCustomer = (entry.actor === 'CUSTOMER');
                 var row = $('<div class="bot-lab-msg-row ' + (isCustomer ? 'is-customer' : 'is-bot') + '"></div>');
                 var bubble = $('<div class="bot-lab-bubble"></div>');
@@ -228,8 +276,7 @@
                     }
                     bubble.append(card);
                 } else {
-                    var textHtml = esc(entry.text || '').replace(/\n/g, '<br>');
-                    bubble.html(textHtml);
+                    appendTextWithSafeLinks(bubble[0], entry.text || '');
                 }
                 row.append(bubble);
                 chatBox.append(row);

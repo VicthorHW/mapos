@@ -104,4 +104,21 @@ expectBotLab(strpos($script, 'console.warn') === false, 'Browser JS contém cham
 expectBotLab(strpos($gateway, "'simulation_operational_config_unavailable'") !== false, 'Gateway safeReasons não contém simulation_operational_config_unavailable.');
 expectBotLab(strpos($script, 'simulation_operational_config_unavailable:') !== false, 'Browser JS não mapeia simulation_operational_config_unavailable.');
 
+
+// Contract P: Safe link renderer uses document DOM creation and no innerHTML
+expectBotLab(strpos($script, 'function appendTextWithSafeLinks(') !== false, 'Helper appendTextWithSafeLinks ausente no script.');
+expectBotLab(strpos($script, 'document.createTextNode') !== false, 'Safe renderer não utiliza document.createTextNode.');
+expectBotLab(strpos($script, "document.createElement('a')") !== false, 'Safe renderer não utiliza document.createElement(a).');
+expectBotLab(strpos($script, 'a.textContent = url') !== false, 'Safe renderer não atribui texto via textContent.');
+expectBotLab(strpos($script, "a.target = '_blank'") !== false, 'Safe renderer não define target _blank.');
+expectBotLab(strpos($script, "a.rel = 'noopener noreferrer'") !== false, 'Safe renderer não define rel noopener noreferrer.');
+
+// Contract Q: Capability event support and distinct labels
+expectBotLab(strpos($script, "entry.actor === 'CAPABILITY'") !== false, 'Script não verifica entry.actor === CAPABILITY.');
+expectBotLab(strpos($script, 'bot-lab-event-card') !== false, 'Script não utiliza classe bot-lab-event-card.');
+expectBotLab(strpos($style, '.bot-lab-event-card') !== false, 'bot-lab.css não estiliza .bot-lab-event-card.');
+
+// Contract R: Passive escaping preservation
+expectBotLab(strpos($script, 'esc(') !== false, 'Função esc ausente no script.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
