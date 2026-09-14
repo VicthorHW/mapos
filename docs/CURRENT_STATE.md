@@ -69,7 +69,7 @@ Scope: MapOS fork TecNina / estado atual
 - **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
 - **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #239, baseline `7abedf20d04a6a21d5569ead22bf224eda3fc93a`).
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado em produção; timeout genérico do gateway: 8s; timeout da suíte de cenários: 45s default).
-- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: aceite humano inicial FALHOU devido à tela em branco na área de testes automáticos; causa raiz: hierarquia DOM, onde #panel-scenarios-mode estava aninhado indevidamente dentro de #panel-interactive-mode; correção implantada via Deployment #239 com commit 7abedf20d04a6a21d5569ead22bf224eda3fc93a; fumaça automatizada em navegador real de produção Playwright Chromium PASSED com painel visível [1064x327], 10 cards, badge 23 casos, 0 erros no console e execução de menu-navigation com 2 PASS; reteste humano por operador PENDING).
+- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: reteste humano pelo operador confirmou abertura do Bot Lab PASS, renderização do catálogo PASS, busca/filtro/seleção PASS, execução selecionada PASS, apresentação de resultados PASS, segurança/rede PASS, console PASS; único bloqueador restante: botão "Executar todos" [Run All] falhava com gateway_request_failed; causa raiz: no controller MapOS Tecnina_whatsapp.php, json_decode($rawPayload, true) perdia a distinção entre objeto vazio {} e array vazio [], serializando como [] para o Bot que rejeitava com HTTP 422; correção IMPLEMENTED_LOCAL preservando stdClass object e sanitizando timeouts; reteste humano: PENDING; ciclo de vida: DEPLOYED_UNVERIFIED).
 
 ## Baselines de Produção e Desenvolvimento
 
@@ -77,21 +77,21 @@ Scope: MapOS fork TecNina / estado atual
 - **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
 - **Linha de base implantada (Deployed Implementation Baseline)**: `7abedf20d04a6a21d5569ead22bf224eda3fc93a` (Coolify Deployment #239)
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: PENDING (21D: falha inicial por tela em branco; correção de hierarquia DOM implantada no Deployment #239; teste de fumaça automatizado em navegador real PASSED; reteste humano por operador PENDING)
+- **Aceite humano via browser (Bot Lab)**: PENDING (21D: funções de navegação, catálogo, filtros, seleção e resultados aprovadas pelo operador; bloqueador Run All corrigido localmente [IMPLEMENTED_LOCAL]; reteste humano por operador PENDING)
 - **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
 - **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
 - **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
 - **Validação automatizada local**:
-  - 6 testes de contrato PHP executados com 239 asserções no total:
-    - `tests/TecninaBotGatewayTimeoutTest.php`: 44 asserções
+  - 6 testes de contrato PHP executados com 277 asserções no total:
+    - `tests/TecninaBotGatewayTimeoutTest.php`: 82 asserções (inclui atualização da asserção I e casos comportamentais A-K para deserialização/serialização de payload de cenários e sanitização de timeouts)
     - `tests/TecninaBotLabPanelTest.php`: 135 asserções (inclui contratos AC-AG de hierarquia DOM, balanceamento de tags, timeout cliente e estados de catálogo)
     - `tests/TecninaIntakeReviewPanelTest.php`: 29 asserções
     - `tests/TecninaLogisticsPanelTest.php`: 17 asserções
     - `tests/TecninaOsAccessPanelTest.php`: 8 asserções
     - `tests/TecninaFlowStudioRemovalTest.php`: 6 asserções
   - 1 suíte de teste de interface DOM / JavaScript:
-    - `tests/TecninaBotLabUiTest.js`: 28 asserções passadas cleanly (hierarquia DOM, ativação, renderização do catálogo, idempotência de cliques repetidos, tela de erro com alert visível e despachos únicos de execução).
+    - `tests/TecninaBotLabUiTest.js`: 38 asserções passadas cleanly (hierarquia DOM, ativação, renderização do catálogo, idempotência de cliques repetidos, tela de erro com alert visível, despachos únicos de execução e contratos de payload do navegador para Run All e Run Selected).
   - Sintaxe JavaScript e PHP estritamente verificadas (`node --check assets/tecnina/js/bot-lab.js`, `php -l`).
 
 ## Confirmações no repositório real

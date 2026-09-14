@@ -286,6 +286,30 @@ function createTestHarness() {
     // Lightweight jQuery wrapper
     function $(target) {
         if (typeof target === 'string') {
+            if (target.includes('sc-select-checkbox:checked')) {
+                const catalog = registry['sc-catalog-list'];
+                const checkedBoxes = [];
+                if (catalog) {
+                    function findChecked(node) {
+                        for (let i = 0; i < node.children.length; i++) {
+                            const c = node.children[i];
+                            if (c.hasClass('sc-select-checkbox') && c.prop('checked')) {
+                                checkedBoxes.push(c);
+                            }
+                            findChecked(c);
+                        }
+                    }
+                    findChecked(catalog);
+                }
+                const wrapper = {
+                    length: checkedBoxes.length,
+                    each: fn => {
+                        checkedBoxes.forEach((item, idx) => fn.call(item, idx, item));
+                        return wrapper;
+                    }
+                };
+                return wrapper;
+            }
             if (target.startsWith('#')) {
                 const id = target.slice(1);
                 const el = registry[id] || getOrCreate(id);
@@ -368,6 +392,8 @@ function createTestHarness() {
                     return wrapper;
                 },
                 text: val => val !== undefined ? (target.text(val), wrapper) : target.text(),
+                val: val => val !== undefined ? (target.val(val), wrapper) : target.val(),
+                attr: (k, v) => v !== undefined ? (target.attr(k, v), wrapper) : target.attr(k),
                 hasClass: cls => target.hasClass(cls),
                 prop: (k, v) => v !== undefined ? (target.prop(k, v), wrapper) : target.prop(k),
                 closest: sel => $(target.closest(sel))
@@ -541,8 +567,8 @@ const errorText = errorItem.children.map(c => c.textContent_).join(' ');
 expect(errorText.includes('indisponível') || errorText.includes('gateway'),
     'Safe formatted error message must be visible');
 
-// Test 2.5: Single Binding for Execution Handlers
-console.log('Test 2.5: Single Event Listener Binding...');
+// Test 2.5: Single Binding for Execution Handlers & Payload Contracts
+console.log('Test 2.5: Single Event Listener Binding & Payload Contracts...');
 let runExecutionCalled = 0;
 const origAjax = harness.$.ajax;
 harness.$.ajax = function(opts) {
@@ -554,12 +580,36 @@ harness.$.ajax = function(opts) {
 
 harness.registry['btn-run-all-scenarios'].trigger('click');
 expect(runExecutionCalled === 1, 'Run all click must execute exactly once (called ' + runExecutionCalled + ')');
+
+// Section 13: Assert Run All sends payload = "{}"
+const runAllAjax = harness.getLastAjax();
+expect(runAllAjax && runAllAjax.data, 'Run All must issue AJAX request with data');
+expect(runAllAjax.data.payload === '{}', 'Run All click must send payload = "{}" (found ' + (runAllAjax.data ? runAllAjax.data.payload : 'none') + ')');
+
 harness.respondAjaxSuccess({ status: 'success', total_scenarios: 2, total_cases: 2, suite_status: 'SUCCESS', summary: {}, results: [] });
+
+// Section 13: Assert Run Selected sends payload JSON containing scenario_ids
+const catalogListEl = harness.registry['sc-catalog-list'];
+expect(catalogListEl.children.length > 0, 'Catalog list must contain scenario items for selection test');
+const checkboxes = catalogListEl.find('input');
+expect(checkboxes.length > 0, 'Scenario item must have input checkbox');
+checkboxes[0].prop('checked', true);
+
+harness.registry['btn-run-selected'].trigger('click');
+expect(runExecutionCalled === 2, 'Run selected click must trigger execution request');
+const runSelectedAjax = harness.getLastAjax();
+expect(runSelectedAjax && runSelectedAjax.data, 'Run Selected must issue AJAX request with data');
+expect(typeof runSelectedAjax.data.payload === 'string', 'Run Selected payload must be string');
+expect(runSelectedAjax.data.payload.includes('scenario_ids'), 'Run Selected payload must contain scenario_ids');
+const parsedSelected = JSON.parse(runSelectedAjax.data.payload);
+expect(Array.isArray(parsedSelected.scenario_ids), 'Run Selected parsed payload must contain scenario_ids array');
+expect(parsedSelected.scenario_ids.includes('sc-1'), 'Run Selected scenario_ids must include selected scenario id');
+harness.respondAjaxSuccess({ status: 'success', total_scenarios: 1, total_cases: 2, suite_status: 'SUCCESS', summary: {}, results: [] });
 
 // Switching tabs and clicking again
 harness.registry['tab-nav-interactive'].trigger('click');
 harness.registry['tab-nav-scenarios'].trigger('click');
 harness.registry['btn-run-all-scenarios'].trigger('click');
-expect(runExecutionCalled === 2, 'Second click after tab switch must execute exactly once more (total ' + runExecutionCalled + ')');
+expect(runExecutionCalled === 3, 'Click after tab switch must execute exactly once more (total ' + runExecutionCalled + ')');
 
 console.log('\nTecninaBotLabUiTest: ' + assertions + ' assertions passed cleanly.');

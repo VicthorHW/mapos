@@ -618,16 +618,16 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         $rawPayload = (string) $this->input->post('payload', false);
-        $payload = [];
+        $payload = (object) [];
         if ($rawPayload !== '') {
-            $decoded = json_decode($rawPayload, true);
-            if (! is_array($decoded)) {
+            $decoded = json_decode($rawPayload);
+            if (json_last_error() !== JSON_ERROR_NONE || ! is_object($decoded)) {
                 return $this->json(['ok' => false, 'reason' => 'invalid_scenario_payload'], 422);
             }
             $payload = $decoded;
         }
 
-        unset($payload['timeout'], $payload['timeout_seconds'], $payload['scenario_timeout']);
+        unset($payload->timeout, $payload->timeout_seconds, $payload->scenario_timeout);
 
         $result = $this->tecnina_bot_gateway->request(
             'POST',

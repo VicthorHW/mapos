@@ -127,9 +127,10 @@ expectGatewayTimeout(
 
 // Assertion I: browser request payload cannot set gateway timeout
 expectGatewayTimeout(
-    strpos($execMethodBody, "unset(\$payload['timeout']") !== false &&
-    strpos($execMethodBody, "\$payload['timeout_seconds']") !== false &&
-    strpos($execMethodBody, "\$payload['scenario_timeout']") !== false,
+    (strpos($execMethodBody, 'unset($payload->timeout, $payload->timeout_seconds, $payload->scenario_timeout)') !== false ||
+     (strpos($execMethodBody, "unset(\$payload['timeout']") !== false &&
+      strpos($execMethodBody, "\$payload['timeout_seconds']") !== false &&
+      strpos($execMethodBody, "\$payload['scenario_timeout']") !== false)),
     'simulador_executar_cenarios deve sanitizar chaves de timeout do payload recebido do browser.'
 );
 expectGatewayTimeout(
@@ -160,5 +161,222 @@ expectGatewayTimeout(
     strpos($gatewayCode, "strlen(\$this->token) >= 32") !== false,
     'Gateway deve manter verificação de comprimento do token >= 32.'
 );
+
+// =========================================================================
+// Section 12: simulador_executar_cenarios Payload Contract & Behavioral Tests
+// =========================================================================
+
+if (! class_exists('CI_Controller')) {
+    class CI_Controller
+    {
+        public $load;
+        public function __construct()
+        {
+            $this->load = new class {
+                public function library($name) {}
+                public function model($name) {}
+            };
+        }
+    }
+}
+
+if (! class_exists('MY_Controller')) {
+    class MY_Controller extends CI_Controller
+    {
+        public $data = [];
+        public $session;
+        public $permission;
+        public $security;
+        public $output;
+        public $input;
+        public $db;
+        public function __construct()
+        {
+            parent::__construct();
+        }
+    }
+}
+
+if (! class_exists('GatewayTestMockInput')) {
+    class GatewayTestMockInput
+    {
+        public $method = 'POST';
+        public $postData = [];
+        public function method($upper = false)
+        {
+            return $upper ? strtoupper($this->method) : strtolower($this->method);
+        }
+        public function post($key = null, $xss_clean = null)
+        {
+            if ($key === null) return $this->postData;
+            return $this->postData[$key] ?? null;
+        }
+    }
+}
+
+if (! class_exists('GatewayTestMockOutput')) {
+    class GatewayTestMockOutput
+    {
+        public $statusCode = 200;
+        public $contentType = 'application/json';
+        public $outputBody = '';
+        public function set_status_header($status)
+        {
+            $this->statusCode = (int) $status;
+            return $this;
+        }
+        public function set_content_type($type)
+        {
+            $this->contentType = $type;
+            return $this;
+        }
+        public function set_output($body)
+        {
+            $this->outputBody = $body;
+            return $this;
+        }
+    }
+}
+
+if (! class_exists('GatewayTestSpyGateway')) {
+    class GatewayTestSpyGateway extends Tecnina_bot_gateway
+    {
+        public $calls = 0;
+        public $lastMethod;
+        public $lastPath;
+        public $lastPayload;
+        public $lastTimeout;
+        public $lastSerializedBody;
+
+        public function request($method, $path, $payload = null, $timeoutSeconds = null)
+        {
+            $this->calls++;
+            $this->lastMethod = $method;
+            $this->lastPath = $path;
+            $this->lastPayload = $payload;
+            $this->lastTimeout = $timeoutSeconds;
+            $this->lastSerializedBody = ($payload !== null) ? json_encode($payload) : null;
+            return ['ok' => true, 'status' => 200, 'data' => ['total' => 23, 'passed' => 23, 'failed' => 0, 'errors' => 0]];
+        }
+    }
+}
+
+require_once $root . '/application/controllers/Tecnina_whatsapp.php';
+
+$behController = new Tecnina_whatsapp();
+$behInput = new GatewayTestMockInput();
+$behOutput = new GatewayTestMockOutput();
+$behSpy = new GatewayTestSpyGateway();
+
+$behController->input = $behInput;
+$behController->output = $behOutput;
+$behController->tecnina_bot_gateway = $behSpy;
+$behController->permission = new class {
+    public function checkPermission($permissao, $recurso) { return true; }
+};
+$behController->session = new class {
+    public function userdata($key) { return 1; }
+};
+$behController->security = new class {
+    public function get_csrf_hash() { return 'test-csrf-hash'; }
+};
+
+// Case A: raw "{}" -> gateway-bound JSON object "{}"
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{}'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case A: Gateway deve ser chamado.');
+expectGatewayTimeout($behSpy->lastMethod === 'POST', 'Case A: Método deve ser POST.');
+expectGatewayTimeout($behSpy->lastPath === '/admin/simulator/scenarios/run', 'Case A: Endpoint deve ser /admin/simulator/scenarios/run.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case A: Payload recebido pelo gateway deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{}', 'Case A: Serialização para Bot deve ser "{}" e não "[]".');
+
+// Case B: absent/empty payload -> gateway-bound JSON object "{}"
+$behSpy->calls = 0;
+$behInput->postData = [];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case B (ausente): Gateway deve ser chamado.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case B (ausente): Payload deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{}', 'Case B (ausente): Serialização deve ser "{}".');
+
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => ''];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case B (vazio): Gateway deve ser chamado.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case B (vazio): Payload deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{}', 'Case B (vazio): Serialização deve ser "{}".');
+
+// Case C: selected: {"scenario_ids":["menu-navigation"]} -> object preserved
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{"scenario_ids":["menu-navigation"]}'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case C: Gateway deve ser chamado.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case C: Payload deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{"scenario_ids":["menu-navigation"]}', 'Case C: Payload selecionado preservado.');
+
+// Case D: tags: {"tags":["navigation"]} -> object preserved
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{"tags":["navigation"]}'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case D: Gateway deve ser chamado.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case D: Payload deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{"tags":["navigation"]}', 'Case D: Payload tags preservado.');
+
+// Case E: case: {"scenario_ids":["menu-navigation"],"case_id":"entry-menu"} -> object preserved
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{"scenario_ids":["menu-navigation"],"case_id":"entry-menu"}'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case E: Gateway deve ser chamado.');
+expectGatewayTimeout(is_object($behSpy->lastPayload), 'Case E: Payload deve ser objeto.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{"scenario_ids":["menu-navigation"],"case_id":"entry-menu"}', 'Case E: Payload case_id preservado.');
+
+// Case F: raw "[]" -> invalid_scenario_payload / 422
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '[]'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 0, 'Case F: Gateway NÃO deve ser chamado para array JSON top-level.');
+expectGatewayTimeout($behOutput->statusCode === 422, 'Case F: Status code deve ser 422.');
+$decodedF = json_decode($behOutput->outputBody, true);
+expectGatewayTimeout(($decodedF['ok'] ?? null) === false && ($decodedF['reason'] ?? null) === 'invalid_scenario_payload', 'Case F: reason deve ser invalid_scenario_payload.');
+
+// Case G: scalar JSON: "abc" -> invalid_scenario_payload / 422
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '"abc"'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 0, 'Case G: Gateway NÃO deve ser chamado para scalar.');
+expectGatewayTimeout($behOutput->statusCode === 422, 'Case G: Status code deve ser 422.');
+$decodedG = json_decode($behOutput->outputBody, true);
+expectGatewayTimeout(($decodedG['ok'] ?? null) === false && ($decodedG['reason'] ?? null) === 'invalid_scenario_payload', 'Case G: reason deve ser invalid_scenario_payload.');
+
+// Case H: null JSON: null -> invalid_scenario_payload / 422
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => 'null'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 0, 'Case H: Gateway NÃO deve ser chamado para null.');
+expectGatewayTimeout($behOutput->statusCode === 422, 'Case H: Status code deve ser 422.');
+$decodedH = json_decode($behOutput->outputBody, true);
+expectGatewayTimeout(($decodedH['ok'] ?? null) === false && ($decodedH['reason'] ?? null) === 'invalid_scenario_payload', 'Case H: reason deve ser invalid_scenario_payload.');
+
+// Case I: malformed JSON -> invalid_scenario_payload / 422
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{"broken": json'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 0, 'Case I: Gateway NÃO deve ser chamado para JSON malformado.');
+expectGatewayTimeout($behOutput->statusCode === 422, 'Case I: Status code deve ser 422.');
+$decodedI = json_decode($behOutput->outputBody, true);
+expectGatewayTimeout(($decodedI['ok'] ?? null) === false && ($decodedI['reason'] ?? null) === 'invalid_scenario_payload', 'Case I: reason deve ser invalid_scenario_payload.');
+
+// Case J: timeout keys are removed and never reach Bot
+$behSpy->calls = 0;
+$behInput->postData = ['payload' => '{"scenario_ids":["menu-navigation"],"timeout":999,"timeout_seconds":999,"scenario_timeout":999}'];
+$behController->simulador_executar_cenarios();
+expectGatewayTimeout($behSpy->calls === 1, 'Case J: Gateway deve ser chamado.');
+expectGatewayTimeout(! isset($behSpy->lastPayload->timeout), 'Case J: timeout deve ser removido.');
+expectGatewayTimeout(! isset($behSpy->lastPayload->timeout_seconds), 'Case J: timeout_seconds deve ser removido.');
+expectGatewayTimeout(! isset($behSpy->lastPayload->scenario_timeout), 'Case J: scenario_timeout deve ser removido.');
+expectGatewayTimeout($behSpy->lastSerializedBody === '{"scenario_ids":["menu-navigation"]}', 'Case J: Propriedades de timeout removidas antes de alcançar o Bot.');
+
+// Case K: normal scenario timeout still 45 seconds
+expectGatewayTimeout($behSpy->lastTimeout === 45, 'Case K: timeout passado para gateway deve ser 45 segundos.');
 
 echo 'TecninaBotGatewayTimeoutTest: ' . $assertions . ' assertions passed.' . PHP_EOL;
