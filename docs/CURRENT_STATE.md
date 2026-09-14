@@ -67,17 +67,19 @@ Scope: MapOS fork TecNina / estado atual
   - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
 - **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
 - **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
-- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #239, baseline `7abedf20d04a6a21d5569ead22bf224eda3fc93a`).
+- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #242, baseline `6c119f20bef8d3edba060731f212f0b734e9f0a8`).
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado em produção; timeout genérico do gateway: 8s; timeout da suíte de cenários: 45s default).
-- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: reteste humano pelo operador confirmou abertura do Bot Lab PASS, renderização do catálogo PASS, busca/filtro/seleção PASS, execução selecionada PASS, apresentação de resultados PASS, segurança/rede PASS, console PASS; único bloqueador restante: botão "Executar todos" [Run All] falhava com gateway_request_failed; causa raiz: no controller MapOS Tecnina_whatsapp.php, json_decode($rawPayload, true) perdia a distinção entre objeto vazio {} e array vazio [], serializando como [] para o Bot que rejeitava com HTTP 422; correção IMPLEMENTED_LOCAL preservando stdClass object e sanitizando timeouts; reteste humano: PENDING; ciclo de vida: DEPLOYED_UNVERIFIED).
+- **Defeito de payload do Run All (Run All Payload Defect)**: RESOLVED / DEPLOYED (Causa raiz: objeto JSON vazio `{}` convertido para array PHP vazio `[]` via `json_decode(..., true)` no controller MapOS e serializado como `"[]"`, rejeitado com 422 pelo schema do Bot; correção implantada com decodificação `stdClass`, sanitização de timeouts e rejeição de arrays com 422).
+- **Execução automatizada do Run All em navegador real de produção**: PASS (Playwright Chromium executou "Executar todos" no Bot Lab de produção: 23/23 cenários aprovados [0 FAIL / 0 ERROR], duração de parede 13.175ms, tempo do runner 12.635ms; 23 cards renderizados, expansão de card validada; 0 mutações de negócio no banco; 0 requisições diretas ao Bot admin; 0 Bearer expostos).
+- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: operador humano validou abertura, catálogo, filtros, seleção, execução selecionada e resultados; reteste humano final do "Executar todos" em produção PENDING).
 
 ## Baselines de Produção e Desenvolvimento
 
 ### Produção Vigente (Current Production — Automated Scenario Testing Phase 1 & Bot Lab V2.1)
 - **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
-- **Linha de base implantada (Deployed Implementation Baseline)**: `7abedf20d04a6a21d5569ead22bf224eda3fc93a` (Coolify Deployment #239)
+- **Linha de base implantada (Deployed Implementation Baseline)**: `6c119f20bef8d3edba060731f212f0b734e9f0a8` (Coolify Deployment #242)
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: PENDING (21D: funções de navegação, catálogo, filtros, seleção e resultados aprovadas pelo operador; bloqueador Run All corrigido localmente [IMPLEMENTED_LOCAL]; reteste humano por operador PENDING)
+- **Aceite humano via browser (Bot Lab)**: PENDING (21D: funções de navegação, catálogo, filtros, seleção e resultados aprovadas pelo operador; correção de payload do Run All implantada no Deployment #242 e comprovada via navegador automatizado 23/23 PASS; reteste humano final por operador PENDING)
 - **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
 - **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
