@@ -67,18 +67,18 @@ Scope: MapOS fork TecNina / estado atual
   - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
 - **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
 - **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
-- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #234, baseline `20d99ff621203ff319106e1d73d198cdec6c4032`).
+- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #239, baseline `7abedf20d04a6a21d5569ead22bf224eda3fc93a`).
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado em produção; timeout genérico do gateway: 8s; timeout da suíte de cenários: 45s default).
-- **Validação humana por navegador (Human Browser Acceptance)**: BLOCKED / FAILED (Ordem Técnica 21D: área de testes de cenários em branco ao clicar na aba correspondente no navegador em produção; causa raiz diagnosticada: aninhamento indevido de #panel-scenarios-mode dentro de #panel-interactive-mode em bot_lab.php ocultando o painel via CSS; correção local IMPLEMENTED_LOCAL no branch fix/bot-lab-automated-tests-render; deploy NOT PERFORMED; reteste humano PENDING pós-deploy).
+- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: aceite humano inicial FALHOU devido à tela em branco na área de testes automáticos; causa raiz: hierarquia DOM, onde #panel-scenarios-mode estava aninhado indevidamente dentro de #panel-interactive-mode; correção implantada via Deployment #239 com commit 7abedf20d04a6a21d5569ead22bf224eda3fc93a; fumaça automatizada em navegador real de produção Playwright Chromium PASSED com painel visível [1064x327], 10 cards, badge 23 casos, 0 erros no console e execução de menu-navigation com 2 PASS; reteste humano por operador PENDING).
 
 ## Baselines de Produção e Desenvolvimento
 
 ### Produção Vigente (Current Production — Automated Scenario Testing Phase 1 & Bot Lab V2.1)
 - **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
-- **Linha de base implantada (Deployed Implementation Baseline)**: `20d99ff621203ff319106e1d73d198cdec6c4032` (Coolify Deployment #234)
+- **Linha de base implantada (Deployed Implementation Baseline)**: `7abedf20d04a6a21d5569ead22bf224eda3fc93a` (Coolify Deployment #239)
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: BLOCKED / FAILED (21D: área de testes de cenários em branco após ativação; correção estrutural e de resiliência UI IMPLEMENTED_LOCAL no branch `fix/bot-lab-automated-tests-render`, deploy NOT PERFORMED, reteste humano PENDING)
-- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED (produção em `master` b35f41c2b1cb3326c00fd403567059506d118857; correção local em branch de feature)
+- **Aceite humano via browser (Bot Lab)**: PENDING (21D: falha inicial por tela em branco; correção de hierarquia DOM implantada no Deployment #239; teste de fumaça automatizado em navegador real PASSED; reteste humano por operador PENDING)
+- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
 - **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
 - **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
