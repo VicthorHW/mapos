@@ -84,8 +84,8 @@ Scope: MapOS fork TecNina / estado atual
 - **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
 - **Validação automatizada local**:
   - 6 testes de contrato PHP executados com 222 asserções no total:
-    - `tests/TecninaBotGatewayTimeoutTest.php`: 93 asserções
-    - `tests/TecninaBotLabPanelTest.php`: 69 asserções
+    - `tests/TecninaBotGatewayTimeoutTest.php`: 44 asserções
+    - `tests/TecninaBotLabPanelTest.php`: 118 asserções
     - `tests/TecninaIntakeReviewPanelTest.php`: 29 asserções
     - `tests/TecninaLogisticsPanelTest.php`: 17 asserções
     - `tests/TecninaOsAccessPanelTest.php`: 8 asserções
