@@ -192,4 +192,9 @@ expectBotLab(strpos($view, 'monaco') === false && strpos($script, 'monaco') === 
 expectBotLab(strpos($view, '<textarea name="yaml"') === false, 'Campo textarea de YAML encontrado.');
 expectBotLab(strpos($script, 'Bearer') === false, 'Token Bearer encontrado no script do navegador.');
 
+// Contract AB: Section 38 / 21C-R1A - Browser JS does not control or reference gateway timeouts
+expectBotLab(strpos($script, 'TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS') === false, 'Browser JS referencia TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS.');
+expectBotLab(strpos($script, 'scenario_timeout') === false, 'Browser JS referencia scenario_timeout.');
+expectBotLab(strpos($script, 'executeScenariosSuite({})') !== false, 'Botão "Executar todos" não envia payload vazio para executeScenariosSuite.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;

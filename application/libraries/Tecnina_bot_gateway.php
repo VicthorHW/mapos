@@ -8,6 +8,12 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Tecnina_bot_gateway
 {
+    public const DEFAULT_TIMEOUT_SECONDS = 8;
+    public const DEFAULT_SCENARIO_TIMEOUT_SECONDS = 45;
+    public const MIN_SCENARIO_TIMEOUT_SECONDS = 15;
+    public const MAX_SCENARIO_TIMEOUT_SECONDS = 90;
+    public const DEFAULT_CONNECT_TIMEOUT_SECONDS = 3;
+
     private $baseUrl;
     private $token;
 
@@ -22,7 +28,71 @@ class Tecnina_bot_gateway
         return filter_var($this->baseUrl, FILTER_VALIDATE_URL) !== false && strlen($this->token) >= 32 && function_exists('curl_init');
     }
 
-    public function request($method, $path, $payload = null)
+    public function scenarioTimeoutSeconds(): int
+    {
+        $raw = $_ENV['TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS'] ?? getenv('TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS');
+        if ($raw === null || $raw === false) {
+            return self::DEFAULT_SCENARIO_TIMEOUT_SECONDS;
+        }
+
+        $rawStr = trim((string) $raw);
+        if ($rawStr === '' || ! preg_match('/^-?\d+$/', $rawStr)) {
+            return self::DEFAULT_SCENARIO_TIMEOUT_SECONDS;
+        }
+
+        $val = (int) $rawStr;
+        if ($val < self::MIN_SCENARIO_TIMEOUT_SECONDS) {
+            return self::MIN_SCENARIO_TIMEOUT_SECONDS;
+        }
+        if ($val > self::MAX_SCENARIO_TIMEOUT_SECONDS) {
+            return self::MAX_SCENARIO_TIMEOUT_SECONDS;
+        }
+
+        return $val;
+    }
+
+    public function resolveTimeout($timeoutSeconds = null): int
+    {
+        if ($timeoutSeconds === null) {
+            return self::DEFAULT_TIMEOUT_SECONDS;
+        }
+
+        if (is_int($timeoutSeconds)) {
+            $val = $timeoutSeconds;
+        } elseif (is_string($timeoutSeconds) && preg_match('/^-?\d+$/', trim($timeoutSeconds))) {
+            $val = (int) trim($timeoutSeconds);
+        } else {
+            return self::DEFAULT_TIMEOUT_SECONDS;
+        }
+
+        if ($val < 1) {
+            return self::DEFAULT_TIMEOUT_SECONDS;
+        }
+
+        return min(self::MAX_SCENARIO_TIMEOUT_SECONDS, $val);
+    }
+
+    public function buildCurlOptions($method, array $headers, $payload = null, $timeoutSeconds = null): array
+    {
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => strtoupper($method),
+            CURLOPT_CONNECTTIMEOUT => self::DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            CURLOPT_TIMEOUT => $this->resolveTimeout($timeoutSeconds),
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+        if ($payload !== null) {
+            $encoded = json_encode($payload);
+            if ($encoded !== false) {
+                $options[CURLOPT_POSTFIELDS] = $encoded;
+            }
+        }
+        return $options;
+    }
+
+    public function request($method, $path, $payload = null, $timeoutSeconds = null)
     {
         if (! $this->available()) {
             return ['ok' => false, 'status' => 503, 'reason' => 'gateway_not_configured', 'data' => null];
@@ -32,6 +102,8 @@ class Tecnina_bot_gateway
             return ['ok' => false, 'status' => 400, 'reason' => 'invalid_path', 'data' => null];
         }
 
+        $effectiveTimeout = $this->resolveTimeout($timeoutSeconds);
+
         $ch = curl_init($this->baseUrl . $path);
         $headers = [
             'Accept: application/json',
@@ -40,8 +112,8 @@ class Tecnina_bot_gateway
         $options = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => strtoupper($method),
-            CURLOPT_CONNECTTIMEOUT => 3,
-            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => self::DEFAULT_CONNECT_TIMEOUT_SECONDS,
+            CURLOPT_TIMEOUT => $effectiveTimeout,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,

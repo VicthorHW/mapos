@@ -78,6 +78,20 @@ Cada registro do array `deliveries` segue a especificação canônica:
 - **Links de Capability Pública (`/s/{simulation_id}/...`)**:
   Os links gerados na conversa para capabilities (`/s/{simulation_id}/p/{token}`, `/s/{simulation_id}/g/{token}`, `/s/{simulation_id}/c/{token}`) **NÃO são roteados por proxy no MapOS**. O navegador do operador/usuário abre os formulários diretamente no hostname público do Bot. O MapOS atua exclusivamente gerando links clicáveis seguros via DOM (`document.createElement`), sem expor credenciais ou intermediar o tráfego HTTP dessas páginas.
 
+### Contrato de Timeout do Gateway e Execução de Cenários
+
+O `Tecnina_bot_gateway` implementa timeouts delimitados e independentes por tipo de operação:
+
+- **Timeout Genérico do Gateway**: 8 segundos padrão (`CURLOPT_TIMEOUT => 8`, `CURLOPT_CONNECTTIMEOUT => 3`). Aplica-se a todas as requisições normais (sessões interativas, mensagens, listagem de catálogo de cenários `GET /admin/simulator/scenarios`, intakes, logística, etc.).
+- **Timeout Dedicado de Execução de Cenários**: 45 segundos padrão (`CURLOPT_TIMEOUT => 45`). Aplica-se estritamente à execução da suíte de cenários automatizados (`POST /admin/simulator/scenarios/run`).
+- **Sobrescrita Opcional por Ambiente**: `TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS`.
+  - Tipo: estritamente inteiro.
+  - Intervalo seguro (bounds): `15 .. 90` segundos.
+  - Comportamento: ausente = 45; não-numérico/inválido = 45; < 15 = 15; > 90 = 90.
+  - Segurança: o navegador NUNCA controla este parâmetro. Chaves `timeout`, `timeout_seconds` ou `scenario_timeout` no payload da requisição do navegador são desconsideradas e sanitizadas antes do despacho ao Gateway.
+- **Justificativa do Timeout de 45s**: A suíte sequencial declarativa atual (23 casos) requer aproximadamente 13,8 segundos em hardware de produção (Orange Pi 5). O valor padrão de 45 segundos oferece margem operacional prática para o catálogo sequencial atual sem reter conexões indefinidamente em requisição administrativa síncrona. Não representa solução para crescimento ilimitado do catálogo.
+- **Gatilho de Arquitetura Futura**: Caso a execução normal da suíte completa comece a se aproximar do orçamento de timeout síncrono (gateway, navegador, proxies), a arquitetura mandatória será migrar para execução assíncrona baseada em job/fila com polling de status (`asynchronous suite job + status/result polling`), e NÃO elevar indefinidamente os timeouts síncronos.
+
 ## Telefone e Proveniência de Armazenamento
 
 A correspondência de identidade telefônica separa formalmente a identidade canônica de transporte da proveniência de armazenamento no MapOS:

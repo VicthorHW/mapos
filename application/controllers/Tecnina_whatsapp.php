@@ -627,7 +627,14 @@ class Tecnina_whatsapp extends MY_Controller
             $payload = $decoded;
         }
 
-        $result = $this->tecnina_bot_gateway->request('POST', '/admin/simulator/scenarios/run', $payload);
+        unset($payload['timeout'], $payload['timeout_seconds'], $payload['scenario_timeout']);
+
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/simulator/scenarios/run',
+            $payload,
+            $this->tecnina_bot_gateway->scenarioTimeoutSeconds()
+        );
         return $this->json($result, $result['status']);
     }
 

@@ -66,9 +66,9 @@ Scope: MapOS fork TecNina / estado atual
   - **MapOS possui apenas**: apresentação do catálogo e resultados, UX de seleção e filtragem por tags/texto, e proxy administrativo server-side.
   - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
 - **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
-- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED (aceite integral de 'Executar todos' via gateway normal BLOQUEADO / BLOCKED pendente da publicação e deploy da correção de timeout de cenários).
 - **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #233, baseline `8e8cd9fc6810ecbe93c64e91a6b8bb4877e6cf10`).
-- **Validação server-side**: PASS (Ordem Técnica 21C; 23/23 cenários aprovados através do proxy gateway MapOS -> Bot `/admin/simulator/scenarios/run`, 0 falhas, 0 erros, sem efeitos colaterais).
+- **Validação server-side**: PASS individual / BLOCKED run-all gateway (23/23 cenários aprovados e validados no Bot; a execução agregada de toda a suíte requer ~13,8s, excedendo o timeout genérico de 8s do gateway deployed. Correção desenvolvida localmente na branch `fix/bot-gateway-scenario-timeout` com timeout delimitado de 45s, bounds 15..90 via `TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS`, pendente de revisão pelo Tech Lead).
 - **Validação humana por navegador (Human Browser Acceptance)**: PENDING (homologação interativa visual e de layout no navegador por operador humano pendente).
 
 ## Baselines de Produção e Desenvolvimento
