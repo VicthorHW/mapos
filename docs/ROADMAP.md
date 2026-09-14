@@ -33,10 +33,10 @@ Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produ�
 ## Nova Iniciativa de Desenvolvimento
 
 ### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLANTADA EM PRODUÇÃO — DEPLOYED_UNVERIFIED)
-- **Status de ciclo de vida**: DEPLOYED_UNVERIFIED (Deploy de produção realizado; Coolify Deployment #233, baseline `8e8cd9fc6810ecbe93c64e91a6b8bb4877e6cf10`).
-- **Validação server-side**: PASS individual / BLOCKED run-all gateway (23/23 cenários aprovados; execução 'Executar todos' bloqueada pelo timeout de 8s do gateway deployed).
-- **Correção técnica local (21C-R1A)**: Suporte a timeout delimitado de 45s (com bounds 15..90 via `TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS`, sem controle pelo navegador) implementado localmente na branch `fix/bot-gateway-scenario-timeout`, pendente de revisão técnica, publicação e deploy.
-- **Validação humana via browser**: PENDING (aceite visual do Bot Lab por operador humano pendente).
+- **Status de ciclo de vida**: DEPLOYED_UNVERIFIED (Deploy de produção realizado; Coolify Deployment #234, baseline `20d99ff621203ff319106e1d73d198cdec6c4032`).
+- **Defeito de timeout do gateway de cenários (Scenario Gateway Timeout Defect)**: RESOLVED / DEPLOYED (timeout de execução de cenários configurado em 45s default, bounds 15..90 via `TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS`, sem controle pelo navegador; timeout genérico mantido em 8s).
+- **Validação server-side de cenários automatizados (Server-side Automated Scenario Acceptance)**: PASSED (23/23 cenários aprovados através do gateway deployed em ~12.4s).
+- **Validação humana via browser (Human Browser Acceptance)**: PENDING (aceite visual do Bot Lab por operador humano pendente).
 - **Escopo e Posse Técnica**:
   - O MapOS é exclusivamente a bancada administrativa e de operação (administrative and operator test workbench).
   - O MapOS possui apenas: apresentação de catálogo/resultados, filtragem/seleção de cenários e proxy server-side.
