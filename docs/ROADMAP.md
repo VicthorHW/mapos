@@ -32,8 +32,10 @@ Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produ�
 
 ## Nova Iniciativa de Desenvolvimento
 
-### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLEMENTADA / PUBLICADA)
-- **Status de ciclo de vida**: IMPLEMENTED_LOCAL (Deploy de produção pendente).
+### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLANTADA EM PRODUÇÃO — DEPLOYED_UNVERIFIED)
+- **Status de ciclo de vida**: DEPLOYED_UNVERIFIED (Deploy de produção realizado; Coolify Deployment #233, baseline `8e8cd9fc6810ecbe93c64e91a6b8bb4877e6cf10`).
+- **Validação server-side**: PASS (23/23 cenários aprovados via proxy gateway MapOS -> Bot).
+- **Validação humana via browser**: PENDING (aceite visual do Bot Lab por operador humano pendente).
 - **Escopo e Posse Técnica**:
   - O MapOS é exclusivamente a bancada administrativa e de operação (administrative and operator test workbench).
   - O MapOS possui apenas: apresentação de catálogo/resultados, filtragem/seleção de cenários e proxy server-side.

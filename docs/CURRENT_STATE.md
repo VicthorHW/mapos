@@ -66,19 +66,22 @@ Scope: MapOS fork TecNina / estado atual
   - **MapOS possui apenas**: apresentação do catálogo e resultados, UX de seleção e filtragem por tags/texto, e proxy administrativo server-side.
   - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
 - **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
-- **Status operacional (ADR-009)**: IMPLEMENTED_LOCAL
-- **Implantação operacional (Deployment)**: NOT DEPLOYED (Código fonte em controle de versão; não implantado em produção).
-- **Validação de produção**: NOT PERFORMED.
+- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #233, baseline `8e8cd9fc6810ecbe93c64e91a6b8bb4877e6cf10`).
+- **Validação server-side**: PASS (Ordem Técnica 21C; 23/23 cenários aprovados através do proxy gateway MapOS -> Bot `/admin/simulator/scenarios/run`, 0 falhas, 0 erros, sem efeitos colaterais).
+- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (homologação interativa visual e de layout no navegador por operador humano pendente).
 
 ## Baselines de Produção e Desenvolvimento
 
-### Produção Vigente (Current Production — Bot Lab V2.1)
+### Produção Vigente (Current Production — Automated Scenario Testing Phase 1 & Bot Lab V2.1)
 - **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
-- **Linha de base implantada (Deployed Implementation Baseline)**: `91857c92ec40c54c9d255c8109783164f3d0e848`
-- **Validação server-side**: PASS (aprovada na Ordem Técnica 20B/20B-R1)
-- **Aceite humano via browser (Bot Lab V2.1)**: PENDING
+- **Linha de base implantada (Deployed Implementation Baseline)**: `8e8cd9fc6810ecbe93c64e91a6b8bb4877e6cf10` (Coolify Deployment #233)
+- **Validação server-side**: PASS (aprovada na Ordem Técnica 21C; 23/23 cenários aprovados)
+- **Aceite humano via browser (Bot Lab)**: PENDING
 - **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
+- **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
+- **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
 - **Validação automatizada local**:
   - 5 testes de contrato PHP executados com 129 asserções no total:
     - `tests/TecninaBotLabPanelTest.php`: 69 asserções
