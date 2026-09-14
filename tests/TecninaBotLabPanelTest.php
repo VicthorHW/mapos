@@ -197,4 +197,44 @@ expectBotLab(strpos($script, 'TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS') === false, 
 expectBotLab(strpos($script, 'scenario_timeout') === false, 'Browser JS referencia scenario_timeout.');
 expectBotLab(strpos($script, 'executeScenariosSuite({})') !== false, 'Botão "Executar todos" não envia payload vazio para executeScenariosSuite.');
 
+// Contract AC: DOM hierarchy - #panel-interactive-mode and #panel-scenarios-mode are siblings
+$interactivePos = strpos($view, 'id="panel-interactive-mode"');
+$workbenchPos = strpos($view, 'id="bot-lab-workbench"');
+$scenariosPos = strpos($view, 'id="panel-scenarios-mode"');
+
+expectBotLab($interactivePos !== false, 'Elemento #panel-interactive-mode ausente na view.');
+expectBotLab($workbenchPos !== false, 'Elemento #bot-lab-workbench ausente na view.');
+expectBotLab($scenariosPos !== false, 'Elemento #panel-scenarios-mode ausente na view.');
+expectBotLab($interactivePos < $workbenchPos, '#bot-lab-workbench deve estar posicionado após a abertura de #panel-interactive-mode.');
+expectBotLab($workbenchPos < $scenariosPos, '#panel-scenarios-mode deve estar posicionado após #bot-lab-workbench.');
+
+$intTagStart = strrpos(substr($view, 0, $interactivePos), '<div');
+$scTagStart = strrpos(substr($view, 0, $scenariosPos), '<div');
+$interactiveSlice = substr($view, $intTagStart, $scTagStart - $intTagStart);
+preg_match_all('/<div\b[^>]*>/i', $interactiveSlice, $openDivs);
+preg_match_all('/<\/div>/i', $interactiveSlice, $closeDivs);
+expectBotLab(count($openDivs[0]) === count($closeDivs[0]), '#panel-interactive-mode e seus filhos devem estar completamente fechados antes da abertura de #panel-scenarios-mode.');
+
+// Contract AD: Tag balance in entire bot_lab.php view
+preg_match_all('/<div\b[^>]*>/i', $view, $allOpenDivs);
+preg_match_all('/<\/div>/i', $view, $allCloseDivs);
+expectBotLab(count($allOpenDivs[0]) === count($allCloseDivs[0]), 'bot_lab.php contém divs desbalanceadas (abertas: ' . count($allOpenDivs[0]) . ', fechadas: ' . count($allCloseDivs[0]) . ').');
+
+// Contract AE: Client-side timeout for scenario execution is >= 45s (50000ms)
+expectBotLab(strpos($script, 'simulador_executar_cenarios') !== false, 'Script não referencia simulador_executar_cenarios.');
+preg_match('/path\s*===\s*[\'"]\/simulador_executar_cenarios[\'"]\s*\?\s*(\d+)/', $script, $timeoutMatch);
+expectBotLab(!empty($timeoutMatch) && intval($timeoutMatch[1]) >= 45000, 'Timeout do cliente para simulador_executar_cenarios deve ser >= 45000ms.');
+
+// Contract AF: Explicit catalog loading indicator and error state markup
+expectBotLab(strpos($script, "id', 'sc-catalog-loading'") !== false || strpos($script, 'id="sc-catalog-loading"') !== false, 'Script não cria indicador #sc-catalog-loading durante carregamento.');
+expectBotLab(strpos($script, "id', 'sc-catalog-error'") !== false || strpos($script, 'id="sc-catalog-error"') !== false, 'Script não cria elemento de erro #sc-catalog-error após falha no catálogo.');
+expectBotLab(strpos($script, "'Carregando catálogo de cenários...'") !== false, 'Script não exibe texto informativo de carregamento do catálogo.');
+
+// Contract AG: Mode switcher and exception safety
+expectBotLab(strpos($script, "function switchPanelMode(") !== false, 'Função switchPanelMode ausente no script.');
+expectBotLab(strpos($script, "$('#panel-interactive-mode').hide()") !== false, 'switchPanelMode não oculta #panel-interactive-mode.');
+expectBotLab(strpos($script, "$('#panel-scenarios-mode').show()") !== false, 'switchPanelMode não exibe #panel-scenarios-mode.');
+expectBotLab(strpos($script, "$('#panel-scenarios-mode').hide()") !== false, 'switchPanelMode não oculta #panel-scenarios-mode.');
+expectBotLab(strpos($script, "$('#panel-interactive-mode').show()") !== false, 'switchPanelMode não exibe #panel-interactive-mode.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;

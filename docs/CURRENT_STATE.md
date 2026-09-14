@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-13
+Last consolidated: 2026-09-14
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual
 
@@ -69,7 +69,7 @@ Scope: MapOS fork TecNina / estado atual
 - **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
 - **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #234, baseline `20d99ff621203ff319106e1d73d198cdec6c4032`).
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado em produção; timeout genérico do gateway: 8s; timeout da suíte de cenários: 45s default).
-- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (homologação interativa visual e de layout no navegador por operador humano pendente).
+- **Validação humana por navegador (Human Browser Acceptance)**: BLOCKED / FAILED (Ordem Técnica 21D: área de testes de cenários em branco ao clicar na aba correspondente no navegador em produção; causa raiz diagnosticada: aninhamento indevido de #panel-scenarios-mode dentro de #panel-interactive-mode em bot_lab.php ocultando o painel via CSS; correção local IMPLEMENTED_LOCAL no branch fix/bot-lab-automated-tests-render; deploy NOT PERFORMED; reteste humano PENDING pós-deploy).
 
 ## Baselines de Produção e Desenvolvimento
 
@@ -77,20 +77,22 @@ Scope: MapOS fork TecNina / estado atual
 - **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
 - **Linha de base implantada (Deployed Implementation Baseline)**: `20d99ff621203ff319106e1d73d198cdec6c4032` (Coolify Deployment #234)
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: PENDING
-- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
+- **Aceite humano via browser (Bot Lab)**: BLOCKED / FAILED (21D: área de testes de cenários em branco após ativação; correção estrutural e de resiliência UI IMPLEMENTED_LOCAL no branch `fix/bot-lab-automated-tests-render`, deploy NOT PERFORMED, reteste humano PENDING)
+- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED (produção em `master` b35f41c2b1cb3326c00fd403567059506d118857; correção local em branch de feature)
 - **Branch de publicação vigente**: `master`
 - **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
 - **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
 - **Validação automatizada local**:
-  - 6 testes de contrato PHP executados com 222 asserções no total:
+  - 6 testes de contrato PHP executados com 239 asserções no total:
     - `tests/TecninaBotGatewayTimeoutTest.php`: 44 asserções
-    - `tests/TecninaBotLabPanelTest.php`: 118 asserções
+    - `tests/TecninaBotLabPanelTest.php`: 135 asserções (inclui contratos AC-AG de hierarquia DOM, balanceamento de tags, timeout cliente e estados de catálogo)
     - `tests/TecninaIntakeReviewPanelTest.php`: 29 asserções
     - `tests/TecninaLogisticsPanelTest.php`: 17 asserções
     - `tests/TecninaOsAccessPanelTest.php`: 8 asserções
     - `tests/TecninaFlowStudioRemovalTest.php`: 6 asserções
-  - Sintaxe JavaScript limpa (`node --check assets/tecnina/js/bot-lab.js`).
+  - 1 suíte de teste de interface DOM / JavaScript:
+    - `tests/TecninaBotLabUiTest.js`: 28 asserções passadas cleanly (hierarquia DOM, ativação, renderização do catálogo, idempotência de cliques repetidos, tela de erro com alert visível e despachos únicos de execução).
+  - Sintaxe JavaScript e PHP estritamente verificadas (`node --check assets/tecnina/js/bot-lab.js`, `php -l`).
 
 ## Confirmações no repositório real
 

@@ -149,17 +149,18 @@
         $('#btn-delete-session').prop('disabled', busy);
     }
 
-    function request(path, method, data, done, fail, retryAttempt) {
+    function request(path, method, data, done, fail, retryAttempt, customTimeout) {
         data = data || {};
         if (method !== 'GET') {
             data[csrfName] = csrfHash;
         }
+        var timeoutMs = customTimeout || (path === '/simulador_executar_cenarios' ? 50000 : 15000);
         return $.ajax({
             url: base + path,
             method: method,
             data: data,
             dataType: 'json',
-            timeout: 15000
+            timeout: timeoutMs
         }).done(function (response) {
             if (response && response.csrf) {
                 csrfHash = response.csrf;
@@ -783,19 +784,24 @@
     var scenariosInFlight = false;
 
     function switchPanelMode(mode) {
-        if (mode === 'SCENARIOS') {
-            $('#tab-nav-interactive').parent().removeClass('active');
-            $('#tab-nav-scenarios').parent().addClass('active');
-            $('#panel-interactive-mode').hide();
-            $('#panel-scenarios-mode').show();
-            if (!scenariosCatalogLoaded) {
-                loadScenariosCatalog();
+        try {
+            if (mode === 'SCENARIOS') {
+                $('#tab-nav-interactive').parent().removeClass('active');
+                $('#tab-nav-scenarios').parent().addClass('active');
+                $('#panel-interactive-mode').hide();
+                $('#panel-scenarios-mode').show();
+                if (!scenariosCatalogLoaded) {
+                    loadScenariosCatalog();
+                }
+            } else {
+                $('#tab-nav-scenarios').parent().removeClass('active');
+                $('#tab-nav-interactive').parent().addClass('active');
+                $('#panel-scenarios-mode').hide();
+                $('#panel-interactive-mode').show();
             }
-        } else {
-            $('#tab-nav-scenarios').parent().removeClass('active');
-            $('#tab-nav-interactive').parent().addClass('active');
-            $('#panel-scenarios-mode').hide();
-            $('#panel-interactive-mode').show();
+        } catch (err) {
+            $('#panel-scenarios-mode').show();
+            showError('Erro ao alternar modo: ' + (err && err.message ? err.message : 'desconhecido'));
         }
     }
 
@@ -810,27 +816,45 @@
     });
 
     function loadScenariosCatalog() {
+        var catalogList = $('#sc-catalog-list');
+        catalogList.empty();
+        var loadingIndicator = $('<div>')
+            .attr('id', 'sc-catalog-loading')
+            .addClass('alert alert-info')
+            .append($('<i>').addClass('bx bx-loader-alt bx-spin').css('margin-right', '8px'))
+            .append($('<span>').text('Carregando catálogo de cenários...'));
+        catalogList.append(loadingIndicator);
+        $('#sc-header-count').text('Carregando catálogo...');
+
         request('/simulador_cenarios', 'GET', {}, function (data) {
             scenariosCatalogLoaded = true;
             scenariosCatalog = data;
-            var scCount = data.scenario_count || (data.scenarios ? data.scenarios.length : 0);
-            var caseCount = data.case_count || 0;
+            var scCount = (data && data.scenario_count != null) ? data.scenario_count : (data && data.scenarios ? data.scenarios.length : 0);
+            var caseCount = (data && data.case_count != null) ? data.case_count : 0;
 
             $('#sc-nav-badge').text(caseCount);
             $('#sc-header-count').text(scCount + ' cenários (' + caseCount + ' casos)');
 
             var tagSelect = $('#sc-filter-tag');
-            tagSelect.empty().append($('<option>').val('').text('Todas as tags (' + (data.tags ? data.tags.length : 0) + ')'));
-            if (data.tags && data.tags.length) {
+            tagSelect.empty().append($('<option>').val('').text('Todas as tags (' + (data && data.tags ? data.tags.length : 0) + ')'));
+            if (data && data.tags && data.tags.length) {
                 for (var t = 0; t < data.tags.length; t++) {
                     tagSelect.append($('<option>').val(data.tags[t]).text(data.tags[t]));
                 }
             }
 
-            renderCatalogList(data.scenarios || []);
+            renderCatalogList(data ? (data.scenarios || []) : []);
         }, function (reason, status) {
             $('#sc-header-count').text('Erro ao carregar catálogo');
-            showError('Não foi possível carregar o catálogo de cenários: ' + formatErrorMessage(reason, status));
+            var errorMsg = 'Não foi possível carregar o catálogo de cenários: ' + formatErrorMessage(reason, status);
+            showError(errorMsg);
+            catalogList.empty();
+            var errorNotice = $('<div>')
+                .attr('id', 'sc-catalog-error')
+                .addClass('alert alert-error')
+                .append($('<i>').addClass('bx bx-error-circle').css('margin-right', '8px'))
+                .append($('<span>').text(errorMsg));
+            catalogList.append(errorNotice);
         });
     }
 

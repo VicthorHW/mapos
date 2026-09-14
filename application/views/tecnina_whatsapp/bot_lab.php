@@ -307,7 +307,8 @@
                             </div>
                         </div>
                     </div>
-                </div> <!-- End #panel-interactive-mode -->
+                </div> <!-- End #bot-lab-workbench -->
+            </div> <!-- End #panel-interactive-mode -->
 
                 <!-- Panel: Automated Scenarios Mode -->
                 <div id="panel-scenarios-mode" style="display:none;">
