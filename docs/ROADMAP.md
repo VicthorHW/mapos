@@ -32,14 +32,14 @@ Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produ�
 
 ## Nova Iniciativa de Desenvolvimento
 
-### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLANTADA EM PRODUÇÃO — DEPLOYED_UNVERIFIED)
-- **Status de ciclo de vida**: DEPLOYED_UNVERIFIED (Deploy de produção realizado; Coolify Deployment #242, baseline `6c119f20bef8d3edba060731f212f0b734e9f0a8`).
+### AUTOMATED CONVERSATION SCENARIO TESTING (Fase 1 IMPLANTADA EM PRODUÇÃO — VALIDATED)
+- **Status de ciclo de vida**: VALIDATED (Deploy de produção realizado; Coolify Deployment #242, baseline `6c119f20bef8d3edba060731f212f0b734e9f0a8`; homologação humana formal PASSED em 21D).
 - **Defeito de timeout do gateway de cenários (Scenario Gateway Timeout Defect)**: RESOLVED / DEPLOYED (timeout de execução de cenários configurado em 45s default, bounds 15..90 via `TECNINA_BOT_SCENARIO_TIMEOUT_SECONDS`, sem controle pelo navegador; timeout genérico mantido em 8s).
 - **Defeito de renderização da bancada de testes de cenários (Bot Lab Workbench Blank Render Defect)**: RESOLVED / DEPLOYED (hierarquia DOM corrigida no Deployment #239 separando #panel-scenarios-mode como irmão de #panel-interactive-mode).
 - **Defeito de payload do Run All (Run All Payload Object Defect)**: RESOLVED / DEPLOYED (Causa raiz: objeto JSON vazio `{}` convertido em array PHP `[]` e re-serializado como `"[]"`, rejeitado com 422 pelo Bot; corrigido com deserialização `stdClass`, sanitização de timeouts e rejeição 422 para arrays top-level no Deployment #242).
 - **Validação server-side de cenários automatizados (Server-side Automated Scenario Acceptance)**: PASSED (23/23 cenários aprovados através do gateway deployed).
-- **Execução automatizada em navegador real de produção (Real Production Browser Automation)**: PASSED (Playwright Chromium executou "Executar todos" no Bot Lab de produção com 23/23 PASS [0 FAIL / 0 ERROR], duração 13.175ms, 0 mutações de negócio no banco e isolamento de segurança validado).
-- **Validação humana via browser (Human Browser Acceptance)**: PENDING (reteste final do "Executar todos" por operador humano pendente após deploy da correção de payload).
+- **Execução automatizada em navegador real de produção (Real Production Browser Automation)**: PASSED (Playwright Chromium executou "Executar todos" no Bot Lab de produção com 23/23 PASS [0 FAIL / 0 ERROR], duração 13,175 ms (~13.175 s), 0 mutações de negócio no banco e isolamento de segurança validado).
+- **Validação humana via browser (Human Browser Acceptance)**: PASSED (homologação humana formal concluída pelo operador em produção via Bot Lab "Executar todos": 23 PASS / 0 FAIL / 0 ERROR; REQ-AST-025 DONE).
 - **Escopo e Posse Técnica**:
   - O MapOS é exclusivamente a bancada administrativa e de operação (administrative and operator test workbench).
   - O MapOS possui apenas: apresentação de catálogo/resultados, filtragem/seleção de cenários e proxy server-side.
