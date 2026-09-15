@@ -50,12 +50,12 @@ Scope: MapOS fork TecNina / estado atual
   - Representação técnica refinada de passos CAPABILITY no inspetor de Etapas;
   - Console de envio de mensagens e localização, visualizador do ledger de passos e inspetor de efeitos externos observáveis.
 - **Isolamento de Domínio**: O MapOS NÃO possui `SimulationRuntime`, NÃO gerencia tokens de capability, NÃO executa FSM, NÃO armazena snapshots de configuração operacional e NÃO faz roteamento HTTP de capabilities públicas. As páginas públicas de capability (`/s/{simulation_id}/...`) são servidas diretamente pelo Bot.
-- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Status operacional (ADR-009)**: VALIDATED
 - **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Linha de base de código implantada (Deployed Implementation Baseline)**: `91857c92ec40c54c9d255c8109783164f3d0e848`
 - **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #223)
 - **Validação server-side**: PASS (rotas proxy do Bot Lab, autorização cSistema, contratos com o Bot Gateway validados no servidor)
-- **Validação humana por navegador (Human Browser Acceptance)**: PENDING
+- **Validação humana por navegador (Human Browser Acceptance)**: PASSED (Bancada do Bot Lab homologada formalmente pelo operador humano em navegador de produção).
 - **Operação do V2.1**: Código V2.1 implantado em produção juntamente com Bot V2.1. Backups pré-deploy 20B mantidos no servidor (`/var/backups/tecnina/pre-20b/`).
 
 ## Bot Lab Automated Scenario Testing Workbench
@@ -66,20 +66,20 @@ Scope: MapOS fork TecNina / estado atual
   - **MapOS possui apenas**: apresentação do catálogo e resultados, UX de seleção e filtragem por tags/texto, e proxy administrativo server-side.
   - **Bot Gateway possui**: schema v1, catálogo de especificações YAML sob controle de versão, runner sequencial, execução isolada em SQLite efêmero, asserções, redaction de segredos e semântica de resultados.
 - **O Bot Lab NÃO é**: editor visual de fluxos (Flow Studio), editor de cenários, nem segundo motor de conversação.
-- **Status operacional (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Status operacional (ADR-009)**: VALIDATED
 - **Implantação operacional (Deployment)**: DEPLOYED (Coolify Deployment #242, baseline `6c119f20bef8d3edba060731f212f0b734e9f0a8`).
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado em produção; timeout genérico do gateway: 8s; timeout da suíte de cenários: 45s default).
 - **Defeito de payload do Run All (Run All Payload Defect)**: RESOLVED / DEPLOYED (Causa raiz: objeto JSON vazio `{}` convertido para array PHP vazio `[]` via `json_decode(..., true)` no controller MapOS e serializado como `"[]"`, rejeitado com 422 pelo schema do Bot; correção implantada com decodificação `stdClass`, sanitização de timeouts e rejeição de arrays com 422).
 - **Execução automatizada do Run All em navegador real de produção**: PASS (Playwright Chromium executou "Executar todos" no Bot Lab de produção: 23/23 cenários aprovados [0 FAIL / 0 ERROR], duração de parede 13.175ms, tempo do runner 12.635ms; 23 cards renderizados, expansão de card validada; 0 mutações de negócio no banco; 0 requisições diretas ao Bot admin; 0 Bearer expostos).
-- **Validação humana por navegador (Human Browser Acceptance)**: PENDING (Ordem Técnica 21D: operador humano validou abertura, catálogo, filtros, seleção, execução selecionada e resultados; reteste humano final do "Executar todos" em produção PENDING).
+- **Validação humana por navegador (Human Browser Acceptance)**: PASSED (Ordem Técnica 21D: operador humano homologou em produção a abertura, catálogo, filtros, seleção e resultados, e concluiu o reteste pessoal do "Executar todos" com 23 PASS / 0 FAIL / 0 ERROR; REQ-AST-025 DONE).
 
 ## Baselines de Produção e Desenvolvimento
 
 ### Produção Vigente (Current Production — Automated Scenario Testing Phase 1 & Bot Lab V2.1)
-- **Status de ciclo de vida (ADR-009)**: DEPLOYED_UNVERIFIED
+- **Status de ciclo de vida (ADR-009)**: VALIDATED
 - **Linha de base implantada (Deployed Implementation Baseline)**: `6c119f20bef8d3edba060731f212f0b734e9f0a8` (Coolify Deployment #242)
 - **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: PENDING (21D: funções de navegação, catálogo, filtros, seleção e resultados aprovadas pelo operador; correção de payload do Run All implantada no Deployment #242 e comprovada via navegador automatizado 23/23 PASS; reteste humano final por operador PENDING)
+- **Aceite humano via browser (Bot Lab)**: PASSED (Ordem Técnica 21D: homologação humana formal concluída pelo operador em produção; "Executar todos" 23 PASS / 0 FAIL / 0 ERROR; REQ-AST-025 DONE)
 - **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
 - **Branch de publicação vigente**: `master`
 - **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
@@ -118,12 +118,5 @@ Scope: MapOS fork TecNina / estado atual
 
 ## Próxima validação necessária
 
-- validação visual e via navegador da bancada interativa V2.1 no MapOS por operador humano:
-  - resumo da configuração operacional no Estado (cidades, taxas e agenda presencial);
-  - aba Entregas com código de cadastro;
-  - abertura de links clicáveis /p, /g, /c;
-  - renderização de eventos e passos CAPABILITY;
-  - invalidação e limpeza de tokens pós reset e exclusão de sessão;
-- confirmação de layout responsivo e ciclo de vida de CSRF no MapOS em execução real;
 - estabilização pós-deploy e monitoramento de logs de produção;
-- futura iniciativa de testes automatizados de cenários de conversação (AUTOMATED CONVERSATION SCENARIO TESTING).
+- acompanhamento da governança de testes de cenários conversacionais (Fase 22A+).
