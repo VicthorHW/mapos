@@ -1,4 +1,9 @@
 Status: CURRENT
+## Technical Order 23C / S02-A
+
+- S01 is `APPROVED / PUBLISHED` in governance; this MapOS branch is local `feature/customer-intake-data-foundation-s02` from the approved baseline.
+- S02-A adds persistence-only pre-OS receiving, location, attachment metadata, and nullable approval snapshot/sync metadata. No OS creation, customer UI, auth, Bot copy, production migration, push, or deploy is active.
+- Local PHP/Composer execution is unavailable in this environment; evidence records the limitation explicitly.
 Last consolidated: 2026-09-14
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual

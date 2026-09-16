@@ -1,4 +1,8 @@
 Status: CURRENT
+## Technical Order 23C / S02-A (local)
+
+- Data foundation implemented locally; Technical Lead review pending.
+- Follow-on UI/auth/OS gate/production work is not authorized by this stage.
 Last consolidated: 2026-09-13
 Source of truth: YES
 Scope: MapOS fork TecNina / pendências

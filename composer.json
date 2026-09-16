@@ -35,6 +35,7 @@
             "php tests/TecninaClientByPhoneTest.php",
             "php tests/TecninaIntakeReviewPanelTest.php",
             "php tests/TecninaIntakeApprovalTest.php",
+            "php tests/TecninaS02DataFoundationTest.php",
             "php tests/TecninaLogisticsPanelTest.php",
             "php tests/TecninaFlowStudioRemovalTest.php",
             "php tests/TecninaOsStatusContractTest.php",

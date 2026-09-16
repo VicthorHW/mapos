@@ -31,6 +31,10 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-16 | Bot Lab V2.1 (bancada do simulador com config operacional, entregas e capabilities) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
 | MAP-17 | Bot Lab Automated Scenario Workbench (catálogo, filtros e execução de cenários declarativos) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
 
+## S02-A local data foundation
+
+MAP-18: persistence-only pre-OS receiving, location, attachment metadata, and approval snapshot/sync metadata. Status `IMPLEMENTED_LOCAL / NOT_DEPLOYED`; protected by `tests/TecninaS02DataFoundationTest.php`. PHP validation was unavailable in the current environment.
+
 ## Arquivo upstream alterado neste ciclo
 
 | Arquivo | Motivo | Necessidade | Alternativa avaliada | Proteção |

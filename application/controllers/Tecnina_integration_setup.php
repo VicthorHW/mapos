@@ -447,6 +447,15 @@ class Tecnina_integration_setup extends CI_Controller
             'client_created' => 'TINYINT(1) NOT NULL DEFAULT 0',
             'created_at' => 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',
             'completed_at' => 'DATETIME NULL',
+            'intake_version' => 'INT NULL',
+            'snapshot_version' => 'INT NULL',
+            'snapshot_hash' => 'CHAR(64) NULL',
+            'snapshot_fetched_at' => 'DATETIME NULL',
+            'readiness_contract_version' => 'VARCHAR(32) NULL',
+            'attachment_sync_state' => 'VARCHAR(24) NULL',
+            'bot_sync_state' => 'VARCHAR(24) NULL',
+            'bot_finalize_attempts' => 'INT UNSIGNED NOT NULL DEFAULT 0',
+            'last_error_code' => 'VARCHAR(64) NULL',
         ];
     }
 
@@ -481,6 +490,15 @@ class Tecnina_integration_setup extends CI_Controller
             'client_created' => ['type' => 'tinyint(1)', 'null' => 'NO'],
             'created_at' => ['type' => 'datetime', 'null' => 'NO'],
             'completed_at' => ['type' => 'datetime', 'null' => 'YES'],
+            'intake_version' => ['type' => 'int', 'null' => 'YES'],
+            'snapshot_version' => ['type' => 'int', 'null' => 'YES'],
+            'snapshot_hash' => ['type' => 'char(64)', 'null' => 'YES'],
+            'snapshot_fetched_at' => ['type' => 'datetime', 'null' => 'YES'],
+            'readiness_contract_version' => ['type' => 'varchar(32)', 'null' => 'YES'],
+            'attachment_sync_state' => ['type' => 'varchar(24)', 'null' => 'YES'],
+            'bot_sync_state' => ['type' => 'varchar(24)', 'null' => 'YES'],
+            'bot_finalize_attempts' => ['type' => 'int unsigned', 'null' => 'NO'],
+            'last_error_code' => ['type' => 'varchar(64)', 'null' => 'YES'],
         ];
         foreach ($expected as $name => $shape) {
             $actualType = strtolower(preg_replace('/^(bigint|int)\([0-9]+\)/i', '$1', $columns[$name]['Type']));
@@ -491,7 +509,8 @@ class Tecnina_integration_setup extends CI_Controller
             }
         }
         if ((string) $columns['state']['Default'] !== 'PROCESSING'
-            || (string) $columns['client_created']['Default'] !== '0') {
+            || (string) $columns['client_created']['Default'] !== '0'
+            || (string) $columns['bot_finalize_attempts']['Default'] !== '0') {
             $this->fail('Defaults conflitantes na tabela de aprovacao de intake.');
         }
     }
