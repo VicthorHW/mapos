@@ -31,4 +31,10 @@ expectS02(strpos($migration, 'BETWEEN -90 AND 90') !== false && strpos($migratio
 expectS02(strpos($migration, 'CONSTRAINT `chk_tecnina_physical_receiving_state`') !== false, 'Recebimento precisa de estado controlado.');
 expectS02(strpos($setup, "'bot_finalize_attempts'") !== false, 'Instalador deve reconhecer metadados novos.');
 expectS02(strpos($setup, "'tecnina_intake_approvals'") !== false, 'Instalador deve preservar prefixo da tabela.');
+expectS02(strpos($migration, 'UNIQUE KEY `uq_tecnina_pre_os_attachments_storage_key`') !== false, 'storage key requires unique protection.');
+expectS02(strpos($migration, 'primary_coordinate') !== false, 'primary coordinate must be persisted.');
+expectS02(strpos($migration, 'original_accuracy_meters` >= 0') !== false && strpos($migration, 'adjusted_accuracy_meters` >= 0') !== false, 'accuracy must be non-negative.');
+expectS02(strpos($migration, "'PENDING_DELIVERY','RECEIVED','CANCELLED'") !== false, 'receiving vocabulary is incorrect.');
+expectS02(strpos($migration, "'STAGED','PROMOTION_PENDING','PROMOTED','FAILED','PURGED'") !== false, 'attachment vocabulary is incorrect.');
+expectS02(strpos($setup, 'const SCHEMA_VERSION = 4') !== false, 'S02 integration schema version must increment.');
 echo 'TecninaS02DataFoundationTest: ' . $assertions . ' assertions passed.' . PHP_EOL;

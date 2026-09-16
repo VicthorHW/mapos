@@ -4,7 +4,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Tecnina_integration_setup extends CI_Controller
 {
-    const SCHEMA_VERSION = 3;
+    const SCHEMA_VERSION = 4;
 
     private $outboxTable;
 

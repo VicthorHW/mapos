@@ -63,7 +63,7 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             "CREATE TABLE IF NOT EXISTS {$table} ("
             . '`id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,'
             . '`intake_id` CHAR(36) NOT NULL,'
-            . "`state` VARCHAR(24) NOT NULL DEFAULT 'PENDING',"
+            . "`state` VARCHAR(24) NOT NULL DEFAULT 'PENDING_DELIVERY',"
             . '`received_at` DATETIME NULL,'
             . '`received_by` INT NULL,'
             . '`device_condition` VARCHAR(64) NULL,'
@@ -76,7 +76,7 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             . '`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             . 'PRIMARY KEY (`id`), UNIQUE KEY `uq_tecnina_physical_receiving_intake` (`intake_id`),'
             . 'KEY `ix_tecnina_physical_receiving_state` (`state`, `created_at`),'
-            . "CONSTRAINT `chk_tecnina_physical_receiving_state` CHECK (`state` IN ('PENDING','RECEIVED','CANCELLED'))"
+            . "CONSTRAINT `chk_tecnina_physical_receiving_state` CHECK (`state` IN ('PENDING_DELIVERY','RECEIVED','CANCELLED'))"
             . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
@@ -98,6 +98,7 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             . '`adjusted_accuracy_meters` DECIMAL(10,2) NULL,'
             . '`adjusted_source` VARCHAR(32) NULL,'
             . '`adjusted_at` DATETIME NULL,'
+            . '`primary_coordinate` VARCHAR(16) NULL,'
             . '`created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             . '`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             . 'PRIMARY KEY (`id`), UNIQUE KEY `uq_tecnina_intake_locations_intake` (`intake_id`),'
@@ -105,7 +106,13 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             . 'CONSTRAINT `chk_tecnina_location_original_lat` CHECK (`original_latitude` IS NULL OR (`original_latitude` BETWEEN -90 AND 90)),'
             . 'CONSTRAINT `chk_tecnina_location_original_lon` CHECK (`original_longitude` IS NULL OR (`original_longitude` BETWEEN -180 AND 180)),'
             . 'CONSTRAINT `chk_tecnina_location_adjusted_lat` CHECK (`adjusted_latitude` IS NULL OR (`adjusted_latitude` BETWEEN -90 AND 90)),'
-            . 'CONSTRAINT `chk_tecnina_location_adjusted_lon` CHECK (`adjusted_longitude` IS NULL OR (`adjusted_longitude` BETWEEN -180 AND 180))'
+            . 'CONSTRAINT `chk_tecnina_location_adjusted_lon` CHECK (`adjusted_longitude` IS NULL OR (`adjusted_longitude` BETWEEN -180 AND 180)),'
+            . 'CONSTRAINT `chk_tecnina_location_original_accuracy` CHECK (`original_accuracy_meters` IS NULL OR `original_accuracy_meters` >= 0),'
+            . 'CONSTRAINT `chk_tecnina_location_adjusted_accuracy` CHECK (`adjusted_accuracy_meters` IS NULL OR `adjusted_accuracy_meters` >= 0),'
+            . 'CONSTRAINT `chk_tecnina_location_original_pair` CHECK ((`original_latitude` IS NULL) = (`original_longitude` IS NULL)), '
+            . 'CONSTRAINT `chk_tecnina_location_adjusted_pair` CHECK ((`adjusted_latitude` IS NULL) = (`adjusted_longitude` IS NULL)), '
+            . "CONSTRAINT `chk_tecnina_location_primary_coordinate` CHECK (`primary_coordinate` IS NULL OR `primary_coordinate` IN ('ORIGINAL','ADJUSTED')),"
+            . "CONSTRAINT `chk_tecnina_location_primary_pair` CHECK (`primary_coordinate` IS NULL OR (`primary_coordinate` = 'ORIGINAL' AND `original_latitude` IS NOT NULL AND `original_longitude` IS NOT NULL) OR (`primary_coordinate` = 'ADJUSTED' AND `adjusted_latitude` IS NOT NULL AND `adjusted_longitude` IS NOT NULL))"
             . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
@@ -122,7 +129,7 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             . '`detected_mime` VARCHAR(127) NULL,'
             . '`size_bytes` BIGINT UNSIGNED NOT NULL DEFAULT 0,'
             . '`sha256` CHAR(64) NOT NULL,'
-            . "`state` VARCHAR(24) NOT NULL DEFAULT 'PENDING',"
+            . "`state` VARCHAR(24) NOT NULL DEFAULT 'STAGED',"
             . '`promoted_anexo_id` INT NULL,'
             . '`attempt_count` INT UNSIGNED NOT NULL DEFAULT 0,'
             . '`last_error_code` VARCHAR(64) NULL,'
@@ -130,8 +137,9 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             . '`updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             . 'PRIMARY KEY (`id`),'
             . 'UNIQUE KEY `uq_tecnina_pre_os_attachment_identity` (`intake_id`, `sha256`, `size_bytes`),'
+            . 'UNIQUE KEY `uq_tecnina_pre_os_attachments_storage_key` (`storage_key`),'
             . 'KEY `ix_tecnina_pre_os_attachments_state` (`state`, `created_at`),'
-            . "CONSTRAINT `chk_tecnina_pre_os_attachment_state` CHECK (`state` IN ('PENDING','SYNCED','PROMOTED','FAILED','CANCELLED'))"
+            . "CONSTRAINT `chk_tecnina_pre_os_attachment_state` CHECK (`state` IN ('STAGED','PROMOTION_PENDING','PROMOTED','FAILED','PURGED'))"
             . ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
         );
     }
