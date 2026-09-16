@@ -1,0 +1,81 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/**
+ * S03-A identity authority.  It is intentionally dormant: Mine's active
+ * login/profile paths are not changed by this migration.
+ */
+class Migration_add_s03_identity_credential_authority extends CI_Migration
+{
+    public function up()
+    {
+        $this->widenLegacyAddressColumns();
+        $this->createIdentityTables();
+        $this->seedLegacyIdentityRows();
+    }
+
+    public function down()
+    {
+        // Never narrow legacy client address fields or alter clientes data.
+        // The authority tables may contain subsequently issued credentials;
+        // target downgrade therefore requires an explicit reviewed procedure.
+    }
+
+    private function widenLegacyAddressColumns()
+    {
+        $table = '`' . $this->db->dbprefix('clientes') . '`';
+        foreach ([
+            'rua' => 'VARCHAR(160)', 'numero' => 'VARCHAR(32)', 'bairro' => 'VARCHAR(120)',
+            'cidade' => 'VARCHAR(80)', 'complemento' => 'VARCHAR(160)',
+        ] as $column => $definition) {
+            if ($this->db->field_exists($column, 'clientes')) {
+                $this->db->query("ALTER TABLE {$table} MODIFY `{$column}` {$definition} NULL");
+            }
+        }
+    }
+
+    private function createIdentityTables()
+    {
+        $identity = '`' . $this->db->dbprefix('tecnina_client_identity') . '`';
+        $profile = '`' . $this->db->dbprefix('tecnina_client_profile') . '`';
+        $verification = '`' . $this->db->dbprefix('tecnina_email_verifications') . '`';
+        $reset = '`' . $this->db->dbprefix('tecnina_password_resets') . '`';
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$identity} (
+            `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NULL,
+            `phone_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `phone_verified_at` DATETIME NULL,
+            `email_candidate` VARCHAR(100) NULL, `email_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `email_verified_at` DATETIME NULL,
+            `credential_version` INT UNSIGNED NOT NULL DEFAULT 1, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`client_id`), KEY `ix_tecnina_identity_phone` (`canonical_phone`),
+            CONSTRAINT `fk_tecnina_identity_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$profile} (
+            `client_id` INT NOT NULL, `birth_date` DATE NULL, `address_reference` VARCHAR(160) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`client_id`), CONSTRAINT `fk_tecnina_profile_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$verification} (
+            `id` CHAR(36) NOT NULL, `client_id` INT NULL, `intake_id` CHAR(36) NULL, `purpose` VARCHAR(32) NOT NULL,
+            `email_candidate` VARCHAR(100) NOT NULL, `code_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
+            `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL,
+            `idempotency_key` VARCHAR(100) NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$reset} (
+            `id` CHAR(36) NOT NULL, `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NOT NULL,
+            `token_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING', `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL, `idempotency_key` VARCHAR(100) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`), KEY `ix_tecnina_reset_client` (`client_id`, `state`),
+            UNIQUE KEY `uq_tecnina_reset_idempotency` (`idempotency_key`), CONSTRAINT `fk_tecnina_reset_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    }
+
+    private function seedLegacyIdentityRows()
+    {
+        $identity = '`' . $this->db->dbprefix('tecnina_client_identity') . '`';
+        $clients = '`' . $this->db->dbprefix('clientes') . '`';
+        // Do not infer phone verification from a legacy contact value.
+        $this->db->query("INSERT IGNORE INTO {$identity} (`client_id`, `email_state`) SELECT `idClientes`, CASE WHEN `email` IS NULL OR `email` = '' THEN 'NONE' ELSE 'LEGACY_EXISTING' END FROM {$clients}");
+    }
+}

@@ -52,6 +52,10 @@ $route['api/bot/client/(:num)/profile'] = 'api/bot/client_profile/index/$1';
 $route['api/bot/client/(:num)/unlink-phone'] = 'api/bot/client_profile/unlink_phone/$1';
 $route['api/bot/clients'] = 'api/bot/clients/index';
 $route['api/bot/client-registration/email-code'] = 'api/bot/client_registration/email_code';
+$route['api/bot/credentials/hash'] = 'api/bot/identity/hash';
+$route['api/bot/client/lookup'] = 'api/bot/identity/lookup';
+$route['api/bot/email-verification'] = 'api/bot/identity/email_verification';
+$route['api/bot/password-reset'] = 'api/bot/identity/password_reset';
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 
 // Rotas da API
