@@ -20,7 +20,7 @@ expectS02(strpos($migration, 'CREATE TABLE IF NOT EXISTS') !== false, 'Migraçã
 foreach (['tecnina_physical_receiving', 'tecnina_intake_locations', 'tecnina_pre_os_attachments'] as $table) {
     expectS02(strpos($migration, $table) !== false, 'Tabela S02 ausente: ' . $table);
 }
-foreach (['snapshot_hash', 'readiness_contract_version', 'attachment_sync_state', 'bot_sync_state', 'bot_finalize_attempts'] as $column) {
+foreach (['snapshot_hash', 'seal_expires_at', 'readiness_result', 'readiness_contract_version', 'attachment_sync_state', 'bot_sync_state', 'bot_finalize_attempts'] as $column) {
     expectS02(strpos($migration, "'{$column}'") !== false, 'Metadado de aprovação ausente: ' . $column);
 }
 expectS02(strpos($migration, 'DROP DATABASE') === false && strpos($migration, 'TRUNCATE') === false, 'Migração não pode ser destrutiva.');

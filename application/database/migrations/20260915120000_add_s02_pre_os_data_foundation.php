@@ -22,7 +22,7 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
         $approval = '`' . $this->db->dbprefix('tecnina_intake_approvals') . '`';
         foreach ([
             'last_error_code', 'bot_finalize_attempts', 'bot_sync_state', 'attachment_sync_state',
-            'readiness_contract_version', 'snapshot_fetched_at', 'snapshot_hash', 'snapshot_version',
+            'readiness_contract_version', 'readiness_result', 'seal_expires_at', 'snapshot_fetched_at', 'snapshot_hash', 'snapshot_version',
             'intake_version',
         ] as $column) {
             if ($this->db->field_exists($column, 'tecnina_intake_approvals')) {
@@ -41,6 +41,8 @@ class Migration_add_s02_pre_os_data_foundation extends CI_Migration
             'snapshot_version' => ['type' => 'INT', 'null' => true],
             'snapshot_hash' => ['type' => 'CHAR', 'constraint' => 64, 'null' => true],
             'snapshot_fetched_at' => ['type' => 'DATETIME', 'null' => true],
+            'seal_expires_at' => ['type' => 'DATETIME', 'null' => true],
+            'readiness_result' => ['type' => 'TEXT', 'null' => true],
             'readiness_contract_version' => ['type' => 'VARCHAR', 'constraint' => 32, 'null' => true],
             'attachment_sync_state' => ['type' => 'VARCHAR', 'constraint' => 24, 'null' => true],
             'bot_sync_state' => ['type' => 'VARCHAR', 'constraint' => 24, 'null' => true],
