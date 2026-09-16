@@ -22,7 +22,10 @@ class Tools extends CI_Controller
         }
 
         $this->load->dbforge();
+    }
 
+    protected function initializeSeederRuntime()
+    {
         $this->load->library('Seeder');
 
         // initiate faker
@@ -86,6 +89,8 @@ class Tools extends CI_Controller
 
     public function seed($name = null)
     {
+        $this->initializeSeederRuntime();
+
         if ($name) {
             $this->seeder->call($name);
 
