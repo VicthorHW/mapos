@@ -1,10 +1,13 @@
 Status: CURRENT
-## Technical Order 23C / S02-A
+## S02-A — reconciliação atual (2026-09-16)
 
-- S01 is `APPROVED / PUBLISHED` in governance; this MapOS branch is local `feature/customer-intake-data-foundation-s02` from the approved baseline.
-- S02-A adds persistence-only pre-OS receiving, location, attachment metadata, and nullable approval snapshot/sync metadata. No OS creation, customer UI, auth, Bot copy, production migration, push, or deploy is active.
-- Local PHP/Composer execution is unavailable in this environment; evidence records the limitation explicitly.
-Last consolidated: 2026-09-14
+- S01 is `APPROVED / PUBLISHED`; global S02-A is `ACCEPTED`. MapOS target evidence is accepted at `a32ac998b58598f3bab45be0e790c3b46e111592` and Bot target evidence at `7a5482f4b00ca4b6c062542a2e3d7833d308b0b1`. The next work is the Git checkpoint/publication and canonical-branch return, then S03 under a separate order.
+- S02-A adds persistence-only pre-OS receiving, location, attachment metadata, and nullable approval snapshot/sync metadata. Its formal MapOS migration completed on the authorized target; no UI, auth, conversation or OS activation is included.
+- Orange Pi 5 Pro / Coolify is the authoritative production MapOS runtime. The Client currently authorizes development/testing there because no important customer data is present. Windows is static source/documentation work only; no local MapOS runtime validation.
+- PHP/runtime validation belongs on Orange Pi, not on Windows. Client controls Coolify branch, variables, lifecycle hooks and configuration; agent MCP is limited to permitted deploys and deployment logs.
+- The first formal migration attempt exited before any ledger/schema change because `Tools` eagerly loaded dev-only Faker/Seeder dependencies while production Composer uses `--no-dev`; the migration framework was not the cause and no rollback was required. Commit `a32ac998b58598f3bab45be0e790c3b46e111592` lazily initializes those dependencies only in `seed()`.
+- Coolify redeployment `oxzoyuklm86rbni20o2axday` used `a32ac998b58598f3bab45be0e790c3b46e111592`. Target `tools help` now exits 0 without Faker; the one authorized retry of `php index.php tools migrate 20260915120000` succeeded and advanced the ledger to `20260915120000`. Schema metadata and the S02 test passed; 12 of the 14 existing regression commands passed, with only the two documented baseline failures. Bot deployment `yb3soiacpyzlcpxttuylvjfy` subsequently completed on the controlled feature branch, auto-applied Alembic `20260915_0021`, and passed its target health/schema gates. Both technical portions are complete; global acceptance remains a Technical Lead decision.
+Last consolidated: 2026-09-16
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual
 

@@ -1,5 +1,5 @@
 Status: CURRENT
-Last consolidated: 2026-09-13
+Last consolidated: 2026-09-16
 Source of truth: YES
 Scope: MapOS fork TecNina / manifesto de customizações
 
@@ -23,17 +23,17 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-08 | OS abertas por cliente para consulta atual | CURRENT | `application/controllers/api/bot/Client_open_os.php`, `application/models/Tecnina_client_open_os_model.php`, `application/config/routes.php` | `tests/TecninaIntakeApprovalTest.php` |
 | MAP-09 | Flow Studio | SUPERSEDED/REMOVED | antiga aba/proxy | não reativar; histórico em archive |
 | MAP-10 | Código de 8 caracteres / consulta por OS | SUPERSEDED | rota/status + UI antiga | fluxo atual usa telefone + OS abertas |
-| MAP-11 | Gestão WhatsApp e pré-atendimentos separados | LOCAL/UNRELEASED | controller/view/JS/CSS TecNina + item no menu original | testes de painel, privacidade e aprovação |
-| MAP-12 | Prévia administrativa do GPS | LOCAL/UNRELEASED | JS/CSS da revisão de intake + detalhe autenticado do Gateway | mapa sem API paga; coordenadas fora da listagem |
-| MAP-13 | Perfil e cadastro privados do Bot | LOCAL/UNRELEASED | controllers/model TecNina + rotas `/api/bot/*` | whitelist, token interno, sem hash/secret |
-| MAP-14 | Credencial no intake aprovado | LOCAL/UNRELEASED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
-| MAP-15 | Oferta de taxa manual | LOCAL/UNRELEASED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
-| MAP-16 | Bot Lab V2.1 (bancada do simulador com config operacional, entregas e capabilities) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
-| MAP-17 | Bot Lab Automated Scenario Workbench (catálogo, filtros e execução de cenários declarativos) | IMPLEMENTED_LOCAL / NOT_DEPLOYED | controller `Tecnina_whatsapp.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
+| MAP-11 | Gestão WhatsApp e pré-atendimentos separados | DEPLOYED / HISTORICALLY_VALIDATED | controller/view/JS/CSS TecNina + item no menu original | testes de painel, privacidade e aprovação |
+| MAP-12 | Prévia administrativa do GPS | DEPLOYED / HISTORICALLY_VALIDATED | JS/CSS da revisão de intake + detalhe autenticado do Gateway | mapa sem API paga; coordenadas fora da listagem |
+| MAP-13 | Perfil e cadastro privados do Bot | DEPLOYED / HISTORICALLY_VALIDATED | controllers/model TecNina + rotas `/api/bot/*` | whitelist, token interno, sem hash/secret |
+| MAP-14 | Credencial no intake aprovado | DEPLOYED / HISTORICALLY_VALIDATED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
+| MAP-15 | Oferta de taxa manual | DEPLOYED / HISTORICALLY_VALIDATED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
+| MAP-16 | Bot Lab V2.1 (bancada do simulador com config operacional, entregas e capabilities) | DEPLOYED / VALIDATED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
+| MAP-17 | Bot Lab Automated Scenario Workbench (catálogo, filtros e execução de cenários declarativos) | DEPLOYED / VALIDATED | controller `Tecnina_whatsapp.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
 
-## S02-A local data foundation
+## S02-A data foundation
 
-MAP-18: persistence-only pre-OS receiving, location, attachment metadata, and approval snapshot/sync metadata. Status `IMPLEMENTED_LOCAL / NOT_DEPLOYED`; protected by `tests/TecninaS02DataFoundationTest.php`. PHP validation was unavailable in the current environment.
+MAP-18: persistence-only pre-OS receiving, location, attachment metadata, and approval snapshot/sync metadata. Status `S02-A_ACCEPTED`; MapOS source is deployed at `a32ac998b58598f3bab45be0e790c3b46e111592`, migration ledger `20260915120000`, and `TecninaS02DataFoundationTest.php` passed with 26 assertions. Bot target validation is accepted at `7a5482f4b00ca4b6c062542a2e3d7833d308b0b1`; global S02-A is accepted. The production CLI correction in `application/controllers/Tools.php` lazy-loads dev-only Faker/Seeder only for `seed()` so migration commands remain compatible with Composer `--no-dev`. Runtime/PHP validation belongs to Orange Pi 5 Pro / Coolify, not to a local Windows MapOS runtime.
 
 ## Arquivo upstream alterado neste ciclo
 

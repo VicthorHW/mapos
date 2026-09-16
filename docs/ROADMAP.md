@@ -1,9 +1,11 @@
 Status: CURRENT
-## Technical Order 23C / S02-A (local)
+## S02-A — estado atual
 
-- Data foundation implemented locally; Technical Lead review pending.
-- Follow-on UI/auth/OS gate/production work is not authorized by this stage.
-Last consolidated: 2026-09-13
+- Global S02-A is accepted: MapOS target validation is accepted at `a32ac998b58598f3bab45be0e790c3b46e111592` and Bot target validation at `7a5482f4b00ca4b6c062542a2e3d7833d308b0b1`. The current work is checkpoint/publication and return to canonical deployment branches; S03 requires a separate order.
+- The authoritative runtime is the Orange Pi 5 Pro / Coolify production target, currently authorized by the Client for development/testing without important customer data. Its formal S02 migration completed there at ledger version `20260915120000`.
+- The first CLI migration call failed before changing the ledger/schema because `Tools` eagerly required development-only Faker under production Composer `--no-dev`. The narrow lazy seed-runtime correction was committed in `a32ac998b58598f3bab45be0e790c3b46e111592`, redeployed as `oxzoyuklm86rbni20o2axday`, and the single authorized retry passed. No rollback or migration bypass occurred.
+- Follow-on UI/auth/OS gate work remains outside S02-A. PHP/runtime validation is performed on Orange Pi, never as a local Windows MapOS runtime.
+Last consolidated: 2026-09-16
 Source of truth: YES
 Scope: MapOS fork TecNina / pendências
 
@@ -14,14 +16,14 @@ Scope: MapOS fork TecNina / pendências
 ## Desenvolvimento
 
 A reorganização administrativa de WhatsApp/pré-atendimentos está implementada e validada localmente.
-A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp/bot_lab` e sua evolução **V2.1** foram **totalmente implementadas e validadas localmente**:
+A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp/bot_lab` e sua evolução **V2.1** foram implementadas, implantadas e validadas historicamente:
 - Resumo de configuração operacional no inspetor do Estado;
 - Aba Entregas com inbox de código de registro simulado;
 - Links de capability clicáveis seguros gerados via nós do DOM (`document.createElement`);
 - Cards estruturados de eventos CAPABILITY na transcrição e passos técnicos no inspetor de Etapas;
 - Suíte de 5 testes de contrato PHP aprovados com 129 asserções no total, lints limpos e validação de sintaxe JS limpa.
 
-Estado do código-fonte: PUBLISHED / SYNCED. Implantação operacional em produção: DEPLOYED (Coolify Deployment #223, baseline `91857c92ec40c54c9d255c8109783164f3d0e848`). Status de ciclo de vida (ADR-009): DEPLOYED_UNVERIFIED. Validação server-side: APROVADA (PASSED). Validação humana via browser: PENDENTE (PENDING).
+Estado histórico de validação: implantação operacional anterior em produção (Coolify Deployment #223, baseline `91857c92ec40c54c9d255c8109783164f3d0e848`), validação server-side e humana via browser PASSED. O estado atual do MapOS está no cabeçalho S02-A; Bot Lab pós-Intake requer reconciliação/expansão, não validação inicial.
 
 ## Operações pendentes (Pós-deploy V2.1)
 
