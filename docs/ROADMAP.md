@@ -1,7 +1,7 @@
 Status: CURRENT
 ## S02-A — estado atual
 
-- Global S02-A is accepted: MapOS target validation is accepted at `a32ac998b58598f3bab45be0e790c3b46e111592` and Bot target validation at `7a5482f4b00ca4b6c062542a2e3d7833d308b0b1`. The current work is checkpoint/publication and return to canonical deployment branches; S03 requires a separate order.
+- S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` was redeployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S03 planning is the next active stage and requires a separate order.
 - The authoritative runtime is the Orange Pi 5 Pro / Coolify production target, currently authorized by the Client for development/testing without important customer data. Its formal S02 migration completed there at ledger version `20260915120000`.
 - The first CLI migration call failed before changing the ledger/schema because `Tools` eagerly required development-only Faker under production Composer `--no-dev`. The narrow lazy seed-runtime correction was committed in `a32ac998b58598f3bab45be0e790c3b46e111592`, redeployed as `oxzoyuklm86rbni20o2axday`, and the single authorized retry passed. No rollback or migration bypass occurred.
 - Follow-on UI/auth/OS gate work remains outside S02-A. PHP/runtime validation is performed on Orange Pi, never as a local Windows MapOS runtime.

@@ -33,7 +33,7 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 
 ## S02-A data foundation
 
-MAP-18: persistence-only pre-OS receiving, location, attachment metadata, and approval snapshot/sync metadata. Status `S02-A_ACCEPTED`; MapOS source is deployed at `a32ac998b58598f3bab45be0e790c3b46e111592`, migration ledger `20260915120000`, and `TecninaS02DataFoundationTest.php` passed with 26 assertions. Bot target validation is accepted at `7a5482f4b00ca4b6c062542a2e3d7833d308b0b1`; global S02-A is accepted. The production CLI correction in `application/controllers/Tools.php` lazy-loads dev-only Faker/Seeder only for `seed()` so migration commands remain compatible with Composer `--no-dev`. Runtime/PHP validation belongs to Orange Pi 5 Pro / Coolify, not to a local Windows MapOS runtime.
+MAP-18: persistence-only pre-OS receiving, location, attachment metadata, and approval snapshot/sync metadata. Status `S02-A_CLOSED_ACCEPTED`; canonical MapOS `master` is deployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`; ledger remains `20260915120000`. Bot canonical `main` is deployed as `eq2bysugtgj0fhkjeus3rwdt` at `44f470cea3136bc64974344c4618e98b5ae4e845`; Alembic remains `20260915_0021`. The production CLI correction in `application/controllers/Tools.php` lazy-loads dev-only Faker/Seeder only for `seed()` so migration commands remain compatible with Composer `--no-dev`. Runtime/PHP validation belongs to Orange Pi 5 Pro / Coolify, not to a local Windows MapOS runtime.
 
 ## Arquivo upstream alterado neste ciclo
 
