@@ -18,10 +18,19 @@ MapOS owns credential hashing, identity persistence, authoritative client e-mail
 
 Bot per-intake capability, contextual proof, source-origin controls and end-to-end correlation remain **DEFERRED_TO_CIAO-S03B**.
 
-Strict subject validation enforces positive integer `client_id` and canonical UUID `intake_id` returning HTTP 422 `invalid_payload` before rate limiting, persistence, or delivery. Unresolved relational phone-conflict evidence always wins over an identity row and returns `AMBIGUOUS`. A delivered client challenge records the candidate as `PENDING` without replacing `clientes.email`; only successful verification promotes the authoritative e-mail. Malformed verification requests are rejected before attempt accounting. Concurrency in `verifyEmail()` is strictly serialized via row-level locking (`SELECT ... FOR UPDATE`); the attempts counter is capped at 5 and released concurrent valid requests cannot bypass the fifth failure. Limiter/database dependency failures return controlled unavailability, and request fingerprints that include limited proof are keyed rather than stored as guessable raw derivatives.
+## Technical Order 57 Closures
 
-The public reset controller is POST-only and relies on the existing CodeIgniter CSRF middleware when enabled. Upstream reverse proxy (Traefik in Coolify) access logging is confirmed disabled; downstream Nginx access-log token redaction (`log_format tecnina_safe`) ensures reset tokens are never written in plaintext to access logs (`[REDACTED]`). Test runners are protected via Nginx `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and safety interlock.
+1. **Precedence Order in Public Reset**: Token existence and validity checks precede rate limit checks:
+   - Non-existent token -> generic `invalid_or_expired_reset` (HTTP 409)
+   - Non-PENDING or expired token -> generic `invalid_or_expired_reset` (HTTP 409)
+   - Attempts >= 10 on still-valid PENDING token -> `rate_limited` (HTTP 429)
+   - Valid submission: attempt 10 with valid password succeeds (state `CONSUMED`, attempts 10, version +1). Single-use replay returns HTTP 409 `invalid_or_expired_reset` (NOT 429) without mutating credentials. Expired PENDING token with attempts=10 returns HTTP 409 (NOT 429).
+2. **Password Confirmation Enforcement**: Confirmation is strictly required in public reset consumption (`password_confirmation`). Mismatch, omission, or non-string rejected as invalid attempt (HTTP 409 `invalid_or_expired_reset`) and increments attempt counter. Exact byte-for-byte match accepted.
+3. **Fail-Closed Attempt Accounting**: Both `verifyEmail()` and `consumePasswordReset()` attempt increments under row lock verify that affected rows equal 1 and transaction status is true; persistence write failure rolls back and returns HTTP 503 `unavailable`.
+4. **Strict Client ID Validation**: Positive integer representation strictly required in `issuePasswordReset()`, non-positive or malformed returns HTTP 422 `invalid_payload`.
+5. **Reverse Proxy & Log Redaction**: Upstream Traefik runs without `--accesslog`; downstream Nginx access-log redaction (`log_format tecnina_safe`) ensures reset tokens are never written to access logs (`[REDACTED]`).
+6. **Test Runner Protection**: Nginx block `/tests/` (404), CLI guard, safety interlock, machine-readable output outside web root.
 
 ## Validation
 
-The authoritative final validation target is the Orange Pi 5 Pro / Coolify production runtime. Production validation completed with 129/129 target assertions passing, 0 failures, 13 composer regression tests passing (with 2 accepted historical debts), pristine DB baseline restored, and migration ledger strictly preserved at `20260916120000`.
+The authoritative final validation target is the Orange Pi 5 Pro / Coolify production runtime. Production validation completed with 146/146 target assertions passing (100% EXECUTED_ON_TARGET, 0 failed), 13 composer regression tests passing (with 2 accepted historical debts), pristine DB baseline restored, and migration ledger strictly preserved at `20260916120000`.
