@@ -16,4 +16,4 @@ The public reset controller is POST-only and relies on the existing CodeIgniter 
 
 ## Validation
 
-Run on an isolated pre-S03 MapOS test database with `APP_ENVIRONMENT=testing php index.php s03_identity_test_runner`. The repository-owned runner inserts legacy-shaped fixtures, applies the actual S03 migration and executes the real authority. It exits 77 when prerequisites are unavailable; Windows execution remains prohibited.
+The repository-owned runner remains available for an inexpensive representative database with `APP_ENVIRONMENT=testing php index.php s03_identity_test_runner`, but a disposable replica is optional rather than a mandatory gate. The authoritative final validation target is the Orange Pi / Coolify production runtime. Production validation still requires completed source review, feasible static/automated checks, a fresh verified backup, controlled CodeIgniter migration/deployment, forward-recovery discipline and post-rollout regression/security evidence. Windows execution remains prohibited.
