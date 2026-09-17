@@ -1,11 +1,21 @@
 Status: CURRENT
-## S02-A — estado atual
+## S03-A — estado atual (TL_ACCEPTANCE)
+- S03-A em TL_ACCEPTANCE no Orange Pi 5 Pro / Coolify sob a Technical Order 57.
+- Fechamento de contrato de rate limit de reset: precedência estrita (token inexistente/expirado/consumido retorna 409 antes do rate limit 429), 10 tentativas por tempo de vida do token (armazenado em `tecnina_password_resets.attempts`), tentativa 11 retorna HTTP 429 `rate_limited`. Replay de token consumido retorna HTTP 409 `invalid_or_expired_reset` (não 429). Token PENDING expirado com 10 tentativas retorna HTTP 409 (não 429).
+- Confirmação de senha obrigatória em reset público (`password_confirmation`), rejeitando ausência ou divergência com 409 e consumindo tentativa.
+- Fail-closed attempt accounting: falha na persistência do contador de tentativas sob row lock retorna HTTP 503 `unavailable`.
+- Validação de client_id inteiro positivo em `issuePasswordReset()` retornando HTTP 422 `invalid_payload` se inválido ou não-positivo.
+- Regressão de concorrência real multi-conexão em `verifyEmail()` executada no target (attempts=4 -> 5, request concorrente liberado rejeitado com 409, DB estritamente limitado a 5 tentativas, e-mail não promovido).
+- Auditoria do proxy reverso Traefik (`coolify-proxy` v3.6): access logging desativado upstream, sem vazamento de tokens. Nginx a jusante com redaction ativa (0 ocorrências de token em claro nos logs).
+- Suíte de validação executada com 146/146 asserções aprovadas (100% EXECUTED_ON_TARGET) e emissão de results_s03a.json fora do web root (/tmp). Suíte de regressão com 13 PASS e 2 débitos históricos aceitos (15 testes total).
 
-- S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` was redeployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S03 planning is the next active stage and requires a separate order.
+## S02-A — Histórico de Fechamento [HISTORICAL / CLOSED]
+
+- S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` was redeployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S02-A closed all data foundation requirements. Active development transitioned to S03-A (`feature/customer-identity-auth-foundation-s03a`), currently in `TL_ACCEPTANCE`.
 - The authoritative runtime is the Orange Pi 5 Pro / Coolify production target, currently authorized by the Client for development/testing without important customer data. Its formal S02 migration completed there at ledger version `20260915120000`.
 - The first CLI migration call failed before changing the ledger/schema because `Tools` eagerly required development-only Faker under production Composer `--no-dev`. The narrow lazy seed-runtime correction was committed in `a32ac998b58598f3bab45be0e790c3b46e111592`, redeployed as `oxzoyuklm86rbni20o2axday`, and the single authorized retry passed. No rollback or migration bypass occurred.
 - Follow-on UI/auth/OS gate work remains outside S02-A. PHP/runtime validation is performed on Orange Pi, never as a local Windows MapOS runtime.
-Last consolidated: 2026-09-16
+Last consolidated: 2026-09-17
 Source of truth: YES
 Scope: MapOS fork TecNina / pendências
 
@@ -23,7 +33,7 @@ A bancada administrativa de testes do simulador (`Bot Lab`) em `tecnina_whatsapp
 - Cards estruturados de eventos CAPABILITY na transcrição e passos técnicos no inspetor de Etapas;
 - Suíte de 5 testes de contrato PHP aprovados com 129 asserções no total, lints limpos e validação de sintaxe JS limpa.
 
-Estado histórico de validação: implantação operacional anterior em produção (Coolify Deployment #223, baseline `91857c92ec40c54c9d255c8109783164f3d0e848`), validação server-side e humana via browser PASSED. O estado atual do MapOS está no cabeçalho S02-A; Bot Lab pós-Intake requer reconciliação/expansão, não validação inicial.
+Estado histórico de validação: implantação operacional anterior em produção (Coolify Deployment #223, baseline `91857c92ec40c54c9d255c8109783164f3d0e848`), validação server-side e humana via browser PASSED. O estado atual do MapOS está no cabeçalho S03-A; Bot Lab pós-Intake requer reconciliação/expansão, não validação inicial.
 
 ## Operações pendentes (Pós-deploy V2.1)
 
@@ -51,22 +61,3 @@ Estado histórico de validação: implantação operacional anterior em produç�
   - O MapOS possui apenas: apresentação de catálogo/resultados, filtragem/seleção de cenários e proxy server-side.
   - O Bot Gateway possui: schema v1, catálogo sob controle de versão, runner sequencial, especificações YAML, execução isolada em SQLite efêmero, asserções e segurança de resultados.
   - O MapOS **NÃO** reintroduz editor visual de fluxos (Flow Studio), **NÃO** edita arquivos YAML e **NÃO** executa um segundo motor de conversação.
-
-## P0 — preparação de release
-
-- executar limpeza controlada de homologação (`TECNINA_TEST_DATA_RESET.md`);
-
-## P1 — validação em ambiente integrado
-
-- deploy MapOS coordenado antes do Gateway;
-- executar procedimento pós-deploy vigente;
-- validar outbox/trigger e contratos privados;
-- validar painel WhatsApp, Cidades com coleta, Pré-atendimentos e Bot Lab;
-- validar perfil/revalidação, código de cadastro por e-mail e número reciclado;
-- validar credencial recusada/sem senha/texto/padrão e confirmar ausência nos canais do cliente;
-- validar oferta e aceite de taxa manual.
-
-## Futuro
-
-- decidir, com backup/migration nova, se algum legado físico pode ser removido;
-- manter compatibilidade com upstream e reduzir alterações em arquivos originais sempre que possível.

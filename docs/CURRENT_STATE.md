@@ -1,13 +1,65 @@
 Status: CURRENT
-## S02-A — reconciliação atual (2026-09-16)
 
-- S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS runs canonical `master` at `76e72995cf4c00617435aeb34404aa28551533b2` after Coolify deployment `gkpxgzavbwqqiftzfdul9qkj`; it remains functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. The next active stage is S03 planning under a separate Technical Lead order.
-- S02-A adds persistence-only pre-OS receiving, location, attachment metadata, and nullable approval snapshot/sync metadata. Its formal MapOS migration completed on the authorized target; no UI, auth, conversation or OS activation is included.
-- Orange Pi 5 Pro / Coolify is the authoritative production MapOS runtime. The Client currently authorizes development/testing there because no important customer data is present. Windows is static source/documentation work only; no local MapOS runtime validation.
-- PHP/runtime validation belongs on Orange Pi, not on Windows. Client controls Coolify branch, variables, lifecycle hooks and configuration; agent MCP is limited to permitted deploys and deployment logs.
+## S03-A target-validation state (TL_ACCEPTANCE)
+
+- **Feature Branch**: `feature/customer-identity-auth-foundation-s03a`
+- **Current Stage**: `TL_ACCEPTANCE` (Technical Order 57)
+- **Git SHA Terminology**:
+  - **S03-A merge-base / canonical base**: `e749e352a2952d8adc4e917c75ff0108d39d21f0`
+  - **Previously deployed S02 canonical runtime SHA**: `76e72995cf4c00617435aeb34404aa28551533b2`
+  - **Deployed Functional Runtime SHA (X)**: `f07620f3bcc49951cdad356acadad4ed8d5cd265` (Coolify Deployment #266)
+  - **Final Feature Branch HEAD (Y)**: Documentation-only synchronization commit advancing from X (verified docs-only via `git diff --name-status X..Y`, no redeployment required)
+- **Active Containers (Coolify Deployment #266)**:
+  - PHP-FPM: `php-fpm-l29tpqli0yt1usg25981aouz-194856657380` (id `61ee58d24a4c`)
+  - Nginx: `nginx-l29tpqli0yt1usg25981aouz-194856560685` (id `0ce712788e31`)
+  - MySQL: `mysql-l29tpqli0yt1usg25981aouz-194856796497` (id `ed39f6d44cfc`)
+- **Production Migration Ledger**:
+  - Migration completed once; ledger strictly preserved at `20260916120000` (zero reruns).
+  - Schema tables verified pristine: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
+- **Target Validation Suite**:
+  - Executed on target container: `validate_s03a_target_final.php --authorized-s03a-target-execution`
+  - Result: 146 passed, 0 failed (100% EXECUTED_ON_TARGET).
+  - Machine-readable results emitted outside web root to `/tmp/results_s03a.json`.
+- **Target Regression Suite**:
+  - Standard regression commands: 12 PASS, 2 accepted historical baseline debts (`TecninaIntegrationContextTest`, `TecninaIntakeApprovalTest`).
+  - Additional S03 test: `tests/TecninaS03IdentityAuthorityTest.php` PASS with 28/28 assertions.
+  - Combined suite total: 13 PASS, 2 accepted historical debts (15 tests total).
+- **Core Security & Contract Closures (Technical Order 57)**:
+  - **Public Reset Replay / Rate-Limit Precedence**: In `consumePasswordReset()`, token existence and validity checks precede rate limit checks:
+    1. Token does not exist -> generic `invalid_or_expired_reset` (HTTP 409).
+    2. Token is not `PENDING` or is expired -> generic `invalid_or_expired_reset` (HTTP 409).
+    3. Still-valid `PENDING` token has reached 10-attempt lifetime allowance -> `rate_limited` (HTTP 429).
+    4. Process valid submission: attempt 10 with valid password succeeds (HTTP 200, state `CONSUMED`, attempts 10, credential version increments once). Replay returns generic HTTP 409 `invalid_or_expired_reset` (NOT 429) without mutating password or version. Expired `PENDING` token with attempts=10 returns generic HTTP 409 (NOT 429).
+  - **Public Reset Password Confirmation**: Confirmation is strictly required on public reset consumption (`password_confirmation`). Missing, mismatched, or non-string confirmation is rejected as an invalid attempt (HTTP 409 `invalid_or_expired_reset`) and increments attempt counter. Exact byte-for-byte confirmation accepted.
+  - **Fail-Closed Attempt Accounting**: Both `verifyEmail()` wrong-code attempt increment and `consumePasswordReset()` invalid-password attempt increment verify that affected rows equal 1 and transaction status is true under row lock (`SELECT ... FOR UPDATE`); database write persistence failure returns HTTP 503 `unavailable`.
+  - **Client ID Validation in `issuePasswordReset()`**: Strictly requires positive integer representation (`is_int($v) ? $v > 0 : (is_string($v) && ctype_digit($v) && (int)$v > 0)`). Malformed/non-positive values (`0`, `-1`, `"0"`, `"-1"`, `"abc"`) return HTTP 422 `invalid_payload`.
+  - **Rate Limits Summary**:
+    - Email verification issue: 3/15m and 10/day per subject+email.
+    - Password reset issue: 3/hour/identity.
+    - Credential hash: 60/min/service.
+    - Client lookup: 300/min/service.
+    - Public reset token lifetime: strictly 10 attempts per token lifetime (stored in `tecnina_password_resets.attempts`, attempt 11 returns HTTP 429 `rate_limited`).
+    - Public reset IP: 30/hour/IP.
+  - **Password Policy & TTL**: Minimum 6 Unicode characters (no composition requirement), exact whitespace preserved, bcrypt 72-byte max. Verification and reset challenge TTL is exactly 15 minutes (900 seconds).
+  - **Reverse Proxy & Access Log Redaction**: Upstream Traefik (`coolify-proxy`, v3.6) runs without `--accesslog` flag (access logging disabled upstream, zero request logs generated); downstream Nginx sanitizes `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs (`[REDACTED]`).
+  - **Test Runner Web Protection**: Nginx explicit block `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and safety interlock `TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION'`. Machine-readable results emitted outside web root to `/tmp/results_s03a.json`. Direct HTTP probes to `/tests/validate_s03a_target_final.php` and `/tests/results_s03a.json` return HTTP 404.
+  - **Host Docker CLI Chronology**:
+    1. Initial observed failure: Go runtime / invalid symbol-table / invalid pc-encoded-table failure during Docker CLI execution while copying deployment configuration in Coolify deployment `zge8l7gv8yvydqcnn6gatpqt` (`fatal error: runtime: invalid symbol table / invalid pc-encoded table in runtime.pcvalue`);
+    2. Diagnostic symptoms: interactive shell execution of `/usr/bin/docker` produced `SIGSEGV` and `SIGILL` on host due to binary corruption around offset ~19251201;
+    3. Package integrity check: `dpkg -V docker-ce-cli` confirmed file hash mismatch on `/usr/bin/docker`;
+    4. Clean package replacement: clean `/usr/bin/docker` extracted from official Debian package `docker-ce-cli` (5:29.7.2-1~debian.12~bookworm arm64), verified clean via `dpkg -V` (exit code 0);
+    5. Current healthy state: active clean binary at `/usr/bin/docker` (MD5 `8f880710f0f6e94aaaa960dd663bc001`, size 43,074,435 bytes) operating reliably across all deployments.
+    Calibrated root cause: "Docker CLI binary corruption confirmed; underlying physical corruption cause not determined."
+
+---
+
+## S02-A — Histórico de Fechamento (2026-09-16) [HISTORICAL / CLOSED]
+
+- S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` deployment `gkpxgzavbwqqiftzfdul9qkj` deployed `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S02-A closed all data foundation requirements. Active development transitioned to S03-A (`feature/customer-identity-auth-foundation-s03a`), currently in `TL_ACCEPTANCE`.
+- S02-A added persistence-only pre-OS receiving, location, attachment metadata, and nullable approval snapshot/sync metadata. Its formal MapOS migration completed on the authorized target at ledger version `20260915120000`; no UI, auth, conversation or OS activation was included.
 - The first formal migration attempt exited before any ledger/schema change because `Tools` eagerly loaded dev-only Faker/Seeder dependencies while production Composer uses `--no-dev`; the migration framework was not the cause and no rollback was required. Commit `a32ac998b58598f3bab45be0e790c3b46e111592` lazily initializes those dependencies only in `seed()`.
-- Coolify redeployment `oxzoyuklm86rbni20o2axday` used `a32ac998b58598f3bab45be0e790c3b46e111592`. Target `tools help` now exits 0 without Faker; the one authorized retry of `php index.php tools migrate 20260915120000` succeeded and advanced the ledger to `20260915120000`. Schema metadata and the S02 test passed; 12 of the 14 existing regression commands passed, with only the two documented baseline failures. Canonical deployment `gkpxgzavbwqqiftzfdul9qkj` then ran `master` at `76e72995cf4c00617435aeb34404aa28551533b2`: the ledger remains `20260915120000`, the three S02 tables and 11 approval metadata fields remain present, and PHP-FPM/Nginx/MySQL smoke checks passed. S02-A is closed and accepted.
-Last consolidated: 2026-09-16
+- Redeployment `oxzoyuklm86rbni20o2axday` used `a32ac998b58598f3bab45be0e790c3b46e111592`. Target `tools help` exited 0 without Faker; the authorized retry of `php index.php tools migrate 20260915120000` succeeded and advanced the ledger to `20260915120000`. Schema metadata and the S02 test passed; 12 of the 14 existing regression commands passed, with only the two documented baseline failures. Canonical deployment `gkpxgzavbwqqiftzfdul9qkj` ran `master` at `76e72995cf4c00617435aeb34404aa28551533b2`: ledger remained `20260915120000`, the three S02 tables and 11 approval metadata fields remained present, and smoke checks passed. S02-A was closed and accepted.
+Last consolidated: 2026-09-17
 Source of truth: YES
 Scope: MapOS fork TecNina / estado atual
 
@@ -81,29 +133,6 @@ Scope: MapOS fork TecNina / estado atual
 - **Execução automatizada do Run All em navegador real de produção**: PASS (Playwright Chromium executou "Executar todos" no Bot Lab de produção: 23/23 cenários aprovados [0 FAIL / 0 ERROR], duração de parede 13,175 ms (~13.175 s), tempo do runner 12,635 ms (~12.635 s); 10 cards de cenários e 23 casos executáveis renderizados, expansão de card validada; 0 mutações de negócio no banco; 0 requisições diretas ao Bot admin; 0 Bearer expostos).
 - **Validação humana por navegador (Human Browser Acceptance)**: PASSED (Ordem Técnica 21D: operador humano homologou em produção a abertura, catálogo, filtros, seleção e resultados, e concluiu o reteste pessoal do "Executar todos" com 23 PASS / 0 FAIL / 0 ERROR; REQ-AST-025 DONE).
 
-## Baselines de Produção e Desenvolvimento
-
-### Produção Vigente (Current Production — Automated Scenario Testing Phase 1 & Bot Lab V2.1)
-- **Status de ciclo de vida (ADR-009)**: VALIDATED
-- **Linha de base implantada (Deployed Implementation Baseline)**: `6c119f20bef8d3edba060731f212f0b734e9f0a8` (Coolify Deployment #242)
-- **Validação server-side**: PASS (Run-all gateway: PASS; 23/23 cenários aprovados através do timeout específico de cenários do gateway implantado; timeout genérico: 8s, timeout de cenários: 45s default)
-- **Aceite humano via browser (Bot Lab)**: PASSED (Ordem Técnica 21D: homologação humana formal concluída pelo operador em produção; "Executar todos" 23 PASS / 0 FAIL / 0 ERROR; REQ-AST-025 DONE)
-- **Estado do código-fonte (Source State)**: PUBLISHED / SYNCED
-- **Branch de publicação vigente**: `master`
-- **Backups pré-deploy (21C)**: Mantidos no servidor em `/home/orangepi/backups/tecnina/manual/20260913T195644Z-automated-scenarios/`
-- **Conjuntos de backups anteriores (18B, 20B)**: Preservados intactos
-- **Validação automatizada local**:
-  - 6 testes de contrato PHP executados com 277 asserções no total:
-    - `tests/TecninaBotGatewayTimeoutTest.php`: 82 asserções (inclui atualização da asserção I e casos comportamentais A-K para deserialização/serialização de payload de cenários e sanitização de timeouts)
-    - `tests/TecninaBotLabPanelTest.php`: 135 asserções (inclui contratos AC-AG de hierarquia DOM, balanceamento de tags, timeout cliente e estados de catálogo)
-    - `tests/TecninaIntakeReviewPanelTest.php`: 29 asserções
-    - `tests/TecninaLogisticsPanelTest.php`: 17 asserções
-    - `tests/TecninaOsAccessPanelTest.php`: 8 asserções
-    - `tests/TecninaFlowStudioRemovalTest.php`: 6 asserções
-  - 1 suíte de teste de interface DOM / JavaScript:
-    - `tests/TecninaBotLabUiTest.js`: 38 asserções passadas cleanly (hierarquia DOM, ativação, renderização do catálogo, idempotência de cliques repetidos, tela de erro com alert visível, despachos únicos de execução e contratos de payload do navegador para Run All e Run Selected).
-  - Sintaxe JavaScript e PHP estritamente verificadas (`node --check assets/tecnina/js/bot-lab.js`, `php -l`).
-
 ## Confirmações no repositório real
 
 - `GET /api/bot/client/{client_id}/open-os` está implementado por `application/controllers/api/bot/Client_open_os.php` e `application/models/Tecnina_client_open_os_model.php`;
@@ -123,8 +152,3 @@ Scope: MapOS fork TecNina / estado atual
 - Flow Studio: removido; tabelas históricas no banco do Gateway podem ficar inertes.
 - consulta por código de 8 caracteres: desenho anterior, não é o fluxo conversacional atual.
 - documentos de link `/l`/mapa: substituídos pelo contrato atual do Gateway.
-
-## Próxima validação necessária
-
-- estabilização pós-deploy e monitoramento de logs de produção;
-- acompanhamento da governança de testes de cenários conversacionais (Fase 22A+).
