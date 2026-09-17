@@ -43,6 +43,7 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         $verification = '`' . $this->db->dbprefix('tecnina_email_verifications') . '`';
         $reset = '`' . $this->db->dbprefix('tecnina_password_resets') . '`';
         $conflict = '`' . $this->db->dbprefix('tecnina_client_identity_phone_conflicts') . '`';
+        $limits = '`' . $this->db->dbprefix('tecnina_identity_rate_limits') . '`';
         $this->db->query("CREATE TABLE IF NOT EXISTS {$identity} (
             `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NULL,
             `phone_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `phone_confirmed_at` DATETIME NULL,
@@ -77,6 +78,11 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             `canonical_phone` VARCHAR(15) NOT NULL, `client_id` INT NOT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`canonical_phone`, `client_id`), KEY `ix_tecnina_identity_conflict_client` (`client_id`),
             CONSTRAINT `fk_tecnina_identity_conflict_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$limits} (
+            `bucket_key` CHAR(64) NOT NULL, `scope` VARCHAR(32) NOT NULL, `bucket_start` DATETIME NOT NULL,
+            `count` INT UNSIGNED NOT NULL DEFAULT 0, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`bucket_key`), KEY `ix_tecnina_identity_rate_window` (`scope`, `bucket_start`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
 

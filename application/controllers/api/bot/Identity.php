@@ -22,7 +22,7 @@ class Identity extends REST_Controller
             return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY);
         }
         $result = $this->tecnina_identity_authority->passwordHash($input['password'], $input['password_confirmation'] ?? null);
-        if (! $result['ok']) { return $this->response(['status' => false, 'reason' => $result['reason']], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! $result['ok']) { return $this->respondResult($result); }
         return $this->response(['status' => true, 'hash' => $result['hash'], 'algorithm_runtime' => $result['algorithm_runtime']], self::HTTP_OK);
     }
 
@@ -32,7 +32,7 @@ class Identity extends REST_Controller
         $input = $this->post();
         if (! is_array($input) || array_keys($input) !== ['canonical_phone']) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         $result = $this->tecnina_identity_authority->lookupCanonicalPhone($input['canonical_phone']);
-        if (! $result['ok']) { return $this->response(['status' => false, 'reason' => $result['reason']], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! $result['ok']) { return $this->respondResult($result); }
         return $this->response(array_merge(['status' => true], $result), self::HTTP_OK);
     }
 
@@ -42,7 +42,7 @@ class Identity extends REST_Controller
         $input = $this->post();
         if (! is_array($input)) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         $result = $this->tecnina_identity_authority->issueEmailVerification($input);
-        return $this->response($result, $result['ok'] ? self::HTTP_OK : self::HTTP_UNPROCESSABLE_ENTITY);
+        return $this->respondResult($result);
     }
 
     public function password_reset_post()
@@ -50,10 +50,17 @@ class Identity extends REST_Controller
         if (! $this->authorize()) { return; }
         $input = $this->post();
         if (! is_array($input) || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
-        return $this->response($this->tecnina_identity_authority->issuePasswordReset($input), self::HTTP_OK);
+        return $this->respondResult($this->tecnina_identity_authority->issuePasswordReset($input));
     }
 
-    public function email_verification_verify_post() { if (! $this->authorize()) return; $result=$this->tecnina_identity_authority->verifyEmail($this->post()); return $this->response($result,$result['ok']?self::HTTP_OK:self::HTTP_CONFLICT); }
+    public function email_verification_verify_post() { if (! $this->authorize()) return; return $this->respondResult($this->tecnina_identity_authority->verifyEmail($this->post())); }
+
+    private function respondResult($result)
+    {
+        if ($result['ok']) return $this->response($result, self::HTTP_OK);
+        $status = $result['reason'] === 'rate_limited' ? self::HTTP_TOO_MANY_REQUESTS : ($result['reason'] === 'unavailable' || $result['reason'] === 'delivery_unavailable' ? self::HTTP_SERVICE_UNAVAILABLE : ($result['reason'] === 'idempotency_conflict' || $result['reason'] === 'invalid_or_expired_code' ? self::HTTP_CONFLICT : self::HTTP_UNPROCESSABLE_ENTITY));
+        return $this->response(['status'=>false,'reason'=>$result['reason']], $status);
+    }
 
     private function authorize()
     {

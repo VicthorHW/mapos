@@ -1,6 +1,6 @@
 # S03-A identity and credential authority
 
-Status: source-review candidate. This branch adds a dormant MapOS authority; it does not alter `Mine.php` active login/profile flows.
+Status: implementation in progress. This branch adds a dormant MapOS authority; it does not alter `Mine.php` active login/profile flows.
 
 ## Required target configuration
 
@@ -8,7 +8,9 @@ Status: source-review candidate. This branch adds a dormant MapOS authority; it 
 
 ## Responsibility split
 
-MapOS owns credential hashing, identity persistence, authoritative client e-mail promotion, protected API authorization, token/code digesting, UTC timestamps, reset consumption, and relational legacy-phone ambiguity. Bot-owned per-intake capability, WhatsApp contextual-proof, source-origin rate limit and correlation propagation are **DEFERRED_TO_CIAO-S03B**. MapOS must receive those contextual values but does not fabricate their verification in S03-A.
+MapOS owns credential hashing, identity persistence, authoritative client e-mail promotion, protected API authorization, digesting, UTC timestamps, reset consumption, relational legacy-phone ambiguity, and identity-operation fixed-window limits (email issue 3/15 min per subject+email; reset issue 3/hour per identity). Bot-owned per-intake capability, WhatsApp contextual-proof validation, source-origin rate limit and end-to-end correlation propagation are **DEFERRED_TO_CIAO-S03B**. MapOS must receive contextual values but does not fabricate their verification in S03-A.
+
+The public reset controller is POST-only and relies on the existing CodeIgniter CSRF middleware when enabled. Nginx/Coolify access-log token redaction and TLS/SameSite deployment verification are **TARGET_VALIDATION / INFRA** requirements, not asserted by this source branch.
 
 ## Validation
 

@@ -6,6 +6,9 @@ if (! $ciBootstrap || ! is_file($ciBootstrap)) {
     exit(77);
 }
 require $ciBootstrap;
+putenv('TECNINA_IDENTITY_HMAC_SECRET=testing-only-s03-hmac-secret-at-least-32-bytes');
+putenv('TECNINA_S03_TEST_CODE=123456');
+putenv('TECNINA_S03_TEST_DELIVERY=capture');
 $ci = get_instance();
 if (! isset($ci->tecnina_identity_authority)) { $ci->load->library('Tecnina_identity_authority'); }
 function tecnina_s03_identity_fixture() {
