@@ -556,7 +556,7 @@ try {
     $concurHeaders = [
         'Host: gestao.tecnina.com',
         'Content-Type: application/json',
-        $authHeader[0],
+        'Authorization: ' . $authHeader['Authorization'],
     ];
     curl_setopt($chA, CURLOPT_URL, $concurUrl);
     curl_setopt($chA, CURLOPT_POST, true);
@@ -1068,9 +1068,10 @@ try {
     $rateRowAfter = $pdo->query("SELECT attempts, state FROM tecnina_password_resets WHERE token_digest = '{$rateDigest}'")->fetch();
     testAssert((int)$rateRowAfter['attempts'] === 10 && $rateRowAfter['state'] === 'PENDING', 'token_lifetime_attempts_persisted_in_resets_table');
 
-    // Confirm that NO token bucket exists in tecnina_identity_rate_limits (lifetime tracked on row, not hourly bucket)
-    $rateLimitCount = (int)$pdo->query("SELECT COUNT(*) FROM tecnina_identity_rate_limits WHERE scope = 'reset_consume_token'")->fetchColumn();
-    testAssert($rateLimitCount === 0, 'token_limit_not_tracked_in_hourly_rate_limits_table');
+    // Confirm that NO token bucket exists in tecnina_identity_rate_limits for this token (lifetime tracked on row, not hourly bucket)
+    $testTokenBucketKey = hash('sha256', "reset_consume_token|" . hash('sha256', $rateResetToken) . "|" . gmdate('Y-m-d H:i:00', floor(time() / 3600) * 3600));
+    $tokenBucketExists = (int)$pdo->query("SELECT COUNT(*) FROM tecnina_identity_rate_limits WHERE bucket_key = '{$testTokenBucketKey}'")->fetchColumn();
+    testAssert($tokenBucketExists === 0, 'token_limit_not_tracked_in_hourly_rate_limits_table');
 
     // 7.7 public reset IP endpoint wiring: 30/hour/IP
     // Probe to identify caller IP bucket
