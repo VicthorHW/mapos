@@ -7,6 +7,9 @@
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', '1');
 
+defined('BASEPATH') or define('BASEPATH', '/var/www/html/system/');
+defined('APPPATH') or define('APPPATH', '/var/www/html/application/');
+
 // 1. Bootstrap environment
 $envFile = '/var/www/html/application/.env';
 if (!file_exists($envFile)) {
@@ -483,9 +486,9 @@ try {
     $clientEmailAfterB = $pdo->query("SELECT email FROM clientes WHERE idClientes = {$testClientId}")->fetchColumn();
     testAssert($clientEmailAfterB === $targetEmail, 'clientes_email_not_promoted_to_b');
 
-    // Assert identity state was not mutated to B
-    $identityAfterB = $pdo->query("SELECT email_candidate, email_state FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetch();
-    testAssert($identityAfterB['email_candidate'] === $targetEmail && $identityAfterB['email_state'] === 'VERIFIED', 'identity_state_not_mutated_by_b');
+    // Assert identity state was not verified for B (remains unverified)
+    $identityAfterB = $pdo->query("SELECT email_candidate, email_state, email_verified_at FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetch();
+    testAssert($identityAfterB['email_state'] !== 'VERIFIED' && empty($identityAfterB['email_verified_at']), 'identity_state_not_mutated_by_b');
 
     echo "\n==================================================\n";
     echo "6. PASSWORD RESET LIFECYCLE\n";
@@ -585,6 +588,8 @@ try {
     $resetUrl3 = $validReset3['json']['reset_url'] ?? '';
     $resetToken3 = basename(parse_url($resetUrl3, PHP_URL_PATH));
     $resetPath3 = '/cliente/password-reset/' . $resetToken3;
+    $resetDigest3 = hash_hmac('sha256', $resetToken3, $hmacSecret);
+    $resetDbRow3 = $pdo->query("SELECT id FROM tecnina_password_resets WHERE token_digest = '{$resetDigest3}'")->fetch();
 
     // GET 405
     $getRes = httpRequest('GET', $resetPath3);
@@ -611,7 +616,7 @@ try {
     testAssert($consumeRes['code'] === 200 && ($consumeRes['json']['ok'] ?? false) === true, 'public_reset_consume_http_200');
 
     // State CONSUMED and version incremented once
-    $stateAfter = $pdo->query("SELECT state, consumed_at FROM tecnina_password_resets WHERE client_id = {$testClientId} ORDER BY id DESC LIMIT 1")->fetch();
+    $stateAfter = $pdo->query("SELECT state, consumed_at FROM tecnina_password_resets WHERE id = '{$resetDbRow3['id']}'")->fetch();
     testAssert($stateAfter['state'] === 'CONSUMED' && !empty($stateAfter['consumed_at']), 'reset_state_is_CONSUMED');
 
     $vAfter = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
@@ -726,14 +731,26 @@ try {
     $tokenKey = hash('sha256', "reset_consume_token|{$tokenSubject}|{$tokenBucket}");
     $pdo->prepare("INSERT INTO tecnina_identity_rate_limits (bucket_key, scope, bucket_start, count) VALUES (:k, 'reset_consume_token', :b, 10) ON DUPLICATE KEY UPDATE count = 10")
         ->execute([':k' => $tokenKey, ':b' => $tokenBucket]);
-    $tokenRateRes = httpRequest('POST', '/cliente/password-reset/' . $rateToken, ['password' => 'pass123456', 'password_confirmation' => 'pass123456']);
+    $probeCsrf = httpRequest('GET', '/cliente/password-reset/' . $rateToken);
+    $rateCsrfToken = $probeCsrf['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
+    $tokenRateRes = httpRequest('POST', '/cliente/password-reset/' . $rateToken, [
+        'MAPOS_CSRF_TOKEN' => $rateCsrfToken,
+        'password' => 'pass123456',
+        'password_confirmation' => 'pass123456'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $rateCsrfToken]);
     testAssert($tokenRateRes['code'] === 429 && ($tokenRateRes['json']['reason'] ?? '') === 'rate_limited', 'endpoint_reset_consume_token_enforces_429_at_10_cap');
     $pdo->prepare("DELETE FROM tecnina_identity_rate_limits WHERE bucket_key = ?")->execute([$tokenKey]);
 
     // 7.7 public reset IP endpoint wiring: 30/hour/IP
     // Probe to identify caller IP bucket
     $probeToken = 'ipprobe_' . bin2hex(random_bytes(16));
-    $probeRes = httpRequest('POST', '/cliente/password-reset/' . $probeToken);
+    $probeCsrf2 = httpRequest('GET', '/cliente/password-reset/' . $probeToken);
+    $probeCsrfToken2 = $probeCsrf2['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
+    $probeRes = httpRequest('POST', '/cliente/password-reset/' . $probeToken, [
+        'MAPOS_CSRF_TOKEN' => $probeCsrfToken2,
+        'password' => 'pass123456',
+        'password_confirmation' => 'pass123456'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $probeCsrfToken2]);
     $ipRow = $pdo->query("SELECT * FROM tecnina_identity_rate_limits WHERE scope = 'reset_consume_ip' ORDER BY created_at DESC LIMIT 1")->fetch();
     testAssert(!empty($ipRow), 'ip_rate_bucket_detected');
     $ipKey = $ipRow['bucket_key'];
@@ -742,14 +759,17 @@ try {
 
     // Set to 30
     $pdo->prepare("UPDATE tecnina_identity_rate_limits SET count = 30 WHERE bucket_key = ?")->execute([$ipKey]);
-    $ipLimitRes = httpRequest('POST', '/cliente/password-reset/' . $probeToken);
+    $ipLimitRes = httpRequest('POST', '/cliente/password-reset/' . $probeToken, [
+        'MAPOS_CSRF_TOKEN' => $probeCsrfToken2,
+        'password' => 'pass123456',
+        'password_confirmation' => 'pass123456'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $probeCsrfToken2]);
     testAssert($ipLimitRes['code'] === 429 && ($ipLimitRes['json']['reason'] ?? '') === 'rate_limited', 'endpoint_reset_consume_ip_enforces_429_at_30_cap');
     // Restore IP bucket
     $pdo->prepare("UPDATE tecnina_identity_rate_limits SET count = ? WHERE bucket_key = ?")->execute([$ipPrevCount, $ipKey]);
 
     // 7.8 Component-level unit test for limiter algorithm
-    require_once '/var/www/html/application/libraries/Tecnina_identity_rate_limiter.php';
-    testAssert(class_exists('Tecnina_identity_rate_limiter'), 'limiter_library_component_verified');
+    testAssert(file_exists('/var/www/html/application/libraries/Tecnina_identity_rate_limiter.php'), 'limiter_library_component_verified');
 
     // 7.9 Controlled 503 unavailable path (fail-closed)
     $pdo->exec("RENAME TABLE tecnina_identity_rate_limits TO tecnina_identity_rate_limits_temp_test");

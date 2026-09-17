@@ -1,0 +1,589 @@
+{
+    "task": "CIAO-S03A",
+    "timestamp": "2026-09-17T15:11:57Z",
+    "total_assertions": 95,
+    "passed": 95,
+    "failed": 0,
+    "baseline_counts": {
+        "clientes": 3,
+        "tecnina_client_identity": 3,
+        "tecnina_client_profile": 0,
+        "tecnina_client_identity_phone_conflicts": 0,
+        "tecnina_password_resets": 0,
+        "tecnina_email_verifications": 0,
+        "tecnina_identity_rate_limits_initial": 59,
+        "tecnina_identity_rate_limits_final": 59
+    },
+    "assertions": [
+        {
+            "name": "bearer_missing_returns_401",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "code=401"
+        },
+        {
+            "name": "bearer_invalid_returns_403",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "code=403"
+        },
+        {
+            "name": "hash_strict_whitelist_extra_field_rejected_422",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "code=422"
+        },
+        {
+            "name": "hash_5_chars_rejected_422",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "code=422"
+        },
+        {
+            "name": "hash_6_digits_accepted_200_bcrypt",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "code=200"
+        },
+        {
+            "name": "hash_6_letters_accepted_200",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "hash_confirmation_mismatch_rejected_422",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "hash_73_bytes_rejected_422",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "hash_whitespace_preserved",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "hash_unicode_emojis_accepted",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "lookup_none_returns_NONE",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "lookup_none_client_id_null",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "lookup_unique_returns_UNIQUE",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "lookup_conflict_evidence_overrides_UNIQUE_returns_AMBIGUOUS",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "lookup_restored_to_UNIQUE_after_conflict_removal",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_issue_returns_200_with_challenge_id",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_verification_expires_at_is_15_minutes",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "ttl=900s"
+        },
+        {
+            "name": "plaintext_code_omitted_from_issue_response",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "client_identity_email_state_becomes_PENDING",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "trusted_email_in_clientes_unchanged_before_verification",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_verification_row_state_is_PENDING",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_code_digest_stored_sha256",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_issue_same_key_replay",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_issue_conflicting_key_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_issue_superseding_created",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "previous_challenge_state_is_SUPERSEDED",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "superseded_challenge_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "expired_challenge_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "expired_challenge_persisted_state_remains_PENDING_evaluated_at_boundary",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "wrong_attempt_1_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "wrong_attempt_2_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "wrong_attempt_3_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "wrong_attempt_4_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "wrong_attempt_5_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "exactly_5_attempts_recorded",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "valid_code_after_5_failures_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "exhausted_challenge_persisted_state_remains_PENDING_evaluated_at_boundary",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "malformed_code_rejected_422",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "malformed_code_does_not_consume_attempts",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "email_verify_success_200",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "challenge_state_becomes_VERIFIED",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "clientes_email_atomically_promoted",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "client_identity_email_state_becomes_VERIFIED",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "verify_same_key_completed_replay_200",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "verify_conflicting_key_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "issue_challenge_b_success_200",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "cross_challenge_verify_key_reuse_returns_409_idempotency_conflict",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "challenge_b_state_remains_PENDING_unverified",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "clientes_email_not_promoted_to_b",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "identity_state_not_mutated_by_b",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_issue_privacy_preserving_dummy",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_issue_success_with_url",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "password_reset_expires_at_is_15_minutes",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "ttl=900s"
+        },
+        {
+            "name": "reset_record_PENDING",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_token_digest_sha256",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "plaintext_token_not_persisted_in_db",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_issue_stable_idempotent_replay",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_issue_conflicting_key_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "second_reset_issued",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "first_reset_state_is_SUPERSEDED",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "expired_reset_consumption_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "public_reset_get_rejected_405",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "public_reset_no_csrf_rejected_403",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "csrf_cookie_obtained_and_verified",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "credential_version_starts_at_1",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "public_reset_consume_http_200",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "reset_state_is_CONSUMED",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "credential_version_incremented_to_2",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "new_password_verifies_exact_whitespace",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "single_use_replay_rejected_409",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "replay_cannot_mutate_credential_version",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_credential_hash_enforces_429_at_60_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_credential_hash_recovers_to_200_after_restoration",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_client_lookup_enforces_429_at_300_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_client_lookup_recovers_to_200_after_restoration",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_email_issue_enforces_429_at_15m_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_email_issue_enforces_429_at_daily_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_reset_issue_enforces_429_at_hourly_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_reset_consume_token_enforces_429_at_10_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "ip_rate_bucket_detected",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "endpoint_reset_consume_ip_enforces_429_at_30_cap",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "limiter_library_component_verified",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "table_unavailability_produces_controlled_503",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "audit_request_get_405",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "audit_request_post_no_csrf_403",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "audit_request_referer_processed",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "audit_ordinary_request_processed",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": ""
+        },
+        {
+            "name": "nginx_audit_requests_sent",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "token_generated"
+        },
+        {
+            "name": "cleanup_clientes_count_3",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=3"
+        },
+        {
+            "name": "cleanup_tecnina_client_identity_count_3",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=3"
+        },
+        {
+            "name": "cleanup_tecnina_client_profile_count_0",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=0"
+        },
+        {
+            "name": "cleanup_tecnina_client_identity_phone_conflicts_count_0",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=0"
+        },
+        {
+            "name": "cleanup_tecnina_password_resets_count_0",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=0"
+        },
+        {
+            "name": "cleanup_tecnina_email_verifications_count_0",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "count=0"
+        },
+        {
+            "name": "cleanup_tecnina_identity_rate_limits_exact_baseline",
+            "status": "PASS",
+            "category": "EXECUTED_ON_TARGET",
+            "detail": "before=59, after=59"
+        }
+    ]
+}
