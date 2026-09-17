@@ -87,6 +87,30 @@ $assert(tecnina_s03_credential_version($fixture['client_id']) === $before + 1, '
 $expiredReset=$authority->issuePasswordReset(array_merge($fixture['reset_issue'],['idempotency_key'=>'expired-reset']));tecnina_s03_expire_latest_reset();
 $assert(!$authority->consumePasswordReset(tecnina_s03_token_from_url($expiredReset['reset_url']),'new-pass','new-pass')['ok'],'expired reset rejected');
 
+// Same-candidate email reissue supersession without affected_rows error
+$sameCand = 'same-cand@example.test';
+$issueSame1 = $authority->issueEmailVerification(['client_id'=>$fixture['client_id'],'email_candidate'=>$sameCand,'purpose'=>'PROFILE_CHANGE','idempotency_key'=>'same-k1']);
+$assert($issueSame1['ok'], 'issue same candidate first');
+$issueSame2 = $authority->issueEmailVerification(['client_id'=>$fixture['client_id'],'email_candidate'=>$sameCand,'purpose'=>'PROFILE_CHANGE','idempotency_key'=>'same-k2']);
+$assert($issueSame2['ok'], 'reissue same candidate succeeds without affected_rows error');
+$assert(tecnina_s03_verification_state($issueSame1['challenge_id']) === 'SUPERSEDED', 'first same-candidate challenge superseded');
+$assert(tecnina_s03_verification_state($issueSame2['challenge_id']) === 'PENDING', 'second same-candidate challenge pending');
+$codeSame2 = tecnina_s03_delivery_code();
+$verifiedSame = $authority->verifyEmail(['challenge_id'=>$issueSame2['challenge_id'], 'code'=>$codeSame2, 'idempotency_key'=>'verify-same-k2']);
+$assert($verifiedSame['ok'] && tecnina_s03_client_email($fixture['client_id']) === $sameCand, 'verify same candidate promotes email');
+
+// Syntactic validation of password reset requests
+$assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => 'not-a-phone']))['ok'], 'malformed phone alpha rejected');
+$assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => '123']))['ok'], 'malformed phone short rejected');
+$assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => '']))['ok'], 'empty idempotency key rejected');
+$dummyResetRes = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => '5511999999999', 'client_id' => 999999]));
+$assert($dummyResetRes['ok'] && ($dummyResetRes['state'] ?? '') === 'REQUEST_ACCEPTED' && !isset($dummyResetRes['reset_url']), 'dummy reset privacy accepted');
+
+// Attempts strictly capped at 5 under row lock
+$afterFive = $authority->verifyEmail(['challenge_id'=>$failureIssue['challenge_id'],'code'=>$badCode,'idempotency_key'=>'after-five-wrong']);
+$assert(!$afterFive['ok'] && $afterFive['reason'] === 'invalid_or_expired_code', 'attempt after five rejected');
+$assert(tecnina_s03_verification_attempts($failureIssue['challenge_id']) === 5, 'attempts strictly capped at five');
+
 $limiter=get_instance()->tecnina_identity_rate_limiter;
 $assert($limiter->allow('behavior_limit','fixture',2,3600)===true, 'rate first');
 $assert($limiter->allow('behavior_limit','fixture',2,3600)===true, 'rate second');

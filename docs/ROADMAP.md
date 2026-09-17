@@ -63,7 +63,7 @@ Estado histórico de validação: implantação operacional anterior em produç�
 
 ## P1 — validação em ambiente integrado
 
-- submeter CIAO-S03A para aceite formal do Tech Lead (TL_ACCEPTANCE alcançado com 79/79 asserções em produção, redação de tokens no log de acesso do Nginx verificada, ledger estável em 20260916120000 e sem regressões); em seguida autorizar CIAO-S03B;
+- submeter CIAO-S03A para aceite formal do Tech Lead (após validação completa em produção via suite expandida, proteção Nginx de testes, redação de tokens no log de acesso, ledger estável em 20260916120000 e sem regressões); em seguida autorizar CIAO-S03B;
 - deploy MapOS coordenado antes do Gateway;
 - executar procedimento pós-deploy vigente;
 - validar outbox/trigger e contratos privados;

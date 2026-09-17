@@ -2,14 +2,16 @@ Status: CURRENT
 
 ## S03-A target-validation state (TARGET_VALIDATION)
 
-- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential authority; corrective commit resolves cross-challenge verify idempotency handling and adds endpoint rate-limiting validation.
+- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential authority; corrective commit under Technical Order 55 hardens verify concurrency with row-locking, supports same-candidate email reissue without affected_rows error, enforces syntactic validation for password reset requests, and secures test runners with Nginx protection and CLI safety interlock.
 - Validated tables: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
+- Rate limits: Email verification issue is capped at 3/15m and 10/day per subject+email; password reset issue capped at 3/hour/identity; credential hash capped at 60/min/service; client lookup capped at 300/min/service; public reset token capped at 10/hour; public reset IP capped at 30/hour.
 - Password policy: minimum 6 Unicode characters (no composition requirement), 5 rejected, exact whitespace preserved, bcrypt 72-byte max.
 - Password reset and email challenge TTL: exactly 15 minutes (900 seconds).
 - Host Docker CLI bit-corruption was repaired with clean package extraction (MD5 `8f880710f0f6e94aaaa960dd663bc001`). Root cause calibrated: "Docker CLI binary corruption confirmed; underlying corruption cause not determined."
 - Production CodeIgniter migration completed once; ledger strictly preserved at `20260916120000`. Structural validation passed.
 - Nginx access-log token redaction (Technical Order 53): request-level normalization of `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs. Normal operational access logging for unrelated endpoints remains fully intact.
-- Status: `TARGET_VALIDATION` under Technical Order 54.
+- Test runner protection: Nginx explicit block `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and intentional safety interlock `TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION'`. Machine-readable results emitted outside web-served root to `/tmp/results_s03a.json`.
+- Status: `TARGET_VALIDATION` under Technical Order 55.
 ## S02-A — reconciliação atual (2026-09-16)
 
 - S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS runs canonical `master` at `76e72995cf4c00617435aeb34404aa28551533b2` after Coolify deployment `gkpxgzavbwqqiftzfdul9qkj`; it remains functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. The next active stage is S03 planning under a separate Technical Lead order.
@@ -146,7 +148,8 @@ Scope: MapOS fork TecNina / estado atual
 - The preflight makes unresolved relational phone-conflict evidence authoritative over a nominal unique identity row, materializes the client e-mail `PENDING` state only after successful challenge delivery, preserves the trusted `clientes.email` until verification, and counts only well-formed wrong verification codes.
 - Password policy enforces minimum 6 Unicode characters (no composition requirement), exactly preserving whitespace.
 - Verification and reset challenge TTL is exactly 15 minutes (900 seconds).
+- Rate limits: Email verification issue is capped at 3/15m and 10/day per subject+email; password reset issue capped at 3/hour/identity; credential hash capped at 60/min/service; client lookup capped at 300/min/service; public reset token capped at 10/hour; public reset IP capped at 30/hour.
 - Schema structures added and verified: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
 - Docker CLI bit-corruption was repaired with clean package extraction; calibrated root cause: "Docker CLI binary corruption confirmed; underlying corruption cause not determined."
 - Nginx access-log token redaction verified (0 occurrences).
-- Corrective commit addresses verify-idempotency handling across different challenges and introduces live endpoint rate limit testing with machine-readable results artifact.
+- Technical Order 55 hardening: row-locking concurrency guard on email verification attempts, same-candidate reissue support without affected_rows error, syntactic validation for reset requests returning 422, Nginx `/tests/` protection returning 404, CLI safety interlock, and machine-readable output outside web-served root.

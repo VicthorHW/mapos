@@ -7,6 +7,22 @@
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', '1');
 
+// Defense-in-depth: CLI execution only
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    header('HTTP/1.1 404 Not Found');
+    echo "404 Not Found\n";
+    exit(1);
+}
+
+// Intentional execution safety interlock
+$authEnv = getenv('TECNINA_TARGET_VALIDATION_AUTH') ?: ($_SERVER['TECNINA_TARGET_VALIDATION_AUTH'] ?? '');
+$hasArg = in_array('--authorized-s03a-target-execution', $argv ?? [], true);
+if ($authEnv !== 'AUTHORIZED_S03A_TARGET_EXECUTION' && !$hasArg) {
+    fwrite(STDERR, "FATAL: Unauthorized target validation execution. Set TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION' or pass --authorized-s03a-target-execution.\n");
+    exit(1);
+}
+
 defined('BASEPATH') or define('BASEPATH', '/var/www/html/system/');
 defined('APPPATH') or define('APPPATH', '/var/www/html/application/');
 
@@ -306,6 +322,64 @@ try {
     ], $authHeader);
     testAssert($verifySuperseded['code'] === 409 && ($verifySuperseded['json']['reason'] ?? '') === 'invalid_or_expired_code', 'superseded_challenge_rejected_409');
 
+    // 5.4.1 Same-candidate reissue supersession without affected_rows error
+    $sameCand = 'same_cand_reissue@example.test';
+    $sameKey1 = 'test-issue-same-cand-1';
+    $sameRes1 = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => $testClientId,
+        'email_candidate' => $sameCand,
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => $sameKey1,
+    ], $authHeader);
+    testAssert($sameRes1['code'] === 200 && !empty($sameRes1['json']['challenge_id']), 'same_candidate_first_challenge_issued');
+    $sameChId1 = $sameRes1['json']['challenge_id'] ?? '';
+    $sameIdState1 = $pdo->query("SELECT email_state, email_candidate FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetch();
+    testAssert($sameIdState1['email_state'] === 'PENDING' && $sameIdState1['email_candidate'] === $sameCand, 'same_candidate_identity_state_pending');
+
+    // Reissue with identical candidate email but new idempotency key
+    $sameKey2 = 'test-issue-same-cand-2';
+    $sameRes2 = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => $testClientId,
+        'email_candidate' => $sameCand,
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => $sameKey2,
+    ], $authHeader);
+    testAssert($sameRes2['code'] === 200 && !empty($sameRes2['json']['challenge_id']), 'same_candidate_reissue_succeeds_without_affected_rows_error');
+    $sameChId2 = $sameRes2['json']['challenge_id'] ?? '';
+    testAssert($sameChId1 !== $sameChId2, 'same_candidate_reissue_generates_distinct_challenge');
+
+    $chState1 = $pdo->query("SELECT state FROM tecnina_email_verifications WHERE id = '{$sameChId1}'")->fetchColumn();
+    $chState2 = $pdo->query("SELECT state FROM tecnina_email_verifications WHERE id = '{$sameChId2}'")->fetchColumn();
+    testAssert($chState1 === 'SUPERSEDED', 'same_candidate_first_challenge_is_SUPERSEDED');
+    testAssert($chState2 === 'PENDING', 'same_candidate_second_challenge_is_PENDING_not_delivery_failed');
+
+    // Verification of Challenge 2 succeeds and promotes email
+    $digestSame2 = $pdo->query("SELECT code_digest FROM tecnina_email_verifications WHERE id = '{$sameChId2}'")->fetchColumn();
+    $codeSame2 = null;
+    for ($i = 0; $i <= 999999; $i++) {
+        $cand = str_pad((string)$i, 6, '0', STR_PAD_LEFT);
+        if (hash_hmac('sha256', "{$sameChId2}|{$cand}", $hmacSecret) === $digestSame2) {
+            $codeSame2 = $cand;
+            break;
+        }
+    }
+    $verifySame2 = httpRequest('POST', '/api/bot/email-verification/verify', [
+        'challenge_id' => $sameChId2,
+        'code' => $codeSame2,
+        'idempotency_key' => 'verify-same-cand-2'
+    ], $authHeader);
+    testAssert($verifySame2['code'] === 200 && ($verifySame2['json']['ok'] ?? false) === true, 'same_candidate_second_challenge_verified_200');
+
+    $finalIdSame = $pdo->query("SELECT email_state, email_candidate FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetch();
+    testAssert($finalIdSame['email_state'] === 'VERIFIED' && $finalIdSame['email_candidate'] === $sameCand, 'same_candidate_identity_verified');
+
+    $finalEmailSame = $pdo->query("SELECT email FROM clientes WHERE idClientes = {$testClientId}")->fetchColumn();
+    testAssert($finalEmailSame === $sameCand, 'same_candidate_clientes_email_promoted');
+
+    // Reset trusted email back for subsequent tests
+    $pdo->prepare("UPDATE clientes SET email = ? WHERE idClientes = ?")->execute([$testEmail, $testClientId]);
+    $pdo->prepare("UPDATE tecnina_client_identity SET email_state = 'LEGACY_EXISTING', email_candidate = NULL WHERE client_id = ?")->execute([$testClientId]);
+
     // 5.5 Expiration
     $expKey = 'test-issue-key-exp';
     $expRes = httpRequest('POST', '/api/bot/email-verification/issue', [
@@ -368,6 +442,16 @@ try {
     testAssert($sixthValidRes['code'] === 409 && ($sixthValidRes['json']['reason'] ?? '') === 'invalid_or_expired_code', 'valid_code_after_5_failures_rejected_409');
     $bruteDbState = $pdo->query("SELECT state FROM tecnina_email_verifications WHERE id = '{$bruteChallengeId}'")->fetchColumn();
     testAssert($bruteDbState === 'PENDING', 'exhausted_challenge_persisted_state_remains_PENDING_evaluated_at_boundary');
+
+    // Concurrency boundary: further attempts rejected and counter strictly capped at 5 under row lock
+    $seventhTry = httpRequest('POST', '/api/bot/email-verification/verify', [
+        'challenge_id' => $bruteChallengeId,
+        'code' => $wrongCode,
+        'idempotency_key' => "wrong-try-7"
+    ], $authHeader);
+    testAssert($seventhTry['code'] === 409 && ($seventhTry['json']['reason'] ?? '') === 'invalid_or_expired_code', 'seventh_attempt_rejected_409');
+    $attemptsInDb7 = (int)$pdo->query("SELECT attempts FROM tecnina_email_verifications WHERE id = '{$bruteChallengeId}'")->fetchColumn();
+    testAssert($attemptsInDb7 === 5, 'attempts_strictly_capped_at_5_under_row_lock');
 
     // 5.7 Malformed code does not consume attempt
     $malKey = 'test-issue-key-mal';
@@ -493,7 +577,60 @@ try {
     echo "\n==================================================\n";
     echo "6. PASSWORD RESET LIFECYCLE\n";
     echo "==================================================\n";
-    // 6.1 Privacy preserving dummy reset for non-existent client
+    // 6.1 Password reset request validation (syntactic validation & anti-enumeration)
+    // 6.1.1 Malformed phone numbers must return 422 invalid_canonical_phone
+    $malPhone1 = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => 'not-a-phone',
+        'phone_context_id' => 'ctx-mal',
+        'idempotency_key' => 'mal-key-phone-1'
+    ], $authHeader);
+    testAssert($malPhone1['code'] === 422 && ($malPhone1['json']['reason'] ?? '') === 'invalid_canonical_phone', 'reset_issue_malformed_phone_alpha_rejected_422');
+
+    $malPhone2 = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => '123', // too short (< 8 digits)
+        'phone_context_id' => 'ctx-mal',
+        'idempotency_key' => 'mal-key-phone-2'
+    ], $authHeader);
+    testAssert($malPhone2['code'] === 422 && ($malPhone2['json']['reason'] ?? '') === 'invalid_canonical_phone', 'reset_issue_malformed_phone_short_rejected_422');
+
+    // 6.1.2 Malformed idempotency key must return 422 invalid_payload
+    $malKeyEmpty = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-mal',
+        'idempotency_key' => ''
+    ], $authHeader);
+    testAssert($malKeyEmpty['code'] === 422 && ($malKeyEmpty['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_empty_idempotency_key_rejected_422');
+
+    $malKeyLong = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-mal',
+        'idempotency_key' => str_repeat('k', 101)
+    ], $authHeader);
+    testAssert($malKeyLong['code'] === 422 && ($malKeyLong['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_long_idempotency_key_rejected_422');
+
+    // 6.1.3 Malformed client_id must return 422 invalid_payload
+    $malClientId = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => 'not_numeric',
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-mal',
+        'idempotency_key' => 'mal-key-client-id'
+    ], $authHeader);
+    testAssert($malClientId['code'] === 422 && ($malClientId['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_malformed_client_id_rejected_422');
+
+    // 6.1.4 Malformed phone_context_id must return 422 invalid_payload
+    $malCtxEmpty = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => '',
+        'idempotency_key' => 'mal-key-ctx-empty'
+    ], $authHeader);
+    testAssert($malCtxEmpty['code'] === 422 && ($malCtxEmpty['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_empty_context_id_rejected_422');
+
+    // 6.1.5 Privacy preserving dummy reset for non-existent client (HTTP 200 REQUEST_ACCEPTED without reset_url)
     $dummyReset = httpRequest('POST', '/api/bot/password-reset/issue', [
         'client_id' => 999999,
         'canonical_phone' => '5511999999999',
@@ -503,7 +640,21 @@ try {
     testAssert($dummyReset['code'] === 200 
         && ($dummyReset['json']['state'] ?? '') === 'REQUEST_ACCEPTED' 
         && !isset($dummyReset['json']['reset_url']), 
-        'reset_issue_privacy_preserving_dummy');
+        'reset_issue_privacy_preserving_dummy_accepted_200');
+
+    // 6.1.6 Controlled 503 unavailable on database outage
+    $pdo->exec("RENAME TABLE tecnina_password_resets TO tecnina_password_resets_outage_test");
+    try {
+        $outageRes = httpRequest('POST', '/api/bot/password-reset/issue', [
+            'client_id' => $testClientId,
+            'canonical_phone' => $testPhone,
+            'phone_context_id' => 'ctx-outage',
+            'idempotency_key' => 'outage-key-1'
+        ], $authHeader);
+        testAssert($outageRes['code'] === 503 && ($outageRes['json']['reason'] ?? '') === 'unavailable', 'reset_issue_db_outage_returns_controlled_503');
+    } finally {
+        $pdo->exec("RENAME TABLE tecnina_password_resets_outage_test TO tecnina_password_resets");
+    }
 
     // 6.2 Valid reset issue
     $rKey = 'test-reset-key-1';
@@ -849,8 +1000,11 @@ try {
     testAssert($finalRateLimitCount === $initialRateLimitCount, 'cleanup_tecnina_identity_rate_limits_exact_baseline', "before={$initialRateLimitCount}, after={$finalRateLimitCount}");
 }
 
-// 10. Emit machine-readable results JSON artifact
-$resultsJsonPath = '/var/www/html/tests/results_s03a.json';
+// 10. Emit machine-readable results JSON artifact outside web-served root
+$resultsJsonPath = '/tmp/results_s03a.json';
+if (file_exists('/var/www/html/tests/results_s03a.json')) {
+    @unlink('/var/www/html/tests/results_s03a.json');
+}
 $summaryData = [
     'task' => 'CIAO-S03A',
     'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
