@@ -20,6 +20,7 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         // Never narrow legacy client address fields or alter clientes data.
         // The authority tables may contain subsequently issued credentials;
         // target downgrade therefore requires an explicit reviewed procedure.
+        throw new RuntimeException('S03-A identity authority is forward-recovery only; automatic downgrade is prohibited.');
     }
 
     private function widenLegacyAddressColumns()
@@ -51,21 +52,22 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             CONSTRAINT `fk_tecnina_identity_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$profile} (
-            `client_id` INT NOT NULL, `birth_date` DATE NULL, `address_reference` VARCHAR(160) NULL,
+            `client_id` INT NOT NULL, `birth_date` DATE NULL, `address_reference` VARCHAR(255) NULL,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`client_id`), CONSTRAINT `fk_tecnina_profile_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$verification} (
             `id` CHAR(36) NOT NULL, `client_id` INT NULL, `intake_id` CHAR(36) NULL, `purpose` VARCHAR(32) NOT NULL,
             `email_candidate` VARCHAR(100) NOT NULL, `code_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
-            `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL,
-            `idempotency_key` VARCHAR(100) NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`)
+            `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `expires_at` DATETIME NOT NULL, `verified_at` DATETIME NULL, `consumed_at` DATETIME NULL,
+            `idempotency_key` VARCHAR(100) NULL, `request_fingerprint` CHAR(64) NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `intake_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`),
+            CONSTRAINT `chk_tecnina_email_verification_subject` CHECK ((`client_id` IS NULL) <> (`intake_id` IS NULL))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$reset} (
             `id` CHAR(36) NOT NULL, `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NOT NULL,
-            `token_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING', `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0,
-            `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL, `idempotency_key` VARCHAR(100) NULL,
+            `token_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING', `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `proof_failures` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL, `idempotency_key` VARCHAR(100) NULL, `request_fingerprint` CHAR(64) NULL,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`), KEY `ix_tecnina_reset_client` (`client_id`, `state`),
             UNIQUE KEY `uq_tecnina_reset_idempotency` (`idempotency_key`), CONSTRAINT `fk_tecnina_reset_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -75,7 +77,21 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
     {
         $identity = '`' . $this->db->dbprefix('tecnina_client_identity') . '`';
         $clients = '`' . $this->db->dbprefix('clientes') . '`';
-        // Do not infer phone verification from a legacy contact value.
+        // Do not infer verification, but do preserve uniquely resolvable legacy phone identity.
         $this->db->query("INSERT IGNORE INTO {$identity} (`client_id`, `email_state`) SELECT `idClientes`, CASE WHEN `email` IS NULL OR `email` = '' THEN 'NONE' ELSE 'LEGACY_EXISTING' END FROM {$clients}");
+        $this->load->library('Tecnina_phone');
+        $rows = $this->db->select('idClientes, celular, telefone')->get('clientes')->result();
+        $owners = [];
+        foreach ($rows as $row) {
+            foreach ([$row->celular, $row->telefone] as $phone) {
+                $canonical = $this->tecnina_phone->normalizeCanonicalIdentity($phone);
+                if ($canonical !== null) { $owners[$canonical][(int) $row->idClientes] = true; }
+            }
+        }
+        foreach ($owners as $canonical => $clientIds) {
+            if (count($clientIds) === 1) {
+                $this->db->where('client_id', (int) array_key_first($clientIds))->update('tecnina_client_identity', ['canonical_phone' => $canonical, 'phone_state' => 'LEGACY_EXISTING']);
+            }
+        }
     }
 }

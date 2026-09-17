@@ -1,94 +1,37 @@
 <?php
-
 defined('BASEPATH') or exit('No direct script access allowed');
 
-/** Shared authority rules; passwords are accepted only transiently and never logged. */
+/** S03-A authority rules: sensitive request values are never logged or persisted plaintext. */
 class Tecnina_identity_authority
 {
     private $CI;
-
-    public function __construct()
-    {
-        $this->CI =& get_instance();
-        $this->CI->load->library('Tecnina_phone');
+    public function __construct() { $this->CI =& get_instance(); $this->CI->load->library('Tecnina_phone'); }
+    public function passwordHash($password, $confirmation = null) {
+        if (!is_string($password) || ($confirmation !== null && (!is_string($confirmation) || !hash_equals($password,$confirmation)))) return ['ok'=>false,'reason'=>'password_confirmation'];
+        if (mb_strlen($password,'UTF-8') < 6) return ['ok'=>false,'reason'=>'password_too_short'];
+        if (PASSWORD_DEFAULT === PASSWORD_BCRYPT && strlen($password)>72) return ['ok'=>false,'reason'=>'password_too_long'];
+        $hash=password_hash($password,PASSWORD_DEFAULT); return $hash===false?['ok'=>false,'reason'=>'password_hash_failed']:['ok'=>true,'hash'=>$hash,'algorithm_runtime'=>password_get_info($hash)['algoName']];
     }
-
-    public function passwordHash($password, $confirmation = null)
-    {
-        if (! is_string($password) || ($confirmation !== null && (! is_string($confirmation) || ! hash_equals($password, $confirmation)))) {
-            return ['ok' => false, 'reason' => 'password_confirmation'];
-        }
-        if (mb_strlen($password, 'UTF-8') < 6) {
-            return ['ok' => false, 'reason' => 'password_too_short'];
-        }
-        // PASSWORD_DEFAULT is currently bcrypt; enforce its 72-byte effective boundary without trimming.
-        if (PASSWORD_DEFAULT === PASSWORD_BCRYPT && strlen($password) > 72) {
-            return ['ok' => false, 'reason' => 'password_too_long'];
-        }
-        $hash = password_hash($password, PASSWORD_DEFAULT);
-        return $hash === false ? ['ok' => false, 'reason' => 'password_hash_failed'] : ['ok' => true, 'hash' => $hash, 'algorithm' => password_get_info($hash)['algoName']];
+    public function lookupCanonicalPhone($phone) {
+        if (!is_string($phone)||preg_match('/^\d{8,15}$/',$phone)!==1) return ['ok'=>false,'reason'=>'invalid_canonical_phone'];
+        $rows=$this->CI->db->select('i.client_id,i.phone_state,c.senha')->from('tecnina_client_identity i')->join('clientes c','c.idClientes=i.client_id')->where('i.canonical_phone',$phone)->get()->result();
+        if(count($rows)!==1) return ['ok'=>true,'match'=>count($rows)>1?'AMBIGUOUS':'NONE'];
+        return ['ok'=>true,'match'=>'UNIQUE','client_id'=>(int)$rows[0]->client_id,'phone_state'=>$rows[0]->phone_state,'has_password_credential'=>!empty($rows[0]->senha)];
     }
-
-    public function lookupPhone($phone)
-    {
-        $canonical = $this->CI->tecnina_phone->normalizeCanonicalIdentity($phone);
-        if ($canonical === null) {
-            return ['ok' => false, 'reason' => 'invalid_phone'];
-        }
-        $rows = $this->CI->db->select('idClientes, celular, telefone, senha')->get('clientes')->result();
-        $matches = [];
-        foreach ($rows as $row) {
-            foreach ([$row->celular, $row->telefone] as $candidate) {
-                if ($this->CI->tecnina_phone->normalizeCanonicalIdentity($candidate) === $canonical) { $matches[(int) $row->idClientes] = $row; }
-            }
-        }
-        if (count($matches) === 0) { return ['ok' => true, 'match' => 'NONE']; }
-        if (count($matches) !== 1) { return ['ok' => true, 'match' => 'AMBIGUOUS']; }
-        $client = reset($matches); $this->ensureLegacyIdentity($client->idClientes);
-        $identity = $this->CI->db->get_where('tecnina_client_identity', ['client_id' => $client->idClientes])->row();
-        return ['ok' => true, 'match' => 'UNIQUE', 'client_id' => (int) $client->idClientes,
-            'phone_state' => $identity ? $identity->phone_state : 'NONE', 'has_password_credential' => ! empty($client->senha)];
+    public function issueEmailVerification(array $input) {
+        $one=isset($input['client_id']) xor isset($input['intake_id']); $email=$input['email_candidate']??null; $key=$input['idempotency_key']??null; $purpose=$input['purpose']??null;
+        if(!$one||!is_string($email)||strlen($email)>100||!filter_var($email,FILTER_VALIDATE_EMAIL)||!in_array($purpose,['ACCOUNT_CREATION','PROFILE_CHANGE','LEGACY_EMAIL_CONFIRMATION'],true)||!$this->key($key))return ['ok'=>false,'reason'=>'invalid_payload'];
+        $subject=isset($input['client_id'])?'client_id':'intake_id';$id=$this->uuid();$code=str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);$fp=hash('sha256',$subject.'|'.$input[$subject].'|'.strtolower($email).'|'.$purpose);
+        $old=$this->CI->db->get_where('tecnina_email_verifications',['idempotency_key'=>$key])->row();if($old)return hash_equals($old->request_fingerprint,$fp)?['ok'=>true,'challenge_id'=>$old->id,'expires_at'=>$old->expires_at,'replayed'=>true]:['ok'=>false,'reason'=>'idempotency_conflict'];
+        $this->CI->db->trans_start();$this->CI->db->where($subject,$input[$subject])->where('state','PENDING')->update('tecnina_email_verifications',['state'=>'SUPERSEDED']);$expires=date('Y-m-d H:i:s',time()+900);$this->CI->db->insert('tecnina_email_verifications',['id'=>$id,$subject=>$input[$subject],'purpose'=>$purpose,'email_candidate'=>$email,'code_digest'=>$this->digest($id.'|'.$code),'expires_at'=>$expires,'idempotency_key'=>$key,'request_fingerprint'=>$fp]);$this->CI->db->trans_complete();return $this->CI->db->trans_status()?['ok'=>true,'challenge_id'=>$id,'expires_at'=>$expires,'_delivery_code'=>$code]:['ok'=>false,'reason'=>'unavailable'];
     }
-
-    public function ensureLegacyIdentity($clientId)
-    {
-        $existing = $this->CI->db->get_where('tecnina_client_identity', ['client_id' => $clientId])->row();
-        if (! $existing) { $this->CI->db->insert('tecnina_client_identity', ['client_id' => $clientId]); }
+    public function verifyEmail(array $input) {
+        $row=$this->CI->db->get_where('tecnina_email_verifications',['id'=>$input['challenge_id']??''])->row();$good=$row&&$row->state==='PENDING'&&strtotime($row->expires_at)>=time()&&$row->attempts<5&&isset($input['code'])&&hash_equals($row->code_digest,$this->digest($row->id.'|'.$input['code']));
+        if(!$good){if($row&&$row->state==='PENDING')$this->CI->db->where('id',$row->id)->set('attempts','attempts + 1',false)->update('tecnina_email_verifications');return ['ok'=>false,'reason'=>'invalid_or_expired_code'];}$now=date('Y-m-d H:i:s');$this->CI->db->trans_start();$this->CI->db->where('id',$row->id)->where('state','PENDING')->update('tecnina_email_verifications',['state'=>'VERIFIED','verified_at'=>$now,'consumed_at'=>$now]);if($row->client_id!==null)$this->CI->db->where('client_id',$row->client_id)->update('tecnina_client_identity',['email_candidate'=>$row->email_candidate,'email_state'=>'VERIFIED','email_verified_at'=>$now]);$this->CI->db->trans_complete();return ['ok'=>true,'state'=>'VERIFIED','verified_at'=>$now];
     }
-
-    public function issueEmailVerification($email, $purpose, $clientId = null, $intakeId = null, $idempotencyKey = null)
-    {
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL) || ! in_array($purpose, ['ACCOUNT_CREATION', 'PROFILE_CHANGE', 'LEGACY_EMAIL_CONFIRMATION'], true)) {
-            return ['ok' => false, 'reason' => 'invalid_verification_request'];
-        }
-        $id = $this->uuid(); $code = (string) random_int(100000, 999999);
-        $this->CI->db->insert('tecnina_email_verifications', [
-            'id' => $id, 'client_id' => $clientId, 'intake_id' => $intakeId, 'purpose' => $purpose, 'email_candidate' => $email,
-            'code_digest' => $this->digest($id . '|' . $code), 'expires_at' => date('Y-m-d H:i:s', time() + 900), 'idempotency_key' => $idempotencyKey,
-        ]);
-        // Delivery belongs to later channel integration; do not return the code over this API.
-        return ['ok' => true, 'verification_id' => $id, 'expires_in_seconds' => 900];
+    public function issuePasswordReset(array $input) {
+        $lookup=$this->lookupCanonicalPhone($input['canonical_phone']??'');$key=$input['idempotency_key']??null;if(!$lookup['ok']||$lookup['match']!=='UNIQUE'||$lookup['client_id']!==(int)($input['client_id']??0)||!$this->key($key))return ['ok'=>true,'state'=>'REQUEST_ACCEPTED'];$fp=hash('sha256',$lookup['client_id'].'|'.$input['canonical_phone']);$old=$this->CI->db->get_where('tecnina_password_resets',['idempotency_key'=>$key])->row();if($old)return hash_equals($old->request_fingerprint,$fp)?['ok'=>true,'reset_url'=>null,'expires_at'=>$old->expires_at,'replayed'=>true]:['ok'=>false,'reason'=>'idempotency_conflict'];$id=$this->uuid();$token=bin2hex(random_bytes(32));$expires=date('Y-m-d H:i:s',time()+900);$this->CI->db->trans_start();$this->CI->db->where('client_id',$lookup['client_id'])->where('state','PENDING')->update('tecnina_password_resets',['state'=>'SUPERSEDED']);$this->CI->db->insert('tecnina_password_resets',['id'=>$id,'client_id'=>$lookup['client_id'],'canonical_phone'=>$input['canonical_phone'],'token_digest'=>$this->digest($token),'expires_at'=>$expires,'idempotency_key'=>$key,'request_fingerprint'=>$fp]);$this->CI->db->trans_complete();return ['ok'=>true,'reset_url'=>site_url('cliente/password-reset/'.$token),'expires_at'=>$expires];
     }
-
-    public function issuePasswordReset($clientId, $canonicalPhone, $idempotencyKey = null)
-    {
-        $token = bin2hex(random_bytes(32)); $id = $this->uuid();
-        $this->CI->db->insert('tecnina_password_resets', ['id' => $id, 'client_id' => $clientId, 'canonical_phone' => $canonicalPhone,
-            'token_digest' => $this->digest($token), 'expires_at' => date('Y-m-d H:i:s', time() + 900), 'idempotency_key' => $idempotencyKey]);
-        // The raw link token is intentionally returned only to the trusted delivery adapter.
-        return ['ok' => true, 'reset_id' => $id, 'token' => $token, 'expires_in_seconds' => 900];
-    }
-
-    private function digest($value)
-    {
-        $key = (string) ($_ENV['MAPOS_BOT_TOKEN'] ?? '');
-        if (strlen($key) < 32) { throw new RuntimeException('Identity authority is not configured.'); }
-        return hash_hmac('sha256', $value, $key);
-    }
-
-    private function uuid()
-    {
-        $bytes = random_bytes(16); $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40); $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
-        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
-    }
+    public function consumePasswordReset($token,$password,$confirmation) {$row=$this->CI->db->get_where('tecnina_password_resets',['token_digest'=>$this->digest($token)])->row();$p=$this->passwordHash($password,$confirmation);if(!$row||$row->state!=='PENDING'||strtotime($row->expires_at)<time()||!$p['ok'])return ['ok'=>false,'reason'=>'invalid_or_expired_reset'];$this->CI->db->trans_start();$this->CI->db->where('id',$row->id)->where('state','PENDING')->update('tecnina_password_resets',['state'=>'CONSUMED','consumed_at'=>date('Y-m-d H:i:s')]);$this->CI->db->where('idClientes',$row->client_id)->update('clientes',['senha'=>$p['hash']]);$this->CI->db->where('client_id',$row->client_id)->set('credential_version','credential_version + 1',false)->update('tecnina_client_identity');$this->CI->db->trans_complete();return ['ok'=>true,'reset'=>true];}
+    private function key($v){return is_string($v)&&$v!==''&&strlen($v)<=100;} private function digest($v){$key=(string)($_ENV['MAPOS_BOT_TOKEN']??'');if(strlen($key)<32)throw new RuntimeException('Identity authority unavailable');return hash_hmac('sha256',$v,$key);}private function uuid(){$b=random_bytes(16);$b[6]=chr((ord($b[6])&15)|64);$b[8]=chr((ord($b[8])&63)|128);return vsprintf('%s%s-%s-%s-%s-%s%s%s',str_split(bin2hex($b),4));}
 }
