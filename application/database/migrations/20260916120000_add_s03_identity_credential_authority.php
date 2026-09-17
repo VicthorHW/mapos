@@ -52,7 +52,13 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             `credential_version` INT UNSIGNED NOT NULL DEFAULT 1, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`client_id`), KEY `ix_tecnina_identity_phone` (`canonical_phone`),
-            CONSTRAINT `fk_tecnina_identity_client` FOREIGN KEY (`client_id`) REFERENCES {$clients} (`idClientes`) ON DELETE RESTRICT
+            CONSTRAINT `fk_tecnina_identity_client` FOREIGN KEY (`client_id`) REFERENCES {$clients} (`idClientes`) ON DELETE RESTRICT,
+            CONSTRAINT `chk_tecnina_identity_phone` CHECK (`canonical_phone` IS NULL OR `canonical_phone` REGEXP '^[0-9]{8,15}$'),
+            CONSTRAINT `chk_tecnina_identity_phone_state` CHECK (`phone_state` IN ('NONE','PENDING','VERIFIED','LEGACY_EXISTING')),
+            CONSTRAINT `chk_tecnina_identity_phone_confirmation` CHECK ((`phone_state` = 'VERIFIED' AND `phone_confirmed_at` IS NOT NULL) OR (`phone_state` <> 'VERIFIED' AND `phone_confirmed_at` IS NULL)),
+            CONSTRAINT `chk_tecnina_identity_email_state` CHECK (`email_state` IN ('NONE','PENDING','VERIFIED','LEGACY_EXISTING')),
+            CONSTRAINT `chk_tecnina_identity_email_verification` CHECK ((`email_state` = 'VERIFIED' AND `email_verified_at` IS NOT NULL) OR (`email_state` <> 'VERIFIED' AND `email_verified_at` IS NULL)),
+            CONSTRAINT `chk_tecnina_identity_credential_version` CHECK (`credential_version` >= 1)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$profile} (
             `client_id` INT NOT NULL, `birth_date` DATE NULL, `address_reference` VARCHAR(255) NULL,
@@ -66,14 +72,20 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             `verify_idempotency_key` VARCHAR(100) NULL, `verify_fingerprint` CHAR(64) NULL,
             `idempotency_key` VARCHAR(100) NULL, `request_fingerprint` CHAR(64) NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `intake_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`), UNIQUE KEY `uq_tecnina_email_verification_verify_key` (`verify_idempotency_key`),
-            CONSTRAINT `chk_tecnina_email_verification_subject` CHECK ((`client_id` IS NULL) <> (`intake_id` IS NULL))
+            CONSTRAINT `fk_tecnina_email_verification_client` FOREIGN KEY (`client_id`) REFERENCES {$clients} (`idClientes`) ON DELETE RESTRICT,
+            CONSTRAINT `chk_tecnina_email_verification_subject` CHECK ((`client_id` IS NULL) <> (`intake_id` IS NULL)),
+            CONSTRAINT `chk_tecnina_email_verification_purpose` CHECK (`purpose` IN ('ACCOUNT_CREATION','PROFILE_CHANGE','LEGACY_EMAIL_CONFIRMATION')),
+            CONSTRAINT `chk_tecnina_email_verification_state` CHECK (`state` IN ('PENDING','VERIFIED','SUPERSEDED','DELIVERY_FAILED')),
+            CONSTRAINT `chk_tecnina_email_verification_attempts` CHECK (`attempts` <= 5)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$reset} (
             `id` CHAR(36) NOT NULL, `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NOT NULL,
             `token_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING', `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `proof_failures` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `expires_at` DATETIME NOT NULL, `consumed_at` DATETIME NULL, `idempotency_key` VARCHAR(100) NULL, `request_fingerprint` CHAR(64) NULL,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`), UNIQUE KEY `uq_tecnina_reset_token_digest` (`token_digest`), KEY `ix_tecnina_reset_client` (`client_id`, `state`),
-            UNIQUE KEY `uq_tecnina_reset_idempotency` (`idempotency_key`), CONSTRAINT `fk_tecnina_reset_client` FOREIGN KEY (`client_id`) REFERENCES {$clients} (`idClientes`) ON DELETE RESTRICT
+            UNIQUE KEY `uq_tecnina_reset_idempotency` (`idempotency_key`), CONSTRAINT `fk_tecnina_reset_client` FOREIGN KEY (`client_id`) REFERENCES {$clients} (`idClientes`) ON DELETE RESTRICT,
+            CONSTRAINT `chk_tecnina_reset_phone` CHECK (`canonical_phone` REGEXP '^[0-9]{8,15}$'),
+            CONSTRAINT `chk_tecnina_reset_state` CHECK (`state` IN ('PENDING','SUPERSEDED','CONSUMED'))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$conflict} (
             `canonical_phone` VARCHAR(15) NOT NULL, `client_id` INT NOT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

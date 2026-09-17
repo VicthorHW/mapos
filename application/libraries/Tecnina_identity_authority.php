@@ -27,7 +27,8 @@ class Tecnina_identity_authority
             $rows = $this->CI->db->select('i.client_id,i.phone_state,c.senha')->from('tecnina_client_identity i')->join('clientes c','c.idClientes=i.client_id')->where('i.canonical_phone',$phone)->get()->result();
             $conflicts = $this->CI->db->get_where('tecnina_client_identity_phone_conflicts',['canonical_phone'=>$phone])->result();
         } catch (Throwable $e) { return $this->fail('unavailable'); }
-        if (count($rows) !== 1) return ['ok'=>true,'match'=>(count($rows)>1||count($conflicts)>0)?'AMBIGUOUS':'NONE'];
+        if (count($conflicts) > 0) return ['ok'=>true,'match'=>'AMBIGUOUS'];
+        if (count($rows) !== 1) return ['ok'=>true,'match'=>count($rows)>1?'AMBIGUOUS':'NONE'];
         return ['ok'=>true,'match'=>'UNIQUE','client_id'=>(int)$rows[0]->client_id,'phone_state'=>$rows[0]->phone_state,'has_password_credential'=>!empty($rows[0]->senha)];
     }
 
@@ -36,11 +37,16 @@ class Tecnina_identity_authority
         $subject=$this->subject($input); $email=$input['email_candidate']??null; $purpose=$input['purpose']??null; $key=$input['idempotency_key']??null;
         if (!$subject || !is_string($email) || strlen($email)>100 || !filter_var($email,FILTER_VALIDATE_EMAIL) || !in_array($purpose,['ACCOUNT_CREATION','PROFILE_CHANGE','LEGACY_EMAIL_CONFIRMATION'],true) || !$this->key($key)) return $this->fail('invalid_payload');
         try {
-            $fingerprint=hash('sha256',$subject['kind'].'|'.$subject['id'].'|'.strtolower($email).'|'.$purpose);
+            $fingerprint=hash_hmac('sha256',$subject['kind'].'|'.$subject['id'].'|'.strtolower($email).'|'.$purpose,$this->secret());
             $old=$this->CI->db->get_where('tecnina_email_verifications',['idempotency_key'=>$key])->row();
             if ($old) {
                 if (!hash_equals((string)$old->request_fingerprint,$fingerprint)) return $this->fail('idempotency_conflict');
-                if ($old->state==='PENDING' && $this->future($old->expires_at)) return ['ok'=>true,'challenge_id'=>$old->id,'expires_at'=>$old->expires_at,'replayed'=>true];
+                if ($old->state==='PENDING' && $this->future($old->expires_at)) {
+                    if ($old->client_id!==null) {
+                        $this->CI->db->where('client_id',$old->client_id)->update('tecnina_client_identity',['email_candidate'=>$old->email_candidate,'email_state'=>'PENDING','email_verified_at'=>null]);
+                    }
+                    return ['ok'=>true,'challenge_id'=>$old->id,'expires_at'=>$old->expires_at,'replayed'=>true];
+                }
                 return $this->fail($old->state==='DELIVERY_FAILED'?'delivery_unavailable':'idempotency_conflict');
             }
             foreach ([['email_issue_15m',3,900],['email_issue_day',10,86400]] as [$scope,$max,$seconds]) {
@@ -54,18 +60,29 @@ class Tecnina_identity_authority
             $this->CI->db->trans_complete();
             if (!$this->CI->db->trans_status()) return $this->fail('unavailable');
             if (!$this->deliverCode($email,$code)) { $this->CI->db->where('id',$id)->where('state','PENDING')->update('tecnina_email_verifications',['state'=>'DELIVERY_FAILED']); return $this->fail('delivery_unavailable'); }
+            if ($subject['kind']==='client_id') {
+                $this->CI->db->where('client_id',$subject['id'])->update('tecnina_client_identity',['email_candidate'=>$email,'email_state'=>'PENDING','email_verified_at'=>null]);
+                if ($this->CI->db->affected_rows()!==1) {
+                    $this->CI->db->where('id',$id)->where('state','PENDING')->update('tecnina_email_verifications',['state'=>'DELIVERY_FAILED']);
+                    return $this->fail('unavailable');
+                }
+            }
             return ['ok'=>true,'challenge_id'=>$id,'expires_at'=>$expires];
         } catch (Throwable $e) { return $this->fail('unavailable'); }
     }
 
     public function verifyEmail(array $input)
     {
+        if (!isset($input['challenge_id'],$input['code'],$input['idempotency_key']) || !is_string($input['challenge_id']) || !is_string($input['code']) || preg_match('/^\d{6}$/',$input['code'])!==1 || !$this->key($input['idempotency_key'])) return $this->fail('invalid_payload');
         try {
             $key=$input['idempotency_key']??null; $row=$this->CI->db->get_where('tecnina_email_verifications',['id'=>$input['challenge_id']??''])->row();
             $fingerprint=$row&&isset($input['code'])?hash('sha256',$row->id.'|'.$this->digest($row->id.'|'.$input['code'])):'';
             if ($row && $row->state==='VERIFIED') return $this->verifyReplay($row,$key,$fingerprint);
-            if (!$row || !$this->key($key) || $row->state!=='PENDING' || !$this->future($row->expires_at) || $row->attempts>=5 || !isset($input['code']) || !hash_equals($row->code_digest,$this->digest($row->id.'|'.$input['code']))) {
-                if ($row && $row->state==='PENDING') $this->CI->db->where('id',$row->id)->set('attempts','attempts+1',false)->update('tecnina_email_verifications');
+            if (!$row || $row->state!=='PENDING' || !$this->future($row->expires_at) || $row->attempts>=5) {
+                return $this->fail('invalid_or_expired_code');
+            }
+            if (!hash_equals($row->code_digest,$this->digest($row->id.'|'.$input['code']))) {
+                $this->CI->db->where('id',$row->id)->where('state','PENDING')->where('attempts <',5)->set('attempts','attempts+1',false)->update('tecnina_email_verifications');
                 return $this->fail('invalid_or_expired_code');
             }
             $now=$this->utc(); $this->CI->db->trans_start();
@@ -86,7 +103,7 @@ class Tecnina_identity_authority
         if (!$lookup['ok']) return $this->fail('unavailable');
         if ($lookup['match']!=='UNIQUE' || $lookup['client_id']!==(int)($input['client_id']??0) || !$this->key($key)) return ['ok'=>true,'state'=>'REQUEST_ACCEPTED'];
         try {
-            $fingerprint=hash('sha256',$lookup['client_id'].'|'.$input['canonical_phone'].'|'.hash('sha256',(string)($input['phone_context_id']??'')).'|'.hash('sha256',(string)($input['proof']??'')));
+            $fingerprint=hash_hmac('sha256',$lookup['client_id'].'|'.$input['canonical_phone'].'|'.(string)($input['phone_context_id']??'').'|'.(string)($input['proof']??''),$this->secret());
             $old=$this->CI->db->get_where('tecnina_password_resets',['idempotency_key'=>$key])->row();
             if ($old) {
                 if (!hash_equals((string)$old->request_fingerprint,$fingerprint) || $old->state!=='PENDING' || !$this->future($old->expires_at)) return $this->fail('idempotency_conflict');

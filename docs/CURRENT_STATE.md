@@ -134,3 +134,10 @@ Scope: MapOS fork TecNina / estado atual
 
 - estabilização pós-deploy e monitoramento de logs de produção;
 - acompanhamento da governança de testes de cenários conversacionais (Fase 22A+).
+
+## S03-A — identity and credential authority
+
+- CIAO-S03A is in `TARGET_VALIDATION` on `feature/customer-identity-auth-foundation-s03a`; it remains dormant and does not cut over the active `Mine.php` login/profile flow.
+- The final preflight makes unresolved relational phone-conflict evidence authoritative over a nominal unique identity row, materializes the client e-mail `PENDING` state only after successful challenge delivery, preserves the trusted `clientes.email` until verification, and counts only well-formed wrong verification codes.
+- Verification/reset request fingerprints are keyed with `TECNINA_IDENTITY_HMAC_SECRET`; rate-limit dependency failures fail closed as controlled unavailability. The S03 migration adds the approved identity/profile/challenge/reset/conflict/limit structures with state, provenance and credential-version constraints.
+- Production migration/deployment remains prohibited until the disposable Orange Pi / MySQL behavioral suite passes. Target migration, backup, deployment and security evidence are not yet claimed here.

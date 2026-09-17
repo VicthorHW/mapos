@@ -58,6 +58,7 @@ Estado histórico de validação: implantação operacional anterior em produç�
 
 ## P1 — validação em ambiente integrado
 
+- concluir CIAO-S03A em banco MySQL descartável no Orange Pi antes de qualquer mutação do banco de produção; depois validar migration aditiva, contratos privados, reset público e regressão no target;
 - deploy MapOS coordenado antes do Gateway;
 - executar procedimento pós-deploy vigente;
 - validar outbox/trigger e contratos privados;
