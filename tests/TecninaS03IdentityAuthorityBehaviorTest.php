@@ -116,8 +116,39 @@ $assert($verifiedSame['ok'] && tecnina_s03_client_email($fixture['client_id']) =
 $assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => 'not-a-phone']))['ok'], 'malformed phone alpha rejected');
 $assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => '123']))['ok'], 'malformed phone short rejected');
 $assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => '']))['ok'], 'empty idempotency key rejected');
+$assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['client_id' => 0]))['ok'], 'client_id 0 rejected 422');
+$assert(! $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['client_id' => -1]))['ok'], 'client_id -1 rejected 422');
 $dummyResetRes = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['canonical_phone' => '5511999999999', 'client_id' => 999999]));
 $assert($dummyResetRes['ok'] && ($dummyResetRes['state'] ?? '') === 'REQUEST_ACCEPTED' && !isset($dummyResetRes['reset_url']), 'dummy reset privacy accepted');
+
+// Password confirmation required in reset consumption
+$confReset = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => 'conf-test-issue']));
+$confToken = tecnina_s03_token_from_url($confReset['reset_url']);
+$assert(! $authority->consumePasswordReset($confToken, 'validpass123', null)['ok'], 'missing confirmation rejected');
+$assert(! $authority->consumePasswordReset($confToken, 'validpass123', 'mismatch123')['ok'], 'mismatched confirmation rejected');
+$assert(! $authority->consumePasswordReset($confToken, 'validpass123', 123456)['ok'], 'non-string confirmation rejected');
+$assert($authority->consumePasswordReset($confToken, 'validpass123', 'validpass123')['ok'], 'exact byte-for-byte confirmation accepted');
+
+// Reset replay / rate-limit precedence edge case
+$precReset = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => 'prec-test-issue']));
+$precToken = tecnina_s03_token_from_url($precReset['reset_url']);
+tecnina_s03_set_reset_attempts($precToken, 9);
+$vBeforePrec = tecnina_s03_credential_version($fixture['client_id']);
+$tenthRes = $authority->consumePasswordReset($precToken, 'precpass123', 'precpass123');
+$assert($tenthRes['ok'], 'valid password on attempt 10 succeeds');
+$assert(tecnina_s03_reset_attempts($precToken) === 10, 'attempts becomes 10 on attempt 10');
+$assert(tecnina_s03_credential_version($fixture['client_id']) === $vBeforePrec + 1, 'version increments exactly once on attempt 10');
+$replayTenth = $authority->consumePasswordReset($precToken, 'precpass123', 'precpass123');
+$assert(! $replayTenth['ok'] && $replayTenth['reason'] === 'invalid_or_expired_reset', 'replay of consumed token with attempts 10 returns invalid_or_expired_reset, not rate_limited');
+$assert(tecnina_s03_credential_version($fixture['client_id']) === $vBeforePrec + 1, 'replay does not mutate credential version');
+
+// Expired PENDING token with attempts = 10 returns invalid_or_expired_reset (not 429)
+$expPrecReset = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => 'exp-prec-test']));
+$expPrecToken = tecnina_s03_token_from_url($expPrecReset['reset_url']);
+tecnina_s03_set_reset_attempts($expPrecToken, 10);
+tecnina_s03_expire_latest_reset();
+$expTenthRes = $authority->consumePasswordReset($expPrecToken, 'exp123', 'exp123');
+$assert(! $expTenthRes['ok'] && $expTenthRes['reason'] === 'invalid_or_expired_reset', 'expired token with attempts 10 returns invalid_or_expired_reset, not rate_limited');
 
 // Attempts strictly capped at 5 under row lock
 $afterFive = $authority->verifyEmail(['challenge_id'=>$failureIssue['challenge_id'],'code'=>$badCode,'idempotency_key'=>'after-five-wrong']);

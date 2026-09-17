@@ -160,7 +160,11 @@ class Tecnina_identity_authority
             $isCodeValid = hash_equals($row->code_digest, $this->digest($row->id . '|' . $input['code']));
             if (!$isCodeValid) {
                 $this->CI->db->where('id', $row->id)->where('state', 'PENDING')->where('attempts <', 5)->set('attempts', 'attempts+1', false)->update('tecnina_email_verifications');
+                $affected = $this->CI->db->affected_rows();
                 $this->CI->db->trans_complete();
+                if ($affected !== 1 || !$this->CI->db->trans_status()) {
+                    return $this->fail('unavailable');
+                }
                 return $this->fail('invalid_or_expired_code');
             }
 
@@ -219,7 +223,8 @@ class Tecnina_identity_authority
         if (!$this->key($key)) {
             return $this->fail('invalid_payload');
         }
-        if (!is_int($clientId) && (!is_string($clientId) || !ctype_digit((string)$clientId))) {
+        $isValidClientId = is_int($clientId) ? $clientId > 0 : (is_string($clientId) && ctype_digit($clientId) && (int)$clientId > 0);
+        if (!$isValidClientId) {
             return $this->fail('invalid_payload');
         }
         if (!is_string($contextId) || $contextId === '' || strlen($contextId) > 100) {
@@ -280,19 +285,24 @@ class Tecnina_identity_authority
                 $this->CI->db->trans_complete();
                 return $this->fail('invalid_or_expired_reset');
             }
-            if ((int)$row->attempts >= 10) {
-                $this->CI->db->trans_complete();
-                return $this->fail('rate_limited');
-            }
             if ($row->state !== 'PENDING' || !$this->future($row->expires_at)) {
                 $this->CI->db->trans_complete();
                 return $this->fail('invalid_or_expired_reset');
             }
+            if ((int)$row->attempts >= 10) {
+                $this->CI->db->trans_complete();
+                return $this->fail('rate_limited');
+            }
 
-            $passwordResult = $this->passwordHash($password, $confirmation);
+            $isValidConfirmation = is_string($password) && is_string($confirmation) && hash_equals($password, $confirmation);
+            $passwordResult = $isValidConfirmation ? $this->passwordHash($password, $confirmation) : ['ok' => false, 'reason' => 'password_confirmation'];
             if (!$passwordResult['ok']) {
                 $this->CI->db->where('id', $row->id)->where('state', 'PENDING')->set('attempts', 'attempts+1', false)->update('tecnina_password_resets');
+                $affected = $this->CI->db->affected_rows();
                 $this->CI->db->trans_complete();
+                if ($affected !== 1 || !$this->CI->db->trans_status()) {
+                    return $this->fail('unavailable');
+                }
                 return $this->fail('invalid_or_expired_reset');
             }
 

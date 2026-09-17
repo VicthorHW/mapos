@@ -781,6 +781,22 @@ try {
     ], $authHeader);
     testAssert($malClientId['code'] === 422 && ($malClientId['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_malformed_client_id_rejected_422');
 
+    $malClientIdZero = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => 0,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-mal-zero',
+        'idempotency_key' => 'mal-key-client-id-zero'
+    ], $authHeader);
+    testAssert($malClientIdZero['code'] === 422 && ($malClientIdZero['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_client_id_zero_rejected_422');
+
+    $malClientIdNeg = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => -1,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-mal-neg',
+        'idempotency_key' => 'mal-key-client-id-neg'
+    ], $authHeader);
+    testAssert($malClientIdNeg['code'] === 422 && ($malClientIdNeg['json']['reason'] ?? '') === 'invalid_payload', 'reset_issue_client_id_negative_rejected_422');
+
     // 6.1.4 Malformed phone_context_id must return 422 invalid_payload
     $malCtxEmpty = httpRequest('POST', '/api/bot/password-reset/issue', [
         'client_id' => $testClientId,
@@ -914,6 +930,26 @@ try {
     $freshCsrf = $getRes['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
     testAssert(!empty($freshCsrf), 'csrf_cookie_obtained_and_verified');
 
+    // Password confirmation validation in public reset
+    // Missing confirmation
+    $noConfRes = httpRequest('POST', $resetPath3, [
+        'MAPOS_CSRF_TOKEN' => $freshCsrf,
+        'password' => 'somevalidpass123'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $freshCsrf]);
+    testAssert($noConfRes['code'] === 409 && ($noConfRes['json']['reason'] ?? '') === 'invalid_or_expired_reset', 'public_reset_missing_confirmation_rejected_409');
+
+    // Mismatched confirmation
+    $mismatchConfRes = httpRequest('POST', $resetPath3, [
+        'MAPOS_CSRF_TOKEN' => $freshCsrf,
+        'password' => 'somevalidpass123',
+        'password_confirmation' => 'differentpass123'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $freshCsrf]);
+    testAssert($mismatchConfRes['code'] === 409 && ($mismatchConfRes['json']['reason'] ?? '') === 'invalid_or_expired_reset', 'public_reset_mismatched_confirmation_rejected_409');
+
+    // Attempts incremented on the PENDING row
+    $attemptsAfterInvalidConf = (int)$pdo->query("SELECT attempts FROM tecnina_password_resets WHERE id = '{$resetDbRow3['id']}'")->fetchColumn();
+    testAssert($attemptsAfterInvalidConf === 2, 'invalid_confirmation_increments_attempts_to_2');
+
     // Valid consumption with whitespace
     $pwdWithSpaces = '  exact_whitespace_pass_123  ';
     $vBefore = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
@@ -946,6 +982,81 @@ try {
 
     $vAfterReplay = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
     testAssert($vAfterReplay === 2, 'replay_cannot_mutate_credential_version');
+
+    // 6.8 Precedence edge case: attempts = 9 -> attempt 10 succeeds, state becomes CONSUMED, attempts becomes 10, version increments once, replay returns 409 (NOT 429)
+    $rKeyPrec = 'test-reset-key-prec-edge';
+    $validResetPrec = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-test-prec',
+        'idempotency_key' => $rKeyPrec
+    ], $authHeader);
+    testAssert($validResetPrec['code'] === 200 && !empty($validResetPrec['json']['reset_url']), 'prec_reset_issue_success');
+    $resetUrlPrec = $validResetPrec['json']['reset_url'];
+    $resetTokenPrec = basename(parse_url($resetUrlPrec, PHP_URL_PATH));
+    $resetDigestPrec = hash_hmac('sha256', $resetTokenPrec, $hmacSecret);
+    $resetPathPrec = '/cliente/password-reset/' . $resetTokenPrec;
+
+    // Set attempts to 9
+    $pdo->prepare("UPDATE tecnina_password_resets SET attempts = 9 WHERE token_digest = ?")->execute([$resetDigestPrec]);
+
+    $precGet = httpRequest('GET', $resetPathPrec);
+    $precCsrf = $precGet['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
+
+    $vBeforeTenth = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
+
+    // Attempt 10 supplies valid password and confirmation -> succeeds
+    $tenthConsume = httpRequest('POST', $resetPathPrec, [
+        'MAPOS_CSRF_TOKEN' => $precCsrf,
+        'password' => 'tenth_valid_pass_123',
+        'password_confirmation' => 'tenth_valid_pass_123'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $precCsrf]);
+    testAssert($tenthConsume['code'] === 200 && ($tenthConsume['json']['ok'] ?? false) === true, 'prec_attempt_10_valid_password_succeeds_200');
+
+    // State becomes CONSUMED and attempts becomes 10
+    $precRowAfter = $pdo->query("SELECT state, attempts, consumed_at FROM tecnina_password_resets WHERE token_digest = '{$resetDigestPrec}'")->fetch();
+    testAssert($precRowAfter['state'] === 'CONSUMED', 'prec_state_becomes_CONSUMED');
+    testAssert((int)$precRowAfter['attempts'] === 10, 'prec_attempts_becomes_10');
+
+    // credential_version increments exactly once
+    $vAfterTenth = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
+    testAssert($vAfterTenth === $vBeforeTenth + 1, 'prec_credential_version_increments_exactly_once');
+
+    // Replay returns HTTP 409 invalid_or_expired_reset, NOT 429
+    $replayTenthRes = httpRequest('POST', $resetPathPrec, [
+        'MAPOS_CSRF_TOKEN' => $precCsrf,
+        'password' => 'tenth_valid_pass_123',
+        'password_confirmation' => 'tenth_valid_pass_123'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $precCsrf]);
+    testAssert($replayTenthRes['code'] === 409 && ($replayTenthRes['json']['reason'] ?? '') === 'invalid_or_expired_reset', 'prec_replay_returns_409_invalid_or_expired_reset_not_429');
+
+    // Replay does not mutate password or credential_version
+    $vAfterReplayTenth = (int)$pdo->query("SELECT credential_version FROM tecnina_client_identity WHERE client_id = {$testClientId}")->fetchColumn();
+    testAssert($vAfterReplayTenth === $vAfterTenth, 'prec_replay_does_not_mutate_credential_version');
+    $hashAfterReplay = $pdo->query("SELECT senha FROM clientes WHERE idClientes = {$testClientId}")->fetchColumn();
+    testAssert(password_verify('tenth_valid_pass_123', $hashAfterReplay), 'prec_replay_does_not_mutate_password');
+
+    // Expired PENDING token with attempts = 10 returns generic invalid_or_expired_reset (409), not 429
+    $rKeyExp10 = 'test-reset-key-exp10';
+    $validResetExp10 = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-test-exp10',
+        'idempotency_key' => $rKeyExp10
+    ], $authHeader);
+    $resetTokenExp10 = basename(parse_url($validResetExp10['json']['reset_url'], PHP_URL_PATH));
+    $resetDigestExp10 = hash_hmac('sha256', $resetTokenExp10, $hmacSecret);
+    $resetPathExp10 = '/cliente/password-reset/' . $resetTokenExp10;
+    $pdo->prepare("UPDATE tecnina_password_resets SET attempts = 10, expires_at = '2000-01-01 00:00:00' WHERE token_digest = ?")->execute([$resetDigestExp10]);
+
+    $exp10Get = httpRequest('GET', $resetPathExp10);
+    $exp10Csrf = $exp10Get['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
+    $exp10Consume = httpRequest('POST', $resetPathExp10, [
+        'MAPOS_CSRF_TOKEN' => $exp10Csrf,
+        'password' => 'somepass123',
+        'password_confirmation' => 'somepass123'
+    ], [], ['MAPOS_CSRF_COOKIE_gestao' => $exp10Csrf]);
+    testAssert($exp10Consume['code'] === 409 && ($exp10Consume['json']['reason'] ?? '') === 'invalid_or_expired_reset', 'expired_pending_attempts_10_returns_409_not_429');
 
     echo "\n==================================================\n";
     echo "7. ENDPOINT-SPECIFIC RATE LIMITS & CONTROLLED 503\n";
@@ -1110,6 +1221,57 @@ try {
         testAssert($unavailRes['code'] === 503 && ($unavailRes['json']['reason'] ?? '') === 'unavailable', 'table_unavailability_produces_controlled_503');
     } finally {
         $pdo->exec("RENAME TABLE tecnina_identity_rate_limits_temp_test TO tecnina_identity_rate_limits");
+    }
+
+    // 7.10 Fail-closed attempt accounting tests
+    // 7.10.1 verifyEmail wrong-code attempt accounting persistence failure returns 503 unavailable
+    $failCloseChKey = 'test-fail-close-email';
+    $failCloseRes = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => $testClientId,
+        'email_candidate' => 'failclosed@example.test',
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => $failCloseChKey,
+    ], $authHeader);
+    $failCloseChId = $failCloseRes['json']['challenge_id'] ?? '';
+
+    // Create temporary trigger that simulates write failure on attempt increment
+    $pdo->exec("DROP TRIGGER IF EXISTS trg_test_fail_email_attempt");
+    $pdo->exec("CREATE TRIGGER trg_test_fail_email_attempt BEFORE UPDATE ON tecnina_email_verifications FOR EACH ROW BEGIN IF NEW.attempts > OLD.attempts AND NEW.state = 'PENDING' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'simulated_accounting_write_failure'; END IF; END");
+    try {
+        $attemptFailRes = httpRequest('POST', '/api/bot/email-verification/verify', [
+            'challenge_id' => $failCloseChId,
+            'code' => '999999', // wrong code
+            'idempotency_key' => 'fail-close-verify-1'
+        ], $authHeader);
+        testAssert($attemptFailRes['code'] === 503 && ($attemptFailRes['json']['reason'] ?? '') === 'unavailable', 'verify_email_accounting_write_failure_returns_503_unavailable');
+    } finally {
+        $pdo->exec("DROP TRIGGER IF EXISTS trg_test_fail_email_attempt");
+    }
+
+    // 7.10.2 consumePasswordReset invalid-password attempt accounting persistence failure returns 503 unavailable
+    $failCloseResetKey = 'test-fail-close-reset';
+    $failCloseResetRes = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-fail-close-reset',
+        'idempotency_key' => $failCloseResetKey
+    ], $authHeader);
+    $failCloseResetToken = basename(parse_url($failCloseResetRes['json']['reset_url'], PHP_URL_PATH));
+    $failCloseResetPath = '/cliente/password-reset/' . $failCloseResetToken;
+    $failCloseGet = httpRequest('GET', $failCloseResetPath);
+    $failCloseCsrf = $failCloseGet['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
+
+    $pdo->exec("DROP TRIGGER IF EXISTS trg_test_fail_reset_attempt");
+    $pdo->exec("CREATE TRIGGER trg_test_fail_reset_attempt BEFORE UPDATE ON tecnina_password_resets FOR EACH ROW BEGIN IF NEW.attempts > OLD.attempts AND NEW.state = 'PENDING' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'simulated_accounting_write_failure'; END IF; END");
+    try {
+        $resetAttemptFailRes = httpRequest('POST', $failCloseResetPath, [
+            'MAPOS_CSRF_TOKEN' => $failCloseCsrf,
+            'password' => 'pass123',
+            'password_confirmation' => 'mismatch_pass'
+        ], [], ['MAPOS_CSRF_COOKIE_gestao' => $failCloseCsrf]);
+        testAssert($resetAttemptFailRes['code'] === 503 && ($resetAttemptFailRes['json']['reason'] ?? '') === 'unavailable', 'consume_reset_accounting_write_failure_returns_503_unavailable');
+    } finally {
+        $pdo->exec("DROP TRIGGER IF EXISTS trg_test_fail_reset_attempt");
     }
 
     echo "\n==================================================\n";
