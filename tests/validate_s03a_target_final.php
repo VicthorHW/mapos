@@ -378,7 +378,7 @@ try {
 
     // Reset trusted email back for subsequent tests
     $pdo->prepare("UPDATE clientes SET email = ? WHERE idClientes = ?")->execute([$testEmail, $testClientId]);
-    $pdo->prepare("UPDATE tecnina_client_identity SET email_state = 'LEGACY_EXISTING', email_candidate = NULL WHERE client_id = ?")->execute([$testClientId]);
+    $pdo->prepare("UPDATE tecnina_client_identity SET email_state = 'LEGACY_EXISTING', email_candidate = NULL, email_verified_at = NULL WHERE client_id = ?")->execute([$testClientId]);
 
     // 5.5 Expiration
     $expKey = 'test-issue-key-exp';
