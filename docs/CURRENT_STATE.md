@@ -43,7 +43,13 @@ Status: CURRENT
   - **Password Policy & TTL**: Minimum 6 Unicode characters (no composition requirement), exact whitespace preserved, bcrypt 72-byte max. Verification and reset challenge TTL is exactly 15 minutes (900 seconds).
   - **Reverse Proxy & Access Log Redaction**: Upstream Traefik (`coolify-proxy`, v3.6) runs without `--accesslog` flag (access logging disabled upstream, zero request logs generated); downstream Nginx sanitizes `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs (`[REDACTED]`).
   - **Test Runner Web Protection**: Nginx explicit block `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and safety interlock `TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION'`. Machine-readable results emitted outside web root to `/tmp/results_s03a.json`. Direct HTTP probes to `/tests/validate_s03a_target_final.php` and `/tests/results_s03a.json` return HTTP 404.
-  - **Host Docker CLI Chronology**: `/usr/bin/docker` is the active clean binary (MD5 `8f880710f0f6e94aaaa960dd663bc001`, size 43,074,435 bytes) from Debian package `docker-ce-cli` (5:29.7.2-1~debian.12~bookworm arm64), `dpkg -V docker-ce-cli` verified clean with exit code 0. Calibrated root cause: "Docker CLI binary corruption confirmed; underlying physical corruption cause not determined."
+  - **Host Docker CLI Chronology**:
+    1. Initial observed failure: Go runtime / invalid symbol-table / invalid pc-encoded-table failure during Docker CLI execution while copying deployment configuration in Coolify deployment `zge8l7gv8yvydqcnn6gatpqt` (`fatal error: runtime: invalid symbol table / invalid pc-encoded table in runtime.pcvalue`);
+    2. Diagnostic symptoms: interactive shell execution of `/usr/bin/docker` produced `SIGSEGV` and `SIGILL` on host due to binary corruption around offset ~19251201;
+    3. Package integrity check: `dpkg -V docker-ce-cli` confirmed file hash mismatch on `/usr/bin/docker`;
+    4. Clean package replacement: clean `/usr/bin/docker` extracted from official Debian package `docker-ce-cli` (5:29.7.2-1~debian.12~bookworm arm64), verified clean via `dpkg -V` (exit code 0);
+    5. Current healthy state: active clean binary at `/usr/bin/docker` (MD5 `8f880710f0f6e94aaaa960dd663bc001`, size 43,074,435 bytes) operating reliably across all deployments.
+    Calibrated root cause: "Docker CLI binary corruption confirmed; underlying physical corruption cause not determined."
 
 ---
 
