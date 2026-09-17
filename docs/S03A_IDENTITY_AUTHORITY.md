@@ -1,6 +1,6 @@
 # S03-A identity and credential authority
 
-Status: TL_ACCEPTANCE. This branch adds a dormant MapOS authority; it does not alter `Mine.php` active login/profile flows.
+Status: DONE / CANONICAL_CLOSURE_COMPLETE. This authority is merged to canonical master (commit `96bada83908f4caae364ff2b8b97c400b0267265`) and deployed in Coolify Deployment #267. It does not alter `Mine.php` active login/profile flows (deferred to CIAO-S03C).
 
 ## Required target configuration
 

@@ -29,7 +29,7 @@ Objetivo: permitir atualização do upstream sem perder de vista o que a fork ad
 | MAP-14 | Credencial no intake aprovado | DEPLOYED / HISTORICALLY_VALIDATED | extensão do controller/model TecNina de aprovação | `Device_credential`, sem conteúdo em anotações |
 | MAP-15 | Oferta de taxa manual | DEPLOYED / HISTORICALLY_VALIDATED | proxy e painel de pré-atendimento | operador autenticado, versão otimista e aceite no Gateway |
 | MAP-16 | Bot Lab V2.1 (bancada do simulador com config operacional, entregas e capabilities) | DEPLOYED / VALIDATED | controller `Tecnina_whatsapp.php`, library `Tecnina_bot_gateway.php`, view `bot_lab.php`, assets `bot-lab.js` e `bot-lab.css` | `tests/TecninaBotLabPanelTest.php` |
-| MAP-19 | S03-A identity and credential authority foundation | TL_ACCEPTANCE | additive migration, `Tecnina_identity_authority`, private identity controller, public reset boundary, DB-backed limiter and Nginx safe access-log mapping | production ledger `20260916120000`; TO 57 closures: reset replay/rate-limit precedence, password confirmation enforcement, fail-closed attempt accounting (503), client_id positive int (422), upstream Traefik proxy audit, 146/146 target assertions PASS |
+| MAP-19 | S03-A identity and credential authority foundation | DONE / DEPLOYED_MASTER | additive migration, `Tecnina_identity_authority`, private identity controller, public reset boundary, DB-backed limiter and Nginx safe access-log mapping | production ledger `20260916120000`; merged to `master` (`96bada83908f4caae364ff2b8b97c400b0267265`), Coolify Deployment #267; all 15 canonical regression checks pass/accepted; Nginx /tests/ 404 & token redaction active; pristine DB baseline |
 
 ## S02-A data foundation
 
