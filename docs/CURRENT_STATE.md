@@ -2,7 +2,7 @@ Status: CURRENT
 
 ## S03-A source-review candidate
 
-- Feature `feature/customer-identity-auth-foundation-s03a` at `ea86221ae15ab3f750de15a5f89a10ba3d87fbbf` contains the dormant MapOS identity/credential foundation. It has not been deployed or migrated on target.
+- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential source candidate; the exact review HEAD is recorded in the mandatory Governance `NOW.md`. It has not been deployed or migrated on target.
 - The behavioral suite and disposable fixture support are present. Windows has no authorized PHP/MySQL runtime; target execution remains pending.
 - `TECNINA_IDENTITY_HMAC_SECRET` must be supplied through target secret management before authority APIs are enabled.
 ## S02-A — reconciliação atual (2026-09-16)
