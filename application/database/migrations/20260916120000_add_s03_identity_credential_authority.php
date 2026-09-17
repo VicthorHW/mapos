@@ -42,6 +42,7 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         $profile = '`' . $this->db->dbprefix('tecnina_client_profile') . '`';
         $verification = '`' . $this->db->dbprefix('tecnina_email_verifications') . '`';
         $reset = '`' . $this->db->dbprefix('tecnina_password_resets') . '`';
+        $conflict = '`' . $this->db->dbprefix('tecnina_client_identity_phone_conflicts') . '`';
         $this->db->query("CREATE TABLE IF NOT EXISTS {$identity} (
             `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NULL,
             `phone_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `phone_verified_at` DATETIME NULL,
@@ -71,6 +72,11 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id`), KEY `ix_tecnina_reset_client` (`client_id`, `state`),
             UNIQUE KEY `uq_tecnina_reset_idempotency` (`idempotency_key`), CONSTRAINT `fk_tecnina_reset_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $this->db->query("CREATE TABLE IF NOT EXISTS {$conflict} (
+            `canonical_phone` VARCHAR(15) NOT NULL, `client_id` INT NOT NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`canonical_phone`, `client_id`), KEY `ix_tecnina_identity_conflict_client` (`client_id`),
+            CONSTRAINT `fk_tecnina_identity_conflict_client` FOREIGN KEY (`client_id`) REFERENCES `clientes` (`idClientes`) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     }
 
     private function seedLegacyIdentityRows()
@@ -91,6 +97,10 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         foreach ($owners as $canonical => $clientIds) {
             if (count($clientIds) === 1) {
                 $this->db->where('client_id', (int) array_key_first($clientIds))->update('tecnina_client_identity', ['canonical_phone' => $canonical, 'phone_state' => 'LEGACY_EXISTING']);
+            } else {
+                foreach (array_keys($clientIds) as $clientId) {
+                    $this->db->insert('tecnina_client_identity_phone_conflicts', ['canonical_phone' => $canonical, 'client_id' => (int) $clientId]);
+                }
             }
         }
     }

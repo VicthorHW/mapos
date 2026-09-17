@@ -49,7 +49,7 @@ class Identity extends REST_Controller
     {
         if (! $this->authorize()) { return; }
         $input = $this->post();
-        if (! is_array($input) || ! isset($input['client_id'], $input['phone'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! is_array($input) || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         return $this->response($this->tecnina_identity_authority->issuePasswordReset($input), self::HTTP_OK);
     }
 
