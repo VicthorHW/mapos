@@ -5,11 +5,8 @@
  * assertions belong here. Set TECNINA_S03_TEST_BOOTSTRAP to a disposable CI DB
  * bootstrap before executing on an authorized runtime.
  */
-if (! getenv('TECNINA_S03_TEST_BOOTSTRAP')) {
-    fwrite(STDOUT, "TecninaS03IdentityAuthorityBehaviorTest: IMPLEMENTED / EXECUTION_PENDING_TARGET_VALIDATION\n");
-    exit(0);
-}
-require getenv('TECNINA_S03_TEST_BOOTSTRAP');
+$bootstrap = getenv('TECNINA_S03_TEST_BOOTSTRAP') ?: __DIR__ . '/support/s03_identity_authority_bootstrap.php';
+require $bootstrap;
 $authority = get_instance()->tecnina_identity_authority;
 $assert = static function ($condition, $message) { if (! $condition) { throw new RuntimeException($message); } };
 

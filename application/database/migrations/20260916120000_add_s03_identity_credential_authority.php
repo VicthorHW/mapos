@@ -45,7 +45,7 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         $conflict = '`' . $this->db->dbprefix('tecnina_client_identity_phone_conflicts') . '`';
         $this->db->query("CREATE TABLE IF NOT EXISTS {$identity} (
             `client_id` INT NOT NULL, `canonical_phone` VARCHAR(15) NULL,
-            `phone_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `phone_verified_at` DATETIME NULL,
+            `phone_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `phone_confirmed_at` DATETIME NULL,
             `email_candidate` VARCHAR(100) NULL, `email_state` VARCHAR(16) NOT NULL DEFAULT 'NONE', `email_verified_at` DATETIME NULL,
             `credential_version` INT UNSIGNED NOT NULL DEFAULT 1, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -61,8 +61,9 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
             `id` CHAR(36) NOT NULL, `client_id` INT NULL, `intake_id` CHAR(36) NULL, `purpose` VARCHAR(32) NOT NULL,
             `email_candidate` VARCHAR(100) NOT NULL, `code_digest` CHAR(64) NOT NULL, `state` VARCHAR(16) NOT NULL DEFAULT 'PENDING',
             `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0, `expires_at` DATETIME NOT NULL, `verified_at` DATETIME NULL, `consumed_at` DATETIME NULL,
+            `verify_idempotency_key` VARCHAR(100) NULL, `verify_fingerprint` CHAR(64) NULL,
             `idempotency_key` VARCHAR(100) NULL, `request_fingerprint` CHAR(64) NULL, `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `intake_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`),
+            PRIMARY KEY (`id`), KEY `ix_tecnina_email_verification_subject` (`client_id`, `intake_id`, `state`), UNIQUE KEY `uq_tecnina_email_verification_idempotency` (`idempotency_key`), UNIQUE KEY `uq_tecnina_email_verification_verify_key` (`verify_idempotency_key`),
             CONSTRAINT `chk_tecnina_email_verification_subject` CHECK ((`client_id` IS NULL) <> (`intake_id` IS NULL))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         $this->db->query("CREATE TABLE IF NOT EXISTS {$reset} (
@@ -89,9 +90,10 @@ class Migration_add_s03_identity_credential_authority extends CI_Migration
         $rows = $this->db->select('idClientes, celular, telefone')->get('clientes')->result();
         $owners = [];
         foreach ($rows as $row) {
-            foreach ([$row->celular, $row->telefone] as $phone) {
-                $canonical = $this->tecnina_phone->normalizeCanonicalIdentity($phone);
-                if ($canonical !== null) { $owners[$canonical][(int) $row->idClientes] = true; }
+            // This is storage provenance, not incoming-API normalization: an
+            // unmarked legacy value is Brazilian local, '+' is international.
+            foreach ($this->tecnina_phone->candidateIdentities($row->celular, $row->telefone) as $canonical) {
+                $owners[$canonical][(int) $row->idClientes] = true;
             }
         }
         foreach ($owners as $canonical => $clientIds) {
