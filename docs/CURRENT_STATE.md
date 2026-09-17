@@ -1,4 +1,10 @@
 Status: CURRENT
+
+## S03-A source-review candidate
+
+- Feature `feature/customer-identity-auth-foundation-s03a` at `d0408108c0bffce744df07b6cb83d0c3010b97a4` contains the dormant MapOS identity/credential foundation. It has not been deployed or migrated on target.
+- The behavioral suite and disposable fixture support are present. Windows has no authorized PHP/MySQL runtime; target execution remains pending.
+- `TECNINA_IDENTITY_HMAC_SECRET` must be supplied through target secret management before authority APIs are enabled.
 ## S02-A — reconciliação atual (2026-09-16)
 
 - S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS runs canonical `master` at `76e72995cf4c00617435aeb34404aa28551533b2` after Coolify deployment `gkpxgzavbwqqiftzfdul9qkj`; it remains functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. The next active stage is S03 planning under a separate Technical Lead order.
