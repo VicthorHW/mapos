@@ -270,25 +270,71 @@ class Tecnina_identity_authority
         }
     }
 
-    public function consumePasswordReset($token,$password,$confirmation)
+    public function consumePasswordReset($token, $password, $confirmation)
     {
-        $passwordResult=$this->passwordHash($password,$confirmation); if (!$passwordResult['ok']) return $this->fail('invalid_or_expired_reset');
         try {
-            $this->CI->db->trans_start(); $table='`'.$this->CI->db->dbprefix('tecnina_password_resets').'`';
-            $row=$this->CI->db->query("SELECT * FROM {$table} WHERE token_digest=? FOR UPDATE",[$this->digest($token)])->row();
-            if (!$row || $row->state!=='PENDING' || !$this->future($row->expires_at)) { $this->CI->db->trans_complete(); return $this->fail('invalid_or_expired_reset'); }
-            $this->CI->db->where('id',$row->id)->where('state','PENDING')->update('tecnina_password_resets',['state'=>'CONSUMED','consumed_at'=>$this->utc()]);
-            if ($this->CI->db->affected_rows()!==1) { $this->CI->db->trans_complete(); return $this->fail('invalid_or_expired_reset'); }
-            $this->CI->db->where('idClientes',$row->client_id)->update('clientes',['senha'=>$passwordResult['hash']]);
-            $this->CI->db->where('client_id',$row->client_id)->set('credential_version','credential_version+1',false)->update('tecnina_client_identity');
-            $this->CI->db->trans_complete(); return $this->CI->db->trans_status()?['ok'=>true,'reset'=>true]:$this->fail('unavailable');
-        } catch (Throwable $e) { return $this->fail('unavailable'); }
+            $this->CI->db->trans_start();
+            $table = '`' . $this->CI->db->dbprefix('tecnina_password_resets') . '`';
+            $row = $this->CI->db->query("SELECT * FROM {$table} WHERE token_digest=? FOR UPDATE", [$this->digest($token)])->row();
+            if (!$row) {
+                $this->CI->db->trans_complete();
+                return $this->fail('invalid_or_expired_reset');
+            }
+            if ((int)$row->attempts >= 10) {
+                $this->CI->db->trans_complete();
+                return $this->fail('rate_limited');
+            }
+            if ($row->state !== 'PENDING' || !$this->future($row->expires_at)) {
+                $this->CI->db->trans_complete();
+                return $this->fail('invalid_or_expired_reset');
+            }
+
+            $passwordResult = $this->passwordHash($password, $confirmation);
+            if (!$passwordResult['ok']) {
+                $this->CI->db->where('id', $row->id)->where('state', 'PENDING')->set('attempts', 'attempts+1', false)->update('tecnina_password_resets');
+                $this->CI->db->trans_complete();
+                return $this->fail('invalid_or_expired_reset');
+            }
+
+            $this->CI->db->where('id', $row->id)->where('state', 'PENDING')
+                ->set('attempts', 'attempts+1', false)
+                ->set('state', 'CONSUMED')
+                ->set('consumed_at', $this->utc())
+                ->update('tecnina_password_resets');
+            if ($this->CI->db->affected_rows() !== 1) {
+                $this->CI->db->trans_complete();
+                return $this->fail('invalid_or_expired_reset');
+            }
+            $this->CI->db->where('idClientes', $row->client_id)->update('clientes', ['senha' => $passwordResult['hash']]);
+            $this->CI->db->where('client_id', $row->client_id)->set('credential_version', 'credential_version+1', false)->update('tecnina_client_identity');
+            $this->CI->db->trans_complete();
+            return $this->CI->db->trans_status() ? ['ok' => true, 'reset' => true] : $this->fail('unavailable');
+        } catch (Throwable $e) {
+            return $this->fail('unavailable');
+        }
     }
 
     private function verifyReplay($row,$key,$fingerprint){if($row->state!=='VERIFIED'||!$this->key($key)||$row->verify_idempotency_key!==$key||!hash_equals((string)$row->verify_fingerprint,$fingerprint))return $this->fail('idempotency_conflict');return ['ok'=>true,'state'=>'VERIFIED','verified_at'=>$row->verified_at,'replayed'=>true];}
     private function deliverCode($email,$code){if(ENVIRONMENT==='testing'&&isset($GLOBALS['tecnina_s03_delivery_spy'])&&is_callable($GLOBALS['tecnina_s03_delivery_spy']))return (bool)call_user_func($GLOBALS['tecnina_s03_delivery_spy'],$email,$code);try{$this->CI->load->library('email');$this->CI->email->from((string)($_ENV['SMTP_FROM']??''),'TecNina');$this->CI->email->to($email);$this->CI->email->subject('Codigo de verificacao TecNina');$this->CI->email->message('Codigo de verificacao TecNina: '.$code);return (bool)$this->CI->email->send();}catch(Throwable $e){return false;}}
     private function resetToken($id,$key){return hash_hmac('sha256','reset|'.$id.'|'.$key,$this->secret());}
-    private function subject($i){$c=isset($i['client_id']);$n=isset($i['intake_id']);return $c===$n?null:($c?['kind'=>'client_id','id'=>(int)$i['client_id']]:['kind'=>'intake_id','id'=>(string)$i['intake_id']]);}
+    private function subject($i)
+    {
+        $hasClient = array_key_exists('client_id', $i) && $i['client_id'] !== null;
+        $hasIntake = array_key_exists('intake_id', $i) && $i['intake_id'] !== null;
+        if ($hasClient === $hasIntake) {
+            return null;
+        }
+        if ($hasClient) {
+            $val = $i['client_id'];
+            $isValidInt = is_int($val) ? $val > 0 : (is_string($val) && ctype_digit($val) && (int)$val > 0);
+            return $isValidInt ? ['kind' => 'client_id', 'id' => (int)$val] : null;
+        }
+        $val = $i['intake_id'];
+        if (!is_string($val) || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $val) !== 1) {
+            return null;
+        }
+        return ['kind' => 'intake_id', 'id' => strtolower($val)];
+    }
     private function utc($s=0){return gmdate('Y-m-d H:i:s',time()+$s);} private function future($v){return strtotime($v.' UTC')>=time();} private function key($v){return is_string($v)&&$v!==''&&strlen($v)<=100;}
     private function secret(){$key=(string)($_ENV['TECNINA_IDENTITY_HMAC_SECRET']??'');if(strlen($key)<32)throw new RuntimeException('identity_unavailable');return $key;} private function digest($v){return hash_hmac('sha256',$v,$this->secret());}
     private function uuid(){$b=random_bytes(16);$b[6]=chr((ord($b[6])&15)|64);$b[8]=chr((ord($b[8])&63)|128);return vsprintf('%s%s-%s-%s-%s-%s%s%s',str_split(bin2hex($b),4));} private function fail($reason){return ['ok'=>false,'reason'=>$reason];}

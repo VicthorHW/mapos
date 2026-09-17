@@ -35,6 +35,13 @@ $multipleId = tecnina_s03_client_id('S03 Multiple');
 $assert(tecnina_s03_identity_row($multipleId)->canonical_phone === null, 'multiple candidates do not choose by iteration order');
 $assert(tecnina_s03_conflict_count('5541998888888') === 1 && tecnina_s03_conflict_count('5541997777777') === 1, 'multiple candidates remain relational');
 
+// Strict subject validation
+$assert(! $authority->issueEmailVerification(['client_id' => 'abc', 'email_candidate' => 'test@example.test', 'purpose' => 'PROFILE_CHANGE', 'idempotency_key' => 'k-sub-1'])['ok'], 'malformed client_id string rejected');
+$assert(! $authority->issueEmailVerification(['client_id' => 0, 'email_candidate' => 'test@example.test', 'purpose' => 'PROFILE_CHANGE', 'idempotency_key' => 'k-sub-2'])['ok'], 'zero client_id rejected');
+$assert(! $authority->issueEmailVerification(['intake_id' => 'not-uuid', 'email_candidate' => 'test@example.test', 'purpose' => 'ACCOUNT_CREATION', 'idempotency_key' => 'k-sub-3'])['ok'], 'malformed intake_id rejected');
+$assert(! $authority->issueEmailVerification(['client_id' => $fixture['client_id'], 'intake_id' => '00000000-0000-4000-8000-000000000001', 'email_candidate' => 'test@example.test', 'purpose' => 'ACCOUNT_CREATION', 'idempotency_key' => 'k-sub-4'])['ok'], 'both subjects rejected');
+$assert(! $authority->issueEmailVerification(['email_candidate' => 'test@example.test', 'purpose' => 'ACCOUNT_CREATION', 'idempotency_key' => 'k-sub-5'])['ok'], 'neither subject rejected');
+
 $issued = $authority->issueEmailVerification($fixture['email_issue']);
 $assert($issued['ok'] && ! isset($issued['_delivery_code']), 'challenge is customer-safe');
 $identityPending=tecnina_s03_identity_row($fixture['client_id']);
@@ -86,6 +93,12 @@ $assert(! $authority->consumePasswordReset(tecnina_s03_token_from_url($reset['re
 $assert(tecnina_s03_credential_version($fixture['client_id']) === $before + 1, 'replay cannot increment version');
 $expiredReset=$authority->issuePasswordReset(array_merge($fixture['reset_issue'],['idempotency_key'=>'expired-reset']));tecnina_s03_expire_latest_reset();
 $assert(!$authority->consumePasswordReset(tecnina_s03_token_from_url($expiredReset['reset_url']),'new-pass','new-pass')['ok'],'expired reset rejected');
+
+$rateReset = $authority->issuePasswordReset(array_merge($fixture['reset_issue'], ['idempotency_key' => 'rate-reset-lifetime']));
+$rateToken = tecnina_s03_token_from_url($rateReset['reset_url']);
+tecnina_s03_set_reset_attempts($rateToken, 10);
+$eleventhRes = $authority->consumePasswordReset($rateToken, 'pass123', 'pass123');
+$assert(!$eleventhRes['ok'] && $eleventhRes['reason'] === 'rate_limited', 'eleventh reset attempt returns rate_limited');
 
 // Same-candidate email reissue supersession without affected_rows error
 $sameCand = 'same-cand@example.test';

@@ -252,6 +252,60 @@ try {
     $candidateEmail = 'newemail_s03@example.test';
     $issueKey = 'test-issue-key-alpha';
 
+    // 5.0 Strict Subject Validation (client_id / intake_id semantic format validation before rate limit/persistence/delivery)
+    // 5.0.1 Malformed client_id: non-numeric string "abc" -> 422 invalid_payload
+    $subMalStr = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => 'abc',
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => 'subj-mal-str'
+    ], $authHeader);
+    testAssert($subMalStr['code'] === 422 && ($subMalStr['json']['reason'] ?? '') === 'invalid_payload', 'malformed_client_id_string_rejected_422');
+
+    // 5.0.2 Malformed client_id: zero or negative -> 422 invalid_payload
+    $subMalZero = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => 0,
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => 'subj-mal-zero'
+    ], $authHeader);
+    testAssert($subMalZero['code'] === 422 && ($subMalZero['json']['reason'] ?? '') === 'invalid_payload', 'malformed_client_id_zero_rejected_422');
+
+    $subMalNeg = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => -1,
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => 'subj-mal-neg'
+    ], $authHeader);
+    testAssert($subMalNeg['code'] === 422 && ($subMalNeg['json']['reason'] ?? '') === 'invalid_payload', 'malformed_client_id_negative_rejected_422');
+
+    // 5.0.3 Malformed intake_id: not a valid UUID -> 422 invalid_payload
+    $subMalIntake = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'intake_id' => 'not-a-valid-uuid',
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'ACCOUNT_CREATION',
+        'idempotency_key' => 'subj-mal-intake'
+    ], $authHeader);
+    testAssert($subMalIntake['code'] === 422 && ($subMalIntake['json']['reason'] ?? '') === 'invalid_payload', 'malformed_intake_id_string_rejected_422');
+
+    // 5.0.4 Both client_id and intake_id present -> 422 invalid_payload
+    $subBoth = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => $testClientId,
+        'intake_id' => '00000000-0000-4000-8000-000000000001',
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'ACCOUNT_CREATION',
+        'idempotency_key' => 'subj-both'
+    ], $authHeader);
+    testAssert($subBoth['code'] === 422 && ($subBoth['json']['reason'] ?? '') === 'invalid_payload', 'both_subjects_present_rejected_422');
+
+    // 5.0.5 Neither client_id nor intake_id present -> 422 invalid_payload
+    $subNeither = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'email_candidate' => 'subj_test@example.test',
+        'purpose' => 'ACCOUNT_CREATION',
+        'idempotency_key' => 'subj-neither'
+    ], $authHeader);
+    testAssert($subNeither['code'] === 422 && ($subNeither['json']['reason'] ?? '') === 'invalid_payload', 'neither_subject_present_rejected_422');
+
     // 5.1 Issue challenge
     $issueRes = httpRequest('POST', '/api/bot/email-verification/issue', [
         'client_id' => $testClientId,
@@ -443,15 +497,121 @@ try {
     $bruteDbState = $pdo->query("SELECT state FROM tecnina_email_verifications WHERE id = '{$bruteChallengeId}'")->fetchColumn();
     testAssert($bruteDbState === 'PENDING', 'exhausted_challenge_persisted_state_remains_PENDING_evaluated_at_boundary');
 
-    // Concurrency boundary: further attempts rejected and counter strictly capped at 5 under row lock
-    $seventhTry = httpRequest('POST', '/api/bot/email-verification/verify', [
-        'challenge_id' => $bruteChallengeId,
-        'code' => $wrongCode,
-        'idempotency_key' => "wrong-try-7"
+    // 5.6.1 True multi-connection concurrency regression:
+    // Challenge begins at attempts=4; Context B holds row lock, Request A waits on row lock,
+    // Context B increments attempts to 5 and commits; released valid Request A is rejected
+    // and cannot bypass 5th failure; attempts strictly capped at 5; clientes.email not promoted.
+    $concurKey = 'test-issue-key-concur';
+    $concurRes = httpRequest('POST', '/api/bot/email-verification/issue', [
+        'client_id' => $testClientId,
+        'email_candidate' => 'concurrency_race@example.test',
+        'purpose' => 'PROFILE_CHANGE',
+        'idempotency_key' => $concurKey,
     ], $authHeader);
-    testAssert($seventhTry['code'] === 409 && ($seventhTry['json']['reason'] ?? '') === 'invalid_or_expired_code', 'seventh_attempt_rejected_409');
-    $attemptsInDb7 = (int)$pdo->query("SELECT attempts FROM tecnina_email_verifications WHERE id = '{$bruteChallengeId}'")->fetchColumn();
-    testAssert($attemptsInDb7 === 5, 'attempts_strictly_capped_at_5_under_row_lock');
+    $concurChallengeId = $concurRes['json']['challenge_id'] ?? '';
+    $concurDigest = $pdo->query("SELECT code_digest FROM tecnina_email_verifications WHERE id = '{$concurChallengeId}'")->fetchColumn();
+
+    // Find valid code for concurrency challenge
+    $concurValidCode = null;
+    for ($i = 0; $i <= 999999; $i++) {
+        $cand = str_pad((string)$i, 6, '0', STR_PAD_LEFT);
+        if (hash_hmac('sha256', "{$concurChallengeId}|{$cand}", $hmacSecret) === $concurDigest) {
+            $concurValidCode = $cand;
+            break;
+        }
+    }
+    $concurWrongCode = ($concurValidCode === '000000') ? '000001' : '000000';
+
+    // Submit 4 wrong attempts to set challenge attempts = 4
+    for ($i = 1; $i <= 4; $i++) {
+        $wRes = httpRequest('POST', '/api/bot/email-verification/verify', [
+            'challenge_id' => $concurChallengeId,
+            'code' => $concurWrongCode,
+            'idempotency_key' => "concur-wrong-{$i}"
+        ], $authHeader);
+        testAssert($wRes['code'] === 409, "concur_wrong_attempt_{$i}_rejected_409");
+    }
+    $attempts4 = (int)$pdo->query("SELECT attempts FROM tecnina_email_verifications WHERE id = '{$concurChallengeId}'")->fetchColumn();
+    testAssert($attempts4 === 4, 'concurrency_challenge_begins_at_attempts_4');
+
+    // Multi-connection concurrency:
+    // Open separate PDO connection (Context B)
+    $pdoLock = new PDO("mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4", $dbUser, $dbPass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    $pdoLock->beginTransaction();
+    // Context B acquires row lock on the challenge row
+    $pdoLock->query("SELECT id, attempts FROM tecnina_email_verifications WHERE id = '{$concurChallengeId}' FOR UPDATE");
+
+    // Launch Request A (with VALID code) asynchronously via curl_multi
+    $mh = curl_multi_init();
+    $chA = curl_init();
+    $concurUrl = 'http://10.0.4.5/api/bot/email-verification/verify';
+    $concurPayload = json_encode([
+        'challenge_id' => $concurChallengeId,
+        'code' => $concurValidCode,
+        'idempotency_key' => 'concur-valid-req-a'
+    ]);
+    $concurHeaders = [
+        'Host: gestao.tecnina.com',
+        'Content-Type: application/json',
+        $authHeader[0],
+    ];
+    curl_setopt($chA, CURLOPT_URL, $concurUrl);
+    curl_setopt($chA, CURLOPT_POST, true);
+    curl_setopt($chA, CURLOPT_POSTFIELDS, $concurPayload);
+    curl_setopt($chA, CURLOPT_HTTPHEADER, $concurHeaders);
+    curl_setopt($chA, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($chA, CURLOPT_HEADER, true);
+    curl_setopt($chA, CURLOPT_TIMEOUT, 15);
+    curl_multi_add_handle($mh, $chA);
+
+    // Start transfer so request is sent to Nginx/PHP-FPM and reaches MySQL lock wait
+    $active = null;
+    do {
+        $mrc = curl_multi_exec($mh, $active);
+    } while ($mrc === CURLM_CALL_MULTI_PERFORM);
+
+    // Sleep 150ms to ensure Request A reached PHP-FPM and is blocked in MySQL on the row lock
+    usleep(150000);
+
+    // Context B increments attempts to 5 while Request A is waiting on row lock
+    $pdoLock->query("UPDATE tecnina_email_verifications SET attempts = 5 WHERE id = '{$concurChallengeId}'");
+    // Context B commits, releasing row lock
+    $pdoLock->commit();
+
+    // Request A unblocks in MySQL, reads attempts=5 under its own FOR UPDATE lock, and completes
+    do {
+        $status = curl_multi_exec($mh, $active);
+        if ($active) {
+            curl_multi_select($mh, 0.1);
+        }
+    } while ($active && $status === CURLM_OK);
+
+    $concurRaw = curl_multi_getcontent($chA);
+    $concurCode = curl_getinfo($chA, CURLINFO_HTTP_CODE);
+    $concurHSize = curl_getinfo($chA, CURLINFO_HEADER_SIZE);
+    $concurBody = substr($concurRaw, $concurHSize);
+    $concurJson = json_decode($concurBody, true);
+    curl_multi_remove_handle($mh, $chA);
+    curl_multi_close($mh);
+    curl_close($chA);
+
+    // Assert Request A was rejected because 5th failure boundary was reached
+    testAssert($concurCode === 409 && ($concurJson['reason'] ?? '') === 'invalid_or_expired_code', 'released_valid_request_a_rejected_409_cannot_bypass_5th_failure');
+
+    // Assert attempts strictly capped at 5 in DB
+    $attemptsAfterConcur = (int)$pdo->query("SELECT attempts FROM tecnina_email_verifications WHERE id = '{$concurChallengeId}'")->fetchColumn();
+    testAssert($attemptsAfterConcur === 5, 'concurrency_attempts_strictly_capped_at_5');
+
+    // Assert challenge state remains PENDING
+    $concurDbState = $pdo->query("SELECT state FROM tecnina_email_verifications WHERE id = '{$concurChallengeId}'")->fetchColumn();
+    testAssert($concurDbState === 'PENDING', 'concurrency_challenge_state_remains_PENDING');
+
+    // Assert clientes.email not promoted
+    $concurClientEmail = $pdo->query("SELECT email FROM clientes WHERE idClientes = {$testClientId}")->fetchColumn();
+    testAssert($concurClientEmail !== 'concurrency_race@example.test', 'clientes_email_not_promoted_under_concurrency_race');
 
     // 5.7 Malformed code does not consume attempt
     $malKey = 'test-issue-key-mal';
@@ -875,22 +1035,42 @@ try {
     testAssert($resetIssueRes['code'] === 429 && ($resetIssueRes['json']['reason'] ?? '') === 'rate_limited', 'endpoint_reset_issue_enforces_429_at_hourly_cap');
     $pdo->prepare("DELETE FROM tecnina_identity_rate_limits WHERE bucket_key = ?")->execute([$resetIssueKey]);
 
-    // 7.6 public reset token endpoint wiring: 10/token
-    $rateToken = 'ratetoken_' . bin2hex(random_bytes(16));
-    $tokenSubject = hash('sha256', $rateToken);
-    $tokenBucket = gmdate('Y-m-d H:i:00', floor(time() / 3600) * 3600);
-    $tokenKey = hash('sha256', "reset_consume_token|{$tokenSubject}|{$tokenBucket}");
-    $pdo->prepare("INSERT INTO tecnina_identity_rate_limits (bucket_key, scope, bucket_start, count) VALUES (:k, 'reset_consume_token', :b, 10) ON DUPLICATE KEY UPDATE count = 10")
-        ->execute([':k' => $tokenKey, ':b' => $tokenBucket]);
-    $probeCsrf = httpRequest('GET', '/cliente/password-reset/' . $rateToken);
+    // 7.6 public reset token lifetime rate limit: 10 attempts / token lifetime (stored in tecnina_password_resets.attempts)
+    // Issue a fresh reset token for testing token lifetime rate limit
+    $rateResetIssue = httpRequest('POST', '/api/bot/password-reset/issue', [
+        'client_id' => $testClientId,
+        'canonical_phone' => $testPhone,
+        'phone_context_id' => 'ctx-rate-lifetime',
+        'idempotency_key' => 'test-reset-rate-lifetime'
+    ], $authHeader);
+    testAssert($rateResetIssue['code'] === 200 && !empty($rateResetIssue['json']['reset_url']), 'rate_lifetime_reset_issued');
+    $rateResetUrl = $rateResetIssue['json']['reset_url'];
+    $rateResetToken = basename(parse_url($rateResetUrl, PHP_URL_PATH));
+    $rateResetPath = '/cliente/password-reset/' . $rateResetToken;
+
+    // Obtain CSRF token
+    $probeCsrf = httpRequest('GET', $rateResetPath);
     $rateCsrfToken = $probeCsrf['cookies']['MAPOS_CSRF_COOKIE_gestao'] ?? '';
-    $tokenRateRes = httpRequest('POST', '/cliente/password-reset/' . $rateToken, [
+
+    // Set attempts to 10 in tecnina_password_resets (representing 10 prior attempts over token lifetime)
+    $rateDigest = hash_hmac('sha256', $rateResetToken, $hmacSecret);
+    $pdo->prepare("UPDATE tecnina_password_resets SET attempts = 10 WHERE token_digest = ?")->execute([$rateDigest]);
+
+    // Attempt 11 must return HTTP 429 rate_limited
+    $tokenRateRes = httpRequest('POST', $rateResetPath, [
         'MAPOS_CSRF_TOKEN' => $rateCsrfToken,
         'password' => 'pass123456',
         'password_confirmation' => 'pass123456'
     ], [], ['MAPOS_CSRF_COOKIE_gestao' => $rateCsrfToken]);
-    testAssert($tokenRateRes['code'] === 429 && ($tokenRateRes['json']['reason'] ?? '') === 'rate_limited', 'endpoint_reset_consume_token_enforces_429_at_10_cap');
-    $pdo->prepare("DELETE FROM tecnina_identity_rate_limits WHERE bucket_key = ?")->execute([$tokenKey]);
+    testAssert($tokenRateRes['code'] === 429 && ($tokenRateRes['json']['reason'] ?? '') === 'rate_limited', 'reset_attempt_11_returns_429_rate_limited');
+
+    // Confirm that tecnina_password_resets.attempts is 10 and state is still PENDING
+    $rateRowAfter = $pdo->query("SELECT attempts, state FROM tecnina_password_resets WHERE token_digest = '{$rateDigest}'")->fetch();
+    testAssert((int)$rateRowAfter['attempts'] === 10 && $rateRowAfter['state'] === 'PENDING', 'token_lifetime_attempts_persisted_in_resets_table');
+
+    // Confirm that NO token bucket exists in tecnina_identity_rate_limits (lifetime tracked on row, not hourly bucket)
+    $rateLimitCount = (int)$pdo->query("SELECT COUNT(*) FROM tecnina_identity_rate_limits WHERE scope = 'reset_consume_token'")->fetchColumn();
+    testAssert($rateLimitCount === 0, 'token_limit_not_tracked_in_hourly_rate_limits_table');
 
     // 7.7 public reset IP endpoint wiring: 30/hour/IP
     // Probe to identify caller IP bucket
