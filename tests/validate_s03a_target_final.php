@@ -984,6 +984,10 @@ try {
     testAssert($vAfterReplay === 2, 'replay_cannot_mutate_credential_version');
 
     // 6.8 Precedence edge case: attempts = 9 -> attempt 10 succeeds, state becomes CONSUMED, attempts becomes 10, version increments once, replay returns 409 (NOT 429)
+    $resetIssueBucket = gmdate('Y-m-d H:i:00', floor(time() / 3600) * 3600);
+    $resetIssueKey = hash('sha256', "reset_issue|{$testClientId}|{$resetIssueBucket}");
+    $pdo->prepare("DELETE FROM tecnina_identity_rate_limits WHERE bucket_key = ?")->execute([$resetIssueKey]);
+
     $rKeyPrec = 'test-reset-key-prec-edge';
     $validResetPrec = httpRequest('POST', '/api/bot/password-reset/issue', [
         'client_id' => $testClientId,
@@ -1037,6 +1041,7 @@ try {
     testAssert(password_verify('tenth_valid_pass_123', $hashAfterReplay), 'prec_replay_does_not_mutate_password');
 
     // Expired PENDING token with attempts = 10 returns generic invalid_or_expired_reset (409), not 429
+    $pdo->prepare("DELETE FROM tecnina_identity_rate_limits WHERE bucket_key = ?")->execute([$resetIssueKey]);
     $rKeyExp10 = 'test-reset-key-exp10';
     $validResetExp10 = httpRequest('POST', '/api/bot/password-reset/issue', [
         'client_id' => $testClientId,
@@ -1044,6 +1049,7 @@ try {
         'phone_context_id' => 'ctx-test-exp10',
         'idempotency_key' => $rKeyExp10
     ], $authHeader);
+    testAssert($validResetExp10['code'] === 200 && !empty($validResetExp10['json']['reset_url']), 'exp10_reset_issue_success');
     $resetTokenExp10 = basename(parse_url($validResetExp10['json']['reset_url'], PHP_URL_PATH));
     $resetDigestExp10 = hash_hmac('sha256', $resetTokenExp10, $hmacSecret);
     $resetPathExp10 = '/cliente/password-reset/' . $resetTokenExp10;
