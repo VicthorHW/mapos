@@ -1,9 +1,11 @@
 Status: CURRENT
-## S03-A — estado atual (TARGET_VALIDATION)
-- S03-A em TARGET_VALIDATION no Orange Pi 5 Pro / Coolify sob a Technical Order 54.
-- Correção de idempotência cross-challenge em `verifyEmail()` aplicada.
-- Suíte de validação em execução com 100% de cobertura de endpoints de rate-limiting e emissão de results_s03a.json.
-- Redação no log de acesso do Nginx mantida e verificada com 0 ocorrências.
+## S03-A — estado atual (TL_ACCEPTANCE)
+- S03-A em TL_ACCEPTANCE no Orange Pi 5 Pro / Coolify sob a Technical Order 56.
+- Fechamento de contrato de rate limit de reset: 10 tentativas por tempo de vida do token (armazenado em `tecnina_password_resets.attempts`), independente de virada de hora cheia. Tentativa 11 retorna HTTP 429 `rate_limited`.
+- Validação estrita de subject: `client_id` inteiro positivo e `intake_id` UUID canônico validados antes de persistência/envio; sujeitos malformados retornam HTTP 422 `invalid_payload`.
+- Regressão de concorrência real multi-conexão em `verifyEmail()` executada no target (attempts=4 -> 5, request concorrente liberado rejeitado com 409, DB estritamente limitado a 5 tentativas, e-mail não promovido).
+- Auditoria do proxy reverso Traefik (`coolify-proxy` v3.6): access logging desativado upstream, sem vazamento de tokens. Nginx a jusante com redaction ativa (0 ocorrências de token em claro nos logs).
+- Suíte de validação em execução com 129/129 asserções aprovadas (100% EXECUTED_ON_TARGET) e emissão de results_s03a.json fora do web root (/tmp). Suíte de regressão com 13 PASS e 2 débitos históricos aceitos.
 ## S02-A — estado atual
 
 - S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` was redeployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S03 planning is the next active stage and requires a separate order.

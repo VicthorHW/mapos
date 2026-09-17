@@ -1,17 +1,23 @@
 Status: CURRENT
 
-## S03-A target-validation state (TARGET_VALIDATION)
+## S03-A target-validation state (TL_ACCEPTANCE)
 
-- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential authority; corrective commit under Technical Order 55 hardens verify concurrency with row-locking, supports same-candidate email reissue without affected_rows error, enforces syntactic validation for password reset requests, and secures test runners with Nginx protection and CLI safety interlock.
+- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential authority; corrective commits under Technical Order 56 enforce the 10-attempt rate limit per token lifetime (stored in `tecnina_password_resets.attempts`, independent of wall-clock hourly rollover), strict subject validation (positive int `client_id`, canonical UUID `intake_id` returning HTTP 422 `invalid_payload`), true multi-connection verify concurrency regression testing (starting at attempts=4, row-locking serialization, released valid request rejected at 5th failure, attempts strictly capped at 5, `clientes.email` not promoted), upstream Traefik reverse-proxy audit (access logging disabled upstream in `coolify-proxy`, downstream Nginx redacts tokens to `[REDACTED]`), and verified Docker CLI host chronology.
+- Git SHA terminology:
+  - S03-A merge-base / canonical base: `e749e352a2952d8adc4e917c75ff0108d39d21f0`
+  - Previously deployed S02 canonical runtime SHA: `76e72995cf4c00617435aeb34404aa28551533b2`
+  - Validated & deployed S03-A runtime SHA: `027efe4ffb453bac363cfcc480c929d6aaf27ff6`
+  - Feature branch HEAD: `027efe4ffb453bac363cfcc480c929d6aaf27ff6` (`HEAD == deployed`)
 - Validated tables: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
-- Rate limits: Email verification issue is capped at 3/15m and 10/day per subject+email; password reset issue capped at 3/hour/identity; credential hash capped at 60/min/service; client lookup capped at 300/min/service; public reset token capped at 10/hour; public reset IP capped at 30/hour.
+- Rate limits: Email verification issue is capped at 3/15m and 10/day per subject+email; password reset issue capped at 3/hour/identity; credential hash capped at 60/min/service; client lookup capped at 300/min/service; public reset token capped at 10 attempts per token lifetime (tracked in `tecnina_password_resets.attempts`, attempt 11 returns 429 `rate_limited`); public reset IP capped at 30/hour.
 - Password policy: minimum 6 Unicode characters (no composition requirement), 5 rejected, exact whitespace preserved, bcrypt 72-byte max.
 - Password reset and email challenge TTL: exactly 15 minutes (900 seconds).
-- Host Docker CLI bit-corruption was repaired with clean package extraction (MD5 `8f880710f0f6e94aaaa960dd663bc001`). Root cause calibrated: "Docker CLI binary corruption confirmed; underlying corruption cause not determined."
-- Production CodeIgniter migration completed once; ledger strictly preserved at `20260916120000`. Structural validation passed.
-- Nginx access-log token redaction (Technical Order 53): request-level normalization of `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs. Normal operational access logging for unrelated endpoints remains fully intact.
-- Test runner protection: Nginx explicit block `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and intentional safety interlock `TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION'`. Machine-readable results emitted outside web-served root to `/tmp/results_s03a.json`.
-- Status: `TARGET_VALIDATION` under Technical Order 55.
+- Host Docker CLI diagnosis & repair chronology: `/usr/bin/docker` is the active clean binary (MD5 `8f880710f0f6e94aaaa960dd663bc001`, size 43,074,435 bytes), provided by Debian package `docker-ce-cli` (5:29.7.2-1~debian.12~bookworm arm64), `dpkg -V docker-ce-cli` verified clean with exit code 0. Root cause calibrated: "Docker CLI binary corruption confirmed; underlying physical corruption cause not determined."
+- Production CodeIgniter migration completed once; ledger strictly preserved at `20260916120000` (zero reruns). Structural validation passed.
+- Upstream reverse proxy & Nginx access log audit: Traefik (`coolify-proxy`, version 3.6) runs without `--accesslog` flag (access logging disabled upstream, zero request logs generated); downstream Nginx sanitizes `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs.
+- Test runner web protection: Nginx explicit block `location ^~ /tests/ { deny all; return 404; }`, CLI-only guard, and intentional safety interlock `TECNINA_TARGET_VALIDATION_AUTH='AUTHORIZED_S03A_TARGET_EXECUTION'`. Machine-readable results emitted outside web-served root to `/tmp/results_s03a.json`. Direct HTTP probes to `/tests/validate_s03a_target_final.php` and `/tests/results_s03a.json` return HTTP 404.
+- Target validation suite: 129/129 assertions passed (100% EXECUTED_ON_TARGET, 0 failed). Target regression suite: 13 PASS, 2 accepted historical debts.
+- Status: `TL_ACCEPTANCE` under Technical Order 56.
 ## S02-A — reconciliação atual (2026-09-16)
 
 - S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS runs canonical `master` at `76e72995cf4c00617435aeb34404aa28551533b2` after Coolify deployment `gkpxgzavbwqqiftzfdul9qkj`; it remains functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. The next active stage is S03 planning under a separate Technical Lead order.
