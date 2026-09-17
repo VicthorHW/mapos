@@ -1,10 +1,15 @@
 Status: CURRENT
 
-## S03-A source-review candidate
+## S03-A target-validation state (TARGET_VALIDATION)
 
-- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential source candidate; the exact review HEAD is recorded in the mandatory Governance `NOW.md`. It has not been deployed or migrated on target.
-- The behavioral suite and disposable fixture support are present. Windows has no authorized PHP/MySQL runtime; target execution remains pending.
-- `TECNINA_IDENTITY_HMAC_SECRET` must be supplied through target secret management before authority APIs are enabled.
+- Feature `feature/customer-identity-auth-foundation-s03a` contains the dormant MapOS identity/credential authority; corrective commit resolves cross-challenge verify idempotency handling and adds endpoint rate-limiting validation.
+- Validated tables: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
+- Password policy: minimum 6 Unicode characters (no composition requirement), 5 rejected, exact whitespace preserved, bcrypt 72-byte max.
+- Password reset and email challenge TTL: exactly 15 minutes (900 seconds).
+- Host Docker CLI bit-corruption was repaired with clean package extraction (MD5 `8f880710f0f6e94aaaa960dd663bc001`). Root cause calibrated: "Docker CLI binary corruption confirmed; underlying corruption cause not determined."
+- Production CodeIgniter migration completed once; ledger strictly preserved at `20260916120000`. Structural validation passed.
+- Nginx access-log token redaction (Technical Order 53): request-level normalization of `$request`, `$request_uri`, and `$http_referer` via `log_format tecnina_safe` in `default.conf` verified on target with 0 plaintext token occurrences in access logs. Normal operational access logging for unrelated endpoints remains fully intact.
+- Status: `TARGET_VALIDATION` under Technical Order 54.
 ## S02-A — reconciliação atual (2026-09-16)
 
 - S01 is `APPROVED / PUBLISHED`; S02-A is `CLOSED / ACCEPTED`. MapOS runs canonical `master` at `76e72995cf4c00617435aeb34404aa28551533b2` after Coolify deployment `gkpxgzavbwqqiftzfdul9qkj`; it remains functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. The next active stage is S03 planning under a separate Technical Lead order.
@@ -135,9 +140,13 @@ Scope: MapOS fork TecNina / estado atual
 - estabilização pós-deploy e monitoramento de logs de produção;
 - acompanhamento da governança de testes de cenários conversacionais (Fase 22A+).
 
-## S03-A — identity and credential authority
+## S03-A — identity and credential authority (TARGET_VALIDATION)
 
 - CIAO-S03A is in `TARGET_VALIDATION` on `feature/customer-identity-auth-foundation-s03a`; it remains dormant and does not cut over the active `Mine.php` login/profile flow.
-- The final preflight makes unresolved relational phone-conflict evidence authoritative over a nominal unique identity row, materializes the client e-mail `PENDING` state only after successful challenge delivery, preserves the trusted `clientes.email` until verification, and counts only well-formed wrong verification codes.
-- Verification/reset request fingerprints are keyed with `TECNINA_IDENTITY_HMAC_SECRET`; rate-limit dependency failures fail closed as controlled unavailability. The S03 migration adds the approved identity/profile/challenge/reset/conflict/limit structures with state, provenance and credential-version constraints.
-- A disposable Orange Pi attempt stopped before DDL because its temporary schema lacked application-user grants and ledger state; this is retained as environmental evidence, not a source failure or mandatory gate. The Client authorizes controlled production-first final validation after feasible checks, a fresh verified backup and forward-safe CodeIgniter migration/deployment. Target migration, backup, deployment and security evidence are not yet claimed here.
+- The preflight makes unresolved relational phone-conflict evidence authoritative over a nominal unique identity row, materializes the client e-mail `PENDING` state only after successful challenge delivery, preserves the trusted `clientes.email` until verification, and counts only well-formed wrong verification codes.
+- Password policy enforces minimum 6 Unicode characters (no composition requirement), exactly preserving whitespace.
+- Verification and reset challenge TTL is exactly 15 minutes (900 seconds).
+- Schema structures added and verified: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.
+- Docker CLI bit-corruption was repaired with clean package extraction; calibrated root cause: "Docker CLI binary corruption confirmed; underlying corruption cause not determined."
+- Nginx access-log token redaction verified (0 occurrences).
+- Corrective commit addresses verify-idempotency handling across different challenges and introduces live endpoint rate limit testing with machine-readable results artifact.

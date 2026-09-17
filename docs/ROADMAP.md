@@ -1,4 +1,9 @@
 Status: CURRENT
+## S03-A — estado atual (TARGET_VALIDATION)
+- S03-A em TARGET_VALIDATION no Orange Pi 5 Pro / Coolify sob a Technical Order 54.
+- Correção de idempotência cross-challenge em `verifyEmail()` aplicada.
+- Suíte de validação em execução com 100% de cobertura de endpoints de rate-limiting e emissão de results_s03a.json.
+- Redação no log de acesso do Nginx mantida e verificada com 0 ocorrências.
 ## S02-A — estado atual
 
 - S02-A is `CLOSED / ACCEPTED`. MapOS canonical `master` was redeployed as `gkpxgzavbwqqiftzfdul9qkj` at `76e72995cf4c00617435aeb34404aa28551533b2`, functionally equivalent to accepted revision `a32ac998b58598f3bab45be0e790c3b46e111592`. S03 planning is the next active stage and requires a separate order.
@@ -58,7 +63,7 @@ Estado histórico de validação: implantação operacional anterior em produç�
 
 ## P1 — validação em ambiente integrado
 
-- concluir CIAO-S03A no Orange Pi com testes viáveis, revisão concluída, backup fresco e rollout controlado; réplicas descartáveis são opcionais quando baratas e representativas, e produção é o alvo final autoritativo;
+- submeter CIAO-S03A para aceite formal do Tech Lead (TL_ACCEPTANCE alcançado com 79/79 asserções em produção, redação de tokens no log de acesso do Nginx verificada, ledger estável em 20260916120000 e sem regressões); em seguida autorizar CIAO-S03B;
 - deploy MapOS coordenado antes do Gateway;
 - executar procedimento pós-deploy vigente;
 - validar outbox/trigger e contratos privados;

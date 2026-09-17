@@ -52,6 +52,16 @@ $assert($authority->verifyEmail(['challenge_id'=>$issued['challenge_id'], 'code'
 $conflictingVerify = $authority->verifyEmail(['challenge_id'=>$issued['challenge_id'], 'code'=>$code, 'idempotency_key'=>'verify-other']);
 $assert(!$conflictingVerify['ok'] && $conflictingVerify['reason']==='idempotency_conflict', 'verify idempotency conflict');
 
+// Cross-challenge idempotency key reuse must be controlled conflict, never 503 or duplicate promotion
+$issueB = $authority->issueEmailVerification(['client_id'=>$fixture['client_id'],'email_candidate'=>'candidate-b@example.test','purpose'=>'PROFILE_CHANGE','idempotency_key'=>'s03-issue-b']);
+$assert($issueB['ok'], 'issue challenge B');
+$codeB = tecnina_s03_delivery_code();
+$crossReuse = $authority->verifyEmail(['challenge_id'=>$issueB['challenge_id'], 'code'=>$codeB, 'idempotency_key'=>'verify-1']);
+$assert(!$crossReuse['ok'] && $crossReuse['reason']==='idempotency_conflict', 'cross-challenge verify key reuse returns idempotency_conflict');
+$assert(tecnina_s03_verification_state($issueB['challenge_id']) !== 'VERIFIED', 'challenge B remains unverified');
+$assert(tecnina_s03_client_email($fixture['client_id']) === $fixture['email_issue']['email_candidate'], 'client email not promoted to B');
+$assert(tecnina_s03_identity_row($fixture['client_id'])->email_candidate === $fixture['email_issue']['email_candidate'], 'identity candidate not mutated by B');
+
 $GLOBALS['tecnina_s03_delivery_spy'] = static function () { return false; };
 $deliveryFailure = $authority->issueEmailVerification(['client_id'=>$fixture['client_id'],'email_candidate'=>'delivery@example.test','purpose'=>'PROFILE_CHANGE','idempotency_key'=>'delivery-fail']);
 $assert(!$deliveryFailure['ok'] && $deliveryFailure['reason']==='delivery_unavailable', 'delivery failure controlled');
