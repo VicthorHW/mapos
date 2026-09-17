@@ -1,18 +1,21 @@
 Status: CURRENT
 
-## S03-A target-validation state (TL_ACCEPTANCE)
+## S03-A canonical deployment state (DONE / CANONICAL_CLOSURE_COMPLETE)
 
-- **Feature Branch**: `feature/customer-identity-auth-foundation-s03a`
-- **Current Stage**: `TL_ACCEPTANCE` (Technical Order 57)
+- **Feature Branch**: `feature/customer-identity-auth-foundation-s03a` (preserved for audit history; merged to `master`)
+- **Canonical Branch**: `master` (Coolify branch `master`, commit `HEAD`)
+- **Current Stage**: `DONE` (Formally accepted by Technical Lead under Technical Order 58; canonical deployment complete)
 - **Git SHA Terminology**:
   - **S03-A merge-base / canonical base**: `e749e352a2952d8adc4e917c75ff0108d39d21f0`
   - **Previously deployed S02 canonical runtime SHA**: `76e72995cf4c00617435aeb34404aa28551533b2`
-  - **Deployed Functional Runtime SHA (X)**: `f07620f3bcc49951cdad356acadad4ed8d5cd265` (Coolify Deployment #266)
-  - **Final Feature Branch HEAD (Y)**: Documentation-only synchronization commit advancing from X (verified docs-only via `git diff --name-status X..Y`, no redeployment required)
-- **Active Containers (Coolify Deployment #266)**:
-  - PHP-FPM: `php-fpm-l29tpqli0yt1usg25981aouz-194856657380` (id `61ee58d24a4c`)
-  - Nginx: `nginx-l29tpqli0yt1usg25981aouz-194856560685` (id `0ce712788e31`)
-  - MySQL: `mysql-l29tpqli0yt1usg25981aouz-194856796497` (id `ed39f6d44cfc`)
+  - **Accepted S03-A Feature HEAD**: `baf7cd6a5ec19947dd61a2963d233db13e628257`
+  - **Accepted Functional Runtime SHA**: `f07620f3bcc49951cdad356acadad4ed8d5cd265`
+  - **Canonical Master Merge SHA**: `96bada83908f4caae364ff2b8b97c400b0267265`
+  - **Canonical Deployed Runtime SHA**: `96bada83908f4caae364ff2b8b97c400b0267265` (Coolify Deployment #267)
+- **Active Containers (Coolify Deployment #267, UUID `qdndixmaltnp1qvznmfkqwht`)**:
+  - PHP-FPM: `php-fpm-l29tpqli0yt1usg25981aouz-225726174718` (id `fa131132b6df`)
+  - Nginx: `nginx-l29tpqli0yt1usg25981aouz-225726061688` (id `0e27219e1a92`)
+  - MySQL: `mysql-l29tpqli0yt1usg25981aouz-225726316835` (id `ed45d76796b9`, healthy)
 - **Production Migration Ledger**:
   - Migration completed once; ledger strictly preserved at `20260916120000` (zero reruns).
   - Schema tables verified pristine: `tecnina_client_identity`, `tecnina_client_profile`, `tecnina_email_verifications`, `tecnina_password_resets`, `tecnina_client_identity_phone_conflicts`, `tecnina_identity_rate_limits`.

@@ -1,13 +1,16 @@
 Status: CURRENT
-## S03-A — estado atual (TL_ACCEPTANCE)
-- S03-A em TL_ACCEPTANCE no Orange Pi 5 Pro / Coolify sob a Technical Order 57.
+## S03-A — estado atual (DONE / CANONICAL_CLOSURE_COMPLETE)
+- S03-A formalmente aceito pelo Technical Lead sob a Technical Order 58 e fechado com deploy canônico no master.
+- Merge canônico no `master` (`96bada83908f4caae364ff2b8b97c400b0267265`) e Coolify Deployment #267 (`qdndixmaltnp1qvznmfkqwht`) com status `finished` (exit code 0).
+- Containers canônicos ativos: PHP-FPM (`php-fpm-l29tpqli0yt1usg25981aouz-225726174718`), Nginx (`nginx-l29tpqli0yt1usg25981aouz-225726061688`), MySQL (`mysql-l29tpqli0yt1usg25981aouz-225726316835`).
+- Ledger de migração estritamente mantido em `20260916120000` (zero reexecuções).
+- Suíte de regressão canônica: 13 PASS, 2 débitos históricos aceitos (total de 15 testes). TecninaS03IdentityAuthorityTest: 28/28 asserções PASS. Zero novas regressões.
+- Proteção `/tests/` no Nginx retornando HTTP 404 e sanitização de tokens ativa via `log_format tecnina_safe`.
 - Fechamento de contrato de rate limit de reset: precedência estrita (token inexistente/expirado/consumido retorna 409 antes do rate limit 429), 10 tentativas por tempo de vida do token (armazenado em `tecnina_password_resets.attempts`), tentativa 11 retorna HTTP 429 `rate_limited`. Replay de token consumido retorna HTTP 409 `invalid_or_expired_reset` (não 429). Token PENDING expirado com 10 tentativas retorna HTTP 409 (não 429).
 - Confirmação de senha obrigatória em reset público (`password_confirmation`), rejeitando ausência ou divergência com 409 e consumindo tentativa.
 - Fail-closed attempt accounting: falha na persistência do contador de tentativas sob row lock retorna HTTP 503 `unavailable`.
 - Validação de client_id inteiro positivo em `issuePasswordReset()` retornando HTTP 422 `invalid_payload` se inválido ou não-positivo.
-- Regressão de concorrência real multi-conexão em `verifyEmail()` executada no target (attempts=4 -> 5, request concorrente liberado rejeitado com 409, DB estritamente limitado a 5 tentativas, e-mail não promovido).
 - Auditoria do proxy reverso Traefik (`coolify-proxy` v3.6): access logging desativado upstream, sem vazamento de tokens. Nginx a jusante com redaction ativa (0 ocorrências de token em claro nos logs).
-- Suíte de validação executada com 146/146 asserções aprovadas (100% EXECUTED_ON_TARGET) e emissão de results_s03a.json fora do web root (/tmp). Suíte de regressão com 13 PASS e 2 débitos históricos aceitos (15 testes total).
 
 ## S02-A — Histórico de Fechamento [HISTORICAL / CLOSED]
 
