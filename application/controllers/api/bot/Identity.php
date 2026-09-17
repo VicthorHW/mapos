@@ -17,6 +17,7 @@ class Identity extends REST_Controller
     public function hash_post()
     {
         if (! $this->authorize()) { return; }
+        if (! $this->rate('credential_hash', 'service', 60, 60)) { return; }
         $input = $this->post();
         if (! is_array($input) || array_diff(array_keys($input), ['password', 'password_confirmation']) !== [] || ! array_key_exists('password', $input)) {
             return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY);
@@ -29,6 +30,7 @@ class Identity extends REST_Controller
     public function lookup_post()
     {
         if (! $this->authorize()) { return; }
+        if (! $this->rate('client_lookup', 'service', 300, 60)) { return; }
         $input = $this->post();
         if (! is_array($input) || array_keys($input) !== ['canonical_phone']) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         $result = $this->tecnina_identity_authority->lookupCanonicalPhone($input['canonical_phone']);
@@ -40,7 +42,7 @@ class Identity extends REST_Controller
     {
         if (! $this->authorize()) { return; }
         $input = $this->post();
-        if (! is_array($input)) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! is_array($input) || array_diff(array_keys($input), ['client_id','intake_id','email_candidate','purpose','idempotency_key']) !== []) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         $result = $this->tecnina_identity_authority->issueEmailVerification($input);
         return $this->respondResult($result);
     }
@@ -49,11 +51,13 @@ class Identity extends REST_Controller
     {
         if (! $this->authorize()) { return; }
         $input = $this->post();
-        if (! is_array($input) || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','proof','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         return $this->respondResult($this->tecnina_identity_authority->issuePasswordReset($input));
     }
 
-    public function email_verification_verify_post() { if (! $this->authorize()) return; return $this->respondResult($this->tecnina_identity_authority->verifyEmail($this->post())); }
+    public function email_verification_verify_post() { if (! $this->authorize()) return; $input=$this->post();if(!is_array($input)||array_diff(array_keys($input),['challenge_id','code','idempotency_key'])!==[])return $this->response(['status'=>false,'reason'=>'invalid_payload'],self::HTTP_UNPROCESSABLE_ENTITY);return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input)); }
+
+    private function rate($scope,$subject,$limit,$seconds){$allowed=$this->tecnina_identity_rate_limiter->allow($scope,$subject,$limit,$seconds);if($allowed===true)return true;$this->response(['status'=>false,'reason'=>$allowed===null?'unavailable':'rate_limited'],$allowed===null?self::HTTP_SERVICE_UNAVAILABLE:self::HTTP_TOO_MANY_REQUESTS);return false;}
 
     private function respondResult($result)
     {
