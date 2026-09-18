@@ -38,10 +38,25 @@ $evPayload = [
 
 $res = $helper->verify_proof(genProof($secret, $evPayload, 'EMAIL_VERIFICATION_VERIFY'), 'EMAIL_VERIFICATION_VERIFY', $now);
 testAssertProof($res['status'] === true, "Valid proof");
-testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-123', 'ACCOUNT_CREATION'), "Email Verify Bind: Valid bound context");
-testAssertProof($helper->bind_email_verification($res['payload'], '999', 'draft-123', 'ACCOUNT_CREATION') === false, "Email Verify Bind: Wrong challenge mismatch");
-testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-999', 'ACCOUNT_CREATION') === false, "Email Verify Bind: Wrong context mismatch");
-testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-123', 'WRONG_PURPOSE') === false, "Email Verify Bind: Wrong purpose mismatch");
+testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-123', 'ACCOUNT_CREATION', 'INTAKE'), "Email Verify Bind (Legacy): Valid bound context");
+testAssertProof($helper->bind_email_verification($res['payload'], '999', 'draft-123', 'ACCOUNT_CREATION', 'INTAKE') === false, "Email Verify Bind: Wrong challenge mismatch");
+testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-999', 'ACCOUNT_CREATION', 'INTAKE') === false, "Email Verify Bind: Wrong context mismatch");
+testAssertProof($helper->bind_email_verification($res['payload'], '123', 'draft-123', 'WRONG_PURPOSE', 'INTAKE') === false, "Email Verify Bind: Wrong purpose mismatch");
+
+// Subject binding tests with explicit subject_type and subject_id
+$evIntakePayload = array_merge($evPayload, ['subject_type' => 'INTAKE', 'subject_id' => 'draft-123']);
+$resIntake = $helper->verify_proof(genProof($secret, $evIntakePayload, 'EMAIL_VERIFICATION_VERIFY'), 'EMAIL_VERIFICATION_VERIFY', $now);
+testAssertProof($resIntake['status'] === true, "Valid INTAKE proof");
+testAssertProof($helper->bind_email_verification($resIntake['payload'], '123', 'draft-123', 'ACCOUNT_CREATION', 'INTAKE') === true, "Email Verify Bind: Valid INTAKE subject match");
+testAssertProof($helper->bind_email_verification($resIntake['payload'], '123', 'draft-123', 'ACCOUNT_CREATION', 'CLIENT') === false, "Email Verify Bind: Wrong subject_type mismatch rejected");
+testAssertProof($helper->bind_email_verification($resIntake['payload'], '123', 'draft-999', 'ACCOUNT_CREATION', 'INTAKE') === false, "Email Verify Bind: Wrong subject_id mismatch rejected");
+
+$evClientPayload = array_merge($evPayload, ['subject_type' => 'CLIENT', 'subject_id' => '42', 'phone_context_id' => '42', 'purpose' => 'PROFILE_CHANGE']);
+$resClient = $helper->verify_proof(genProof($secret, $evClientPayload, 'EMAIL_VERIFICATION_VERIFY'), 'EMAIL_VERIFICATION_VERIFY', $now);
+testAssertProof($resClient['status'] === true, "Valid CLIENT proof");
+testAssertProof($helper->bind_email_verification($resClient['payload'], '123', '42', 'PROFILE_CHANGE', 'CLIENT') === true, "Email Verify Bind: Valid CLIENT subject match");
+testAssertProof($helper->bind_email_verification($resClient['payload'], '123', '42', 'PROFILE_CHANGE', 'INTAKE') === false, "Email Verify Bind: CLIENT subject rejected for INTAKE");
+testAssertProof($helper->bind_email_verification($resClient['payload'], '123', '99', 'PROFILE_CHANGE', 'CLIENT') === false, "Email Verify Bind: Wrong client subject_id rejected");
 
 $res = $helper->verify_proof("", 'EMAIL_VERIFICATION_VERIFY', $now);
 testAssertProof($res['status'] === false && $res['code'] === 403, "Missing proof -> 403");
@@ -172,31 +187,14 @@ $p = $prPayload; unset($p['issued_at']);
 $res = $helper->verify_proof(genProof($secret, $p, 'PASSWORD_RESET_ISSUE'), 'PASSWORD_RESET_ISSUE', $now);
 testAssertProof($res['status'] === false && $res['code'] === 403, "PR: Malformed/expired proof -> 403");
 
-// Controller input validation tests for email_verification_verify
-function validate_email_verify_input($input) {
-    if (
-        ! is_array($input)
-        || array_diff(array_keys($input), ['challenge_id', 'code', 'idempotency_key']) !== []
-        || ! isset($input['challenge_id'], $input['code'], $input['idempotency_key'])
-        || ! is_string($input['challenge_id'])
-        || ! is_string($input['code'])
-        || ! is_string($input['idempotency_key'])
-        || trim($input['challenge_id']) === ''
-        || trim($input['code']) === ''
-        || trim($input['idempotency_key']) === ''
-    ) {
-        return false;
-    }
-    return true;
-}
-
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1']) === true, "Email verify input: Valid payload accepted");
-testAssertProof(validate_email_verify_input(['code' => '123456', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing challenge_id rejected");
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing code rejected");
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456']) === false, "Email verify input: Missing idempotency_key rejected");
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => 123456, 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Integer code rejected");
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '   ', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Whitespace code rejected");
-testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1', 'extra' => 'field']) === false, "Email verify input: Extra field rejected");
+// Controller input validation tests for email_verification_verify (using production Tecnina_context_proof helper)
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1']) === true, "Email verify input: Valid payload accepted");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['code' => '123456', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing challenge_id rejected");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing code rejected");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'code' => '123456']) === false, "Email verify input: Missing idempotency_key rejected");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'code' => 123456, 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Integer code rejected");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'code' => '   ', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Whitespace code rejected");
+testAssertProof(Tecnina_context_proof::validate_email_verify_payload(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1', 'extra' => 'field']) === false, "Email verify input: Extra field rejected");
 
 echo "All MapOS Local Tests passed.\n";
 exit(0);

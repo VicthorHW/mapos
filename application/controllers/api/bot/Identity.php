@@ -66,24 +66,16 @@ class Identity extends REST_Controller
         $proof_payload = $this->verify_context_proof('EMAIL_VERIFICATION_VERIFY');
         if (!$proof_payload) return;
         $input = $this->post();
-        if (
-            ! is_array($input)
-            || array_diff(array_keys($input), ['challenge_id', 'code', 'idempotency_key']) !== []
-            || ! isset($input['challenge_id'], $input['code'], $input['idempotency_key'])
-            || ! is_string($input['challenge_id'])
-            || ! is_string($input['code'])
-            || ! is_string($input['idempotency_key'])
-            || trim($input['challenge_id']) === ''
-            || trim($input['code']) === ''
-            || trim($input['idempotency_key']) === ''
-        ) {
+        if (! Tecnina_context_proof::validate_email_verify_payload($input)) {
             return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY);
         }
-        $this->db->select('intake_id, purpose');
+        $this->db->select('intake_id, client_id, purpose');
         $this->db->where('id', $input['challenge_id']);
         $row = $this->db->get('tecnina_email_verifications')->row_array();
         if (!$row) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        if (!$this->tecnina_context_proof->bind_email_verification($proof_payload, $input['challenge_id'], $row['intake_id'], $row['purpose'])) {
+        $subject_type = !empty($row['intake_id']) ? 'INTAKE' : 'CLIENT';
+        $subject_id = !empty($row['intake_id']) ? $row['intake_id'] : (string)$row['client_id'];
+        if (!$this->tecnina_context_proof->bind_email_verification($proof_payload, $input['challenge_id'], $subject_id, $row['purpose'], $subject_type)) {
             return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
         }
 

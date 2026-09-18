@@ -93,15 +93,45 @@ class Tecnina_context_proof {
         return hash_hmac('sha256', $data, $domain_key);
     }
 
-    public function bind_email_verification($proof_payload, $request_challenge_id, $authoritative_intake_id, $authoritative_purpose) {
-        if (!is_array($proof_payload) || !is_string($proof_payload['challenge_id'] ?? null) || !is_string($request_challenge_id) || $proof_payload['challenge_id'] !== $request_challenge_id) {
+    public static function validate_email_verify_payload($input) {
+        if (
+            ! is_array($input)
+            || array_diff(array_keys($input), ['challenge_id', 'code', 'idempotency_key']) !== []
+            || ! isset($input['challenge_id'], $input['code'], $input['idempotency_key'])
+            || ! is_string($input['challenge_id'])
+            || ! is_string($input['code'])
+            || ! is_string($input['idempotency_key'])
+            || trim($input['challenge_id']) === ''
+            || trim($input['code']) === ''
+            || trim($input['idempotency_key']) === ''
+        ) {
             return false;
         }
-        if (!is_string($proof_payload['phone_context_id'] ?? null) || !is_string($authoritative_intake_id) || $proof_payload['phone_context_id'] !== $authoritative_intake_id) {
+        return true;
+    }
+
+    public function bind_email_verification($proof_payload, $request_challenge_id, $authoritative_subject_id, $authoritative_purpose, $authoritative_subject_type = 'INTAKE') {
+        if (!is_array($proof_payload) || !is_string($proof_payload['challenge_id'] ?? null) || !is_string($request_challenge_id) || $proof_payload['challenge_id'] !== $request_challenge_id) {
             return false;
         }
         if (!is_string($proof_payload['purpose'] ?? null) || !is_string($authoritative_purpose) || $proof_payload['purpose'] !== $authoritative_purpose) {
             return false;
+        }
+        $authoritative_subject_id = (string)$authoritative_subject_id;
+        if (isset($proof_payload['subject_type']) || isset($proof_payload['subject_id'])) {
+            if (($proof_payload['subject_type'] ?? null) !== $authoritative_subject_type) {
+                return false;
+            }
+            if ((string)($proof_payload['subject_id'] ?? '') !== $authoritative_subject_id) {
+                return false;
+            }
+            if (isset($proof_payload['phone_context_id']) && (string)$proof_payload['phone_context_id'] !== $authoritative_subject_id) {
+                return false;
+            }
+        } else {
+            if (!is_string($proof_payload['phone_context_id'] ?? null) || (string)$proof_payload['phone_context_id'] !== $authoritative_subject_id) {
+                return false;
+            }
         }
         return true;
     }

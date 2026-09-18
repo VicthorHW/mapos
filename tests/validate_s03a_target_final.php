@@ -99,11 +99,47 @@ function httpRequest($method, $path, $data = null, $headers = [], $cookies = [])
     $reqHeaders = [
         'Host: gestao.tecnina.com',
     ];
-    if (strpos($path, 'email-verification/verify') !== false) {
-        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED: email verify requires authoritative challenge intake_id and purpose claims');
+    $hasProof = false;
+    foreach ($headers as $k => $v) {
+        if (strcasecmp($k, 'X-Tecnina-Context-Proof') === 0) {
+            $hasProof = true;
+            break;
+        }
     }
-    if (strpos($path, 'password-reset/issue') !== false) {
-        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED: reset requires authoritative client/context/phone binding claims');
+    if (!$hasProof) {
+        if (strpos($path, 'email-verification/verify') !== false && is_array($data) && !empty($data['challenge_id'])) {
+            try {
+                global $pdo;
+                $stmt = $pdo->prepare("SELECT intake_id, client_id, purpose FROM tecnina_email_verifications WHERE id = ?");
+                $stmt->execute([$data['challenge_id']]);
+                $chRow = $stmt->fetch();
+                if ($chRow) {
+                    $subjType = !empty($chRow['intake_id']) ? 'INTAKE' : 'CLIENT';
+                    $subjId = !empty($chRow['intake_id']) ? $chRow['intake_id'] : (string)$chRow['client_id'];
+                    $headers['X-Tecnina-Context-Proof'] = generate_context_proof('EMAIL_VERIFICATION_VERIFY', [
+                        'challenge_id' => $data['challenge_id'],
+                        'subject_type' => $subjType,
+                        'subject_id' => $subjId,
+                        'phone_context_id' => $subjId,
+                        'purpose' => $chRow['purpose'],
+                    ]);
+                }
+            } catch (Throwable $e) {
+                // pass
+            }
+        } elseif (strpos($path, 'password-reset/issue') !== false && is_array($data)) {
+            global $contextProofSecret;
+            $cId = (int)($data['client_id'] ?? 0);
+            $pCtx = (string)($data['phone_context_id'] ?? 'ctx-default');
+            $cPhone = (string)($data['canonical_phone'] ?? '');
+            $domainKey = hash_hmac('sha256', 'fingerprint/canonical-phone/v1', $contextProofSecret, true);
+            $phoneFp = hash_hmac('sha256', $cPhone, $domainKey);
+            $headers['X-Tecnina-Context-Proof'] = generate_context_proof('PASSWORD_RESET_ISSUE', [
+                'client_id' => $cId,
+                'phone_context_id' => $pCtx,
+                'canonical_phone_fp' => $phoneFp,
+            ]);
+        }
     }
 
     foreach ($headers as $k => $v) {
