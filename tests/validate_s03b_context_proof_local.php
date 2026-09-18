@@ -172,5 +172,31 @@ $p = $prPayload; unset($p['issued_at']);
 $res = $helper->verify_proof(genProof($secret, $p, 'PASSWORD_RESET_ISSUE'), 'PASSWORD_RESET_ISSUE', $now);
 testAssertProof($res['status'] === false && $res['code'] === 403, "PR: Malformed/expired proof -> 403");
 
+// Controller input validation tests for email_verification_verify
+function validate_email_verify_input($input) {
+    if (
+        ! is_array($input)
+        || array_diff(array_keys($input), ['challenge_id', 'code', 'idempotency_key']) !== []
+        || ! isset($input['challenge_id'], $input['code'], $input['idempotency_key'])
+        || ! is_string($input['challenge_id'])
+        || ! is_string($input['code'])
+        || ! is_string($input['idempotency_key'])
+        || trim($input['challenge_id']) === ''
+        || trim($input['code']) === ''
+        || trim($input['idempotency_key']) === ''
+    ) {
+        return false;
+    }
+    return true;
+}
+
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1']) === true, "Email verify input: Valid payload accepted");
+testAssertProof(validate_email_verify_input(['code' => '123456', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing challenge_id rejected");
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Missing code rejected");
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456']) === false, "Email verify input: Missing idempotency_key rejected");
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => 123456, 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Integer code rejected");
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '   ', 'idempotency_key' => 'idemp-1']) === false, "Email verify input: Whitespace code rejected");
+testAssertProof(validate_email_verify_input(['challenge_id' => 'ch-1', 'code' => '123456', 'idempotency_key' => 'idemp-1', 'extra' => 'field']) === false, "Email verify input: Extra field rejected");
+
 echo "All MapOS Local Tests passed.\n";
 exit(0);
