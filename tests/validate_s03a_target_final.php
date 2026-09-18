@@ -37,8 +37,9 @@ $dotenv->load();
 
 $botToken = (string)($_ENV['MAPOS_BOT_TOKEN'] ?? '');
 $hmacSecret = (string)($_ENV['TECNINA_IDENTITY_HMAC_SECRET'] ?? '');
-if (strlen($botToken) < 32 || strlen($hmacSecret) < 32) {
-    die("FATAL: Required secrets missing or invalid\n");
+$contextProofSecret = (string)($_ENV['TECNINA_CONTEXT_PROOF_HMAC_SECRET'] ?? '');
+if (strlen($botToken) < 32 || strlen($hmacSecret) < 32 || strlen($contextProofSecret) < 32) {
+    die("TARGET_CONFIGURATION_REQUIRED\n");
 }
 
 // 2. Database Connection
@@ -70,18 +71,24 @@ function testAssert($condition, $name, $detail = '', $category = 'EXECUTED_ON_TA
 }
 
 // Helper for HTTP requests directly to Nginx container
-function generate_context_proof($operation, $challengeId = null) {
-    $secret = getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET');
-    $payload = [
-        'operation' => $operation,
-        'expires_at' => time() + 300, 'issued_at' => time(),
-    ];
-    if ($challengeId) {
-        $payload['challenge_id'] = $challengeId;
+function generate_context_proof($operation, array $claims) {
+    global $contextProofSecret;
+    if (strlen($contextProofSecret) < 32) {
+        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED');
     }
+    $now = time();
+    $payload = [
+        'v' => '1',
+        'operation' => $operation,
+        'issued_at' => $now,
+        'expires_at' => $now + 300,
+        'nonce' => bin2hex(random_bytes(16)),
+    ] + $claims;
+    ksort($payload, SORT_STRING);
     $b64 = strtr(base64_encode(json_encode($payload)), '+/', '-_');
     $b64 = rtrim($b64, '=');
-    $sig = hash_hmac('sha256', $b64, $secret);
+    $domainKey = hash_hmac('sha256', 'context-proof/' . strtolower($operation) . '/v1', $contextProofSecret, true);
+    $sig = hash_hmac('sha256', $b64, $domainKey);
     return "v1.$b64.$sig";
 }
 
@@ -93,11 +100,10 @@ function httpRequest($method, $path, $data = null, $headers = [], $cookies = [])
         'Host: gestao.tecnina.com',
     ];
     if (strpos($path, 'email-verification/verify') !== false) {
-        $chId = is_array($data) ? ($data['challenge_id'] ?? null) : null;
-        $reqHeaders[] = 'X-Tecnina-Context-Proof: ' . generate_context_proof('EMAIL_VERIFICATION_VERIFY', $chId);
+        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED: email verify requires authoritative challenge intake_id and purpose claims');
     }
     if (strpos($path, 'password-reset/issue') !== false) {
-        $reqHeaders[] = 'X-Tecnina-Context-Proof: ' . generate_context_proof('PASSWORD_RESET');
+        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED: reset requires authoritative client/context/phone binding claims');
     }
 
     foreach ($headers as $k => $v) {

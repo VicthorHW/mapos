@@ -54,11 +54,7 @@ class Identity extends REST_Controller
         if (!$proof_payload) { return; }
         $input = $this->post();
         if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
-        if (!isset($proof_payload['client_id']) || $proof_payload['client_id'] !== $input['client_id']) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        if (!isset($proof_payload['phone_context_id']) || $proof_payload['phone_context_id'] !== $input['phone_context_id']) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        
-        $expected_fp = $this->tecnina_context_proof->compute_fingerprint('canonical-phone', $input['canonical_phone']);
-        if (!isset($proof_payload['canonical_phone_fp']) || !hash_equals($expected_fp, $proof_payload['canonical_phone_fp'])) {
+        if (!$this->tecnina_context_proof->bind_password_reset($proof_payload, $input['client_id'], $input['phone_context_id'], $input['canonical_phone'])) {
             return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
         }
 
@@ -71,14 +67,14 @@ class Identity extends REST_Controller
         if (!$proof_payload) return;
         $input=$this->post();
         if(!is_array($input)||array_diff(array_keys($input),['challenge_id','code','idempotency_key'])!==[])return $this->response(['status'=>false,'reason'=>'invalid_payload'],self::HTTP_UNPROCESSABLE_ENTITY);
-        if (!isset($proof_payload['challenge_id']) || $proof_payload['challenge_id'] !== $input['challenge_id']) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        // Verify against DB
         $this->db->select('intake_id, purpose');
         $this->db->where('id', $input['challenge_id']);
         $row = $this->db->get('tecnina_email_verifications')->row_array();
         if (!$row) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        if (!isset($proof_payload['phone_context_id']) || $proof_payload['phone_context_id'] !== $row['intake_id']) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
-        if (!isset($proof_payload['purpose']) || $proof_payload['purpose'] !== $row['purpose']) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
+        if (!$this->tecnina_context_proof->bind_email_verification($proof_payload, $input['challenge_id'], $row['intake_id'], $row['purpose'])) {
+            return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+        }
+
         return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input));
     }
 
@@ -86,7 +82,8 @@ class Identity extends REST_Controller
     {
         $proof = $this->input->get_request_header('X-Tecnina-Context-Proof', true);
         $this->load->library('tecnina_context_proof', ['secret' => getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET') ?: $this->config->item('tecnina_context_proof_hmac_secret')]);
-        $result = $this->tecnina_context_proof->verify_proof($proof, $expected_operation);
+        try { $result = $this->tecnina_context_proof->verify_proof($proof, $expected_operation); }
+        catch (RuntimeException $e) { $this->response(['status' => false, 'reason' => 'context_authority_unavailable'], self::HTTP_SERVICE_UNAVAILABLE); return false; }
         if (!$result['status']) {
             $this->response(['status' => false, 'reason' => $result['reason']], $result['code']);
             return false;

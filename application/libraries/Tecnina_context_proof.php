@@ -57,7 +57,7 @@ class Tecnina_context_proof {
         }
 
         // Strict Type Validation
-        if (!isset($payload['operation']) || !is_string($payload['operation']) || $payload['operation'] === '') {
+        if (!isset($payload['v']) || $payload['v'] !== '1' || !isset($payload['operation']) || !is_string($payload['operation']) || $payload['operation'] === '' || strlen($payload['operation']) > 64) {
             return ['status' => false, 'reason' => 'invalid_context_proof', 'code' => 403];
         }
         if ($payload['operation'] !== $expected_operation) {
@@ -87,9 +87,40 @@ class Tecnina_context_proof {
     public function compute_fingerprint($domain, $data)
     {
         if (empty($this->secret) || strlen($this->secret) < 32) {
-            return null; // Should throw or handle
+            throw new RuntimeException('context_authority_unavailable');
         }
         $domain_key = $this->get_domain_key("fingerprint/" . strtolower($domain) . "/v1");
         return hash_hmac('sha256', $data, $domain_key);
+    }
+
+    public function bind_email_verification($proof_payload, $request_challenge_id, $authoritative_intake_id, $authoritative_purpose) {
+        if (!is_array($proof_payload) || !is_string($proof_payload['challenge_id'] ?? null) || !is_string($request_challenge_id) || $proof_payload['challenge_id'] !== $request_challenge_id) {
+            return false;
+        }
+        if (!is_string($proof_payload['phone_context_id'] ?? null) || !is_string($authoritative_intake_id) || $proof_payload['phone_context_id'] !== $authoritative_intake_id) {
+            return false;
+        }
+        if (!is_string($proof_payload['purpose'] ?? null) || !is_string($authoritative_purpose) || $proof_payload['purpose'] !== $authoritative_purpose) {
+            return false;
+        }
+        return true;
+    }
+
+    public function bind_password_reset($proof_payload, $request_client_id, $request_phone_context_id, $request_canonical_phone) {
+        if (!is_array($proof_payload) || !is_int($proof_payload['client_id'] ?? null) || !is_int($request_client_id) || $proof_payload['client_id'] !== $request_client_id) {
+            return false;
+        }
+        if (!is_string($proof_payload['phone_context_id'] ?? null) || !is_string($request_phone_context_id) || $proof_payload['phone_context_id'] !== $request_phone_context_id) {
+            return false;
+        }
+        if (!is_string($request_canonical_phone) || !is_string($proof_payload['canonical_phone_fp'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $proof_payload['canonical_phone_fp'])) {
+            return false;
+        }
+        try { $expected_fp = $this->compute_fingerprint('canonical-phone', $request_canonical_phone); }
+        catch (RuntimeException $e) { return false; }
+        if (!hash_equals($expected_fp, $proof_payload['canonical_phone_fp'])) {
+            return false;
+        }
+        return true;
     }
 }
