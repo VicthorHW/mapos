@@ -70,6 +70,22 @@ function testAssert($condition, $name, $detail = '', $category = 'EXECUTED_ON_TA
 }
 
 // Helper for HTTP requests directly to Nginx container
+function generate_context_proof($operation, $challengeId = null) {
+    $secret = getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET') ?: 'dev-context-proof-hmac-secret-tecnina-mapos';
+    putenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET=' . $secret); // ensure it's set
+    $payload = [
+        'operation' => $operation,
+        'expires_at' => time() + 300,
+    ];
+    if ($challengeId) {
+        $payload['challenge_id'] = $challengeId;
+    }
+    $b64 = strtr(base64_encode(json_encode($payload)), '+/', '-_');
+    $b64 = rtrim($b64, '=');
+    $sig = hash_hmac('sha256', $b64, $secret);
+    return "v1.$b64.$sig";
+}
+
 function httpRequest($method, $path, $data = null, $headers = [], $cookies = []) {
     $ch = curl_init();
     $url = 'http://10.0.4.5' . $path;
@@ -77,6 +93,14 @@ function httpRequest($method, $path, $data = null, $headers = [], $cookies = [])
     $reqHeaders = [
         'Host: gestao.tecnina.com',
     ];
+    if (strpos($path, 'email-verification/verify') !== false) {
+        $chId = is_array($data) ? ($data['challenge_id'] ?? null) : null;
+        $reqHeaders[] = 'X-Tecnina-Context-Proof: ' . generate_context_proof('EMAIL_VERIFICATION_VERIFY', $chId);
+    }
+    if (strpos($path, 'password-reset/issue') !== false) {
+        $reqHeaders[] = 'X-Tecnina-Context-Proof: ' . generate_context_proof('PASSWORD_RESET');
+    }
+
     foreach ($headers as $k => $v) {
         $reqHeaders[] = "{$k}: {$v}";
     }

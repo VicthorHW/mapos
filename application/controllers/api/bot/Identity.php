@@ -50,12 +50,59 @@ class Identity extends REST_Controller
     public function password_reset_post()
     {
         if (! $this->authorize()) { return; }
+        if (! $this->verify_context_proof('PASSWORD_RESET')) { return; }
         $input = $this->post();
-        if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','proof','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
         return $this->respondResult($this->tecnina_identity_authority->issuePasswordReset($input));
     }
 
-    public function email_verification_verify_post() { if (! $this->authorize()) return; $input=$this->post();if(!is_array($input)||array_diff(array_keys($input),['challenge_id','code','idempotency_key'])!==[])return $this->response(['status'=>false,'reason'=>'invalid_payload'],self::HTTP_UNPROCESSABLE_ENTITY);return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input)); }
+    public function email_verification_verify_post() { if (! $this->authorize()) return; if (!$this->verify_context_proof("EMAIL_VERIFICATION_VERIFY")) return; $input=$this->post();if(!is_array($input)||array_diff(array_keys($input),['challenge_id','code','idempotency_key'])!==[])return $this->response(['status'=>false,'reason'=>'invalid_payload'],self::HTTP_UNPROCESSABLE_ENTITY);return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input)); }
+
+    private function verify_context_proof($expected_operation)
+    {
+        $proof = $this->input->get_request_header('X-Tecnina-Context-Proof', true);
+        $secret = getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET') ?: $this->config->item('tecnina_context_proof_hmac_secret');
+        if (empty($secret)) {
+            $this->response(['status' => false, 'reason' => 'context_authority_unavailable'], self::HTTP_SERVICE_UNAVAILABLE);
+            return false;
+        }
+        if (empty($proof) || strpos($proof, 'v1.') !== 0) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        $parts = explode('.', $proof);
+        if (count($parts) !== 3) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        $b64_payload = $parts[1];
+        $signature = $parts[2];
+        $expected_signature = hash_hmac('sha256', $b64_payload, $secret);
+        if (!hash_equals($expected_signature, $signature)) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        $padded_b64 = str_pad($b64_payload, strlen($b64_payload) + (4 - strlen($b64_payload) % 4) % 4, '=', STR_PAD_RIGHT);
+        $json_str = base64_decode(strtr($padded_b64, '-_', '+/'), true);
+        if ($json_str === false) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        $payload = json_decode($json_str, true);
+        if (!is_array($payload) || !isset($payload['operation'], $payload['expires_at'])) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        if ($payload['operation'] !== $expected_operation) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        if (time() > $payload['expires_at']) {
+            $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+            return false;
+        }
+        return $payload;
+    }
 
     private function rate($scope,$subject,$limit,$seconds){$allowed=$this->tecnina_identity_rate_limiter->allow($scope,$subject,$limit,$seconds);if($allowed===true)return true;$this->response(['status'=>false,'reason'=>$allowed===null?'unavailable':'rate_limited'],$allowed===null?self::HTTP_SERVICE_UNAVAILABLE:self::HTTP_TOO_MANY_REQUESTS);return false;}
 
