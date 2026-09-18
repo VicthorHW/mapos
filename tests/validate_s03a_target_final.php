@@ -71,11 +71,10 @@ function testAssert($condition, $name, $detail = '', $category = 'EXECUTED_ON_TA
 
 // Helper for HTTP requests directly to Nginx container
 function generate_context_proof($operation, $challengeId = null) {
-    $secret = getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET') ?: 'dev-context-proof-hmac-secret-tecnina-mapos';
-    putenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET=' . $secret); // ensure it's set
+    $secret = getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET');
     $payload = [
         'operation' => $operation,
-        'expires_at' => time() + 300,
+        'expires_at' => time() + 300, 'issued_at' => time(),
     ];
     if ($challengeId) {
         $payload['challenge_id'] = $challengeId;
