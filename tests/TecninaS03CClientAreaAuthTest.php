@@ -93,4 +93,29 @@ expectS03C(isset($matches[1]) && strpos($matches[1], 'return redirect(cliente_ur
 expectS03C(strpos($loginView, 'placeholder="Celular ou E-mail"') !== false, 'Login view placeholder must indicate Celular ou E-mail');
 expectS03C(strpos($loginView, 'email: true') === false, 'Login view jQuery validate must NOT require email: true');
 
+// 13. TO82-R2: Transactional consistency in Mine::editarDados
+preg_match('/public\s+function\s+editarDados\s*\([^)]*\)\s*\{([\s\S]+?)(?=\n\s*public\s+function)/', $mine, $editarMatches);
+expectS03C(isset($editarMatches[1]), 'editarDados method body must be extractable');
+$editarBody = $editarMatches[1] ?? '';
+expectS03C(strpos($editarBody, 'trans_begin()') !== false, 'editarDados must begin transaction with trans_begin()');
+expectS03C(strpos($editarBody, 'trans_status()') !== false, 'editarDados must verify transaction status with trans_status()');
+expectS03C(strpos($editarBody, 'trans_rollback()') !== false, 'editarDados must roll back on failure with trans_rollback()');
+expectS03C(strpos($editarBody, 'trans_commit()') !== false, 'editarDados must commit transaction with trans_commit()');
+
+// 14. TO82-R2: Transactional consistency in Mine::senhaSalvar
+preg_match('/public\s+function\s+senhaSalvar\s*\([^)]*\)\s*\{([\s\S]+?)(?=\n\s*public\s+function)/', $mine, $senhaMatches);
+expectS03C(isset($senhaMatches[1]), 'senhaSalvar method body must be extractable');
+$senhaBody = $senhaMatches[1] ?? '';
+expectS03C(strpos($senhaBody, 'trans_begin()') !== false, 'senhaSalvar must begin transaction with trans_begin()');
+expectS03C(strpos($senhaBody, 'trans_status()') !== false, 'senhaSalvar must verify transaction status with trans_status()');
+expectS03C(strpos($senhaBody, 'trans_rollback()') !== false, 'senhaSalvar must roll back on failure with trans_rollback()');
+expectS03C(strpos($senhaBody, 'trans_commit()') !== false, 'senhaSalvar must commit transaction with trans_commit()');
+
+// 15. TO82-R2: Strict separation of email lookup in resolveClientForLogin (no single mixed OR query)
+preg_match('/private\s+function\s+resolveClientForLogin\s*\([^)]*\)\s*\{([\s\S]+?)(?=\n\s*(?:public|private|protected)\s+function)/', $mine, $resolveMatches);
+expectS03C(isset($resolveMatches[1]), 'resolveClientForLogin method body must be extractable');
+$resolveBody = $resolveMatches[1] ?? '';
+expectS03C(strpos($resolveBody, "or_where('i.email_candidate'") === false, 'resolveClientForLogin must NOT use mixed or_where for email_candidate');
+expectS03C(strpos($resolveBody, "where('c.email', \$identifier)") !== false, 'resolveClientForLogin must query exact trusted c.email first');
+
 echo "TecninaS03CClientAreaAuthTest: " . $assertions . " assertions passed successfully." . PHP_EOL;

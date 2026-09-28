@@ -99,23 +99,39 @@ class Mine extends CI_Controller
                         return;
                     }
 
-                    $data = [
-                        'senha' => $hashResult['hash'],
-                    ];
-
-                    $dataToken = [
-                        'token_utilizado' => true,
-                    ];
                     $this->load->model('resetSenhas_model', '', true);
-                    if ($this->Conecte_model->edit('clientes', $data, 'idClientes', $cliente->idClientes) == true) {
-                        if ($this->resetSenhas_model->edit('resets_de_senha', $dataToken, 'id', $token->id) == true) {
-                            $this->db->where('client_id', $cliente->idClientes)->set('credential_version', 'credential_version+1', false)->update('tecnina_client_identity');
-                            $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
-                            $this->session->set_userdata($session_mine_data);
-                            log_info('Alteração da senha realizada com sucesso.');
-                            echo json_encode(['result' => true]);
-                        }
+
+                    $this->db->trans_begin();
+
+                    $exists = $this->db->where('client_id', (int) $cliente->idClientes)->count_all_results('tecnina_client_identity');
+                    if ($exists === 0) {
+                        $this->db->insert('tecnina_client_identity', [
+                            'client_id' => (int) $cliente->idClientes,
+                            'credential_version' => 1,
+                            'email_state' => ! empty($cliente->email) ? 'LEGACY_EXISTING' : 'NONE',
+                        ]);
                     }
+
+                    $editClientOk = $this->Conecte_model->edit('clientes', ['senha' => $hashResult['hash']], 'idClientes', $cliente->idClientes);
+                    $editTokenOk = $this->resetSenhas_model->edit('resets_de_senha', ['token_utilizado' => true], 'id', $token->id);
+                    $this->db->where('client_id', (int) $cliente->idClientes)
+                        ->set('credential_version', 'credential_version+1', false)
+                        ->update('tecnina_client_identity');
+
+                    if ($this->db->trans_status() === false || ! $editClientOk || ! $editTokenOk) {
+                        $this->db->trans_rollback();
+                        log_info('Alteração de senha falhou durante transação.');
+                        echo json_encode(['result' => false, 'message' => 'Falha ao atualizar credenciais.']);
+                        return;
+                    }
+
+                    $this->db->trans_commit();
+
+                    $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
+                    $this->session->set_userdata($session_mine_data);
+                    log_info('Alteração da senha realizada com sucesso.');
+                    echo json_encode(['result' => true]);
+                    return;
                 } else {
                     $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
                     $this->session->set_userdata($session_mine_data);
@@ -296,35 +312,34 @@ class Mine extends CI_Controller
 
         // Email login path
         if (strpos($identifier, '@') !== false) {
+            // 1. Query exact trusted clientes.email first
             $cliente = $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
                 ->from('clientes c')
                 ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'left')
-                ->group_start()
-                    ->where('c.email', $identifier)
-                    ->or_where('i.email_candidate', $identifier)
-                ->group_end()
+                ->where('c.email', $identifier)
                 ->limit(1)
                 ->get()
                 ->row();
 
-            if (! $cliente) {
-                return null;
+            if ($cliente && ! empty($cliente->email) && strcasecmp((string) $cliente->email, $identifier) === 0) {
+                return $cliente;
             }
 
-            // Candidato não verificado (PENDING / NONE) JAMAIS autoriza autenticação por e-mail
-            if (! empty($cliente->email_candidate) && strcasecmp((string) $cliente->email_candidate, $identifier) === 0) {
-                $emailState = $cliente->email_state ?? 'PENDING';
-                if ($emailState !== 'VERIFIED' && $emailState !== 'LEGACY_EXISTING') {
-                    return null;
-                }
+            // 2. An unverified email_candidate value alone must never independently authorize login
+            // A pending candidate belonging to Client B must NEVER shadow Client A or authorize login on its own.
+            $candClient = $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
+                ->from('clientes c')
+                ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'inner')
+                ->where('i.email_candidate', $identifier)
+                ->limit(1)
+                ->get()
+                ->row();
+
+            if ($candClient && ! empty($candClient->email_state) && $candClient->email_state === 'VERIFIED') {
+                return $candClient;
             }
 
-            // O identificador precisa corresponder ao e-mail confiável em clientes.email
-            if (empty($cliente->email) || strcasecmp((string) $cliente->email, $identifier) !== 0) {
-                return null;
-            }
-
-            return $cliente;
+            return null;
         }
 
         // Phone login path
@@ -426,28 +441,10 @@ class Mine extends CI_Controller
                     return;
                 }
                 $senhaHash = $hashResult['hash'];
-
-                // Increment credential_version in tecnina_client_identity
-                $this->db->where('client_id', $clientId)->set('credential_version', 'credential_version+1', false)->update('tecnina_client_identity');
-                $identRow = $this->db->select('credential_version')->from('tecnina_client_identity')->where('client_id', $clientId)->get()->row();
-                $newVersion = $identRow ? (int) $identRow->credential_version : 1;
-                // Update current session version so the active user stays authenticated
-                $this->session->set_userdata('credential_version', $newVersion);
             }
 
             // Email handling: candidate email becomes PENDING in tecnina_client_identity; clientes.email is NOT overwritten
-            if ($submittedEmail !== $currentEmail) {
-                if ($submittedEmail !== '') {
-                    $this->db->where('client_id', $clientId)->update('tecnina_client_identity', [
-                        'email_candidate' => $submittedEmail,
-                        'email_state' => 'PENDING',
-                        'email_verified_at' => null,
-                    ]);
-                }
-                $emailToSave = $currentEmail;
-            } else {
-                $emailToSave = $currentEmail;
-            }
+            $emailToSave = $currentEmail;
 
             $clientData = [
                 'nomeCliente' => $this->input->post('nomeCliente'),
@@ -468,15 +465,54 @@ class Mine extends CI_Controller
                 $clientData['senha'] = $senhaHash;
             }
 
-            if ($this->Conecte_model->edit('clientes', $clientData, 'idClientes', $clientId) == true) {
-                if ($submittedEmail !== $currentEmail && $submittedEmail !== '') {
-                    $this->session->set_flashdata('success', 'Dados editados com sucesso! O novo e-mail informado requer confirmação.');
-                } else {
-                    $this->session->set_flashdata('success', 'Dados editados com sucesso!');
-                }
-                redirect(cliente_url('mine/conta'));
+            $this->db->trans_begin();
+
+            $exists = $this->db->where('client_id', $clientId)->count_all_results('tecnina_client_identity');
+            if ($exists === 0) {
+                $this->db->insert('tecnina_client_identity', [
+                    'client_id' => $clientId,
+                    'credential_version' => 1,
+                    'email_state' => ! empty($currentEmail) ? 'LEGACY_EXISTING' : 'NONE',
+                ]);
+            }
+
+            $editOk = $this->Conecte_model->edit('clientes', $clientData, 'idClientes', $clientId);
+
+            if ($submittedEmail !== $currentEmail && $submittedEmail !== '') {
+                $this->db->where('client_id', $clientId)->update('tecnina_client_identity', [
+                    'email_candidate' => $submittedEmail,
+                    'email_state' => 'PENDING',
+                    'email_verified_at' => null,
+                ]);
+            }
+
+            if ($senhaHash !== null) {
+                $this->db->where('client_id', $clientId)->set('credential_version', 'credential_version+1', false)->update('tecnina_client_identity');
+            }
+
+            if ($this->db->trans_status() === false || ! $editOk) {
+                $this->db->trans_rollback();
+                $this->session->set_flashdata('error', 'Falha ao atualizar dados.');
+                redirect(cliente_url('mine/editarDados'));
                 return;
             }
+
+            $this->db->trans_commit();
+
+            // Update current session version in-memory only after successful commit so the active user stays authenticated
+            if ($senhaHash !== null) {
+                $identRow = $this->db->select('credential_version')->from('tecnina_client_identity')->where('client_id', $clientId)->get()->row();
+                $newVersion = $identRow ? (int) $identRow->credential_version : 1;
+                $this->session->set_userdata('credential_version', $newVersion);
+            }
+
+            if ($submittedEmail !== $currentEmail && $submittedEmail !== '') {
+                $this->session->set_flashdata('success', 'Dados editados com sucesso! O novo e-mail informado requer confirmação.');
+            } else {
+                $this->session->set_flashdata('success', 'Dados editados com sucesso!');
+            }
+            redirect(cliente_url('mine/conta'));
+            return;
         }
 
         $data['result'] = $this->Conecte_model->getDados();
