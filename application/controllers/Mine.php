@@ -335,7 +335,11 @@ class Mine extends CI_Controller
                 ->get()
                 ->row();
 
-            if ($candClient && ! empty($candClient->email_state) && $candClient->email_state === 'VERIFIED') {
+            if ($candClient) {
+                $emailState = $candClient->email_state ?? 'PENDING';
+                if ($emailState !== 'VERIFIED' && $emailState !== 'LEGACY_EXISTING') {
+                    return null;
+                }
                 return $candClient;
             }
 
