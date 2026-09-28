@@ -93,13 +93,55 @@ class Tecnina_legal_model extends CI_Model
             ->result_array();
 
         if (count($existingRows) > 0) {
-            // Check if matches subject
+            // 1. Check subject match
             $first = $existingRows[0];
             $subjectMatches = ($first['intake_id'] === $intakeId) &&
                 (($first['client_id_at_event'] === null && $clientId === null) || ((int) $first['client_id_at_event'] === $clientId));
 
             if (!$subjectMatches || count($existingRows) !== count($items)) {
                 return ['ok' => false, 'reason' => 'idempotency_conflict'];
+            }
+
+            // 2. Order-independent semantic comparison
+            $existingByDocType = [];
+            foreach ($existingRows as $row) {
+                $existingByDocType[$row['document_type_snapshot']] = $row;
+            }
+
+            $incomingByDocType = [];
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
+                }
+                $docVerId = (int) ($item['document_version_id'] ?? 0);
+                $action = trim((string) ($item['action'] ?? ''));
+                $verRow = $this->getVersionById($docVerId);
+                if (!$verRow) {
+                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
+                }
+                $docType = $verRow['document_type'];
+                if (isset($incomingByDocType[$docType])) {
+                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
+                }
+                $incomingByDocType[$docType] = [
+                    'document_version_id' => $docVerId,
+                    'action' => $action,
+                    'document_type' => $docType,
+                ];
+            }
+
+            if (count($existingByDocType) !== count($incomingByDocType)) {
+                return ['ok' => false, 'reason' => 'idempotency_conflict'];
+            }
+
+            foreach ($incomingByDocType as $docType => $inc) {
+                if (!isset($existingByDocType[$docType])) {
+                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
+                }
+                $ext = $existingByDocType[$docType];
+                if ((int) $ext['document_version_id'] !== (int) $inc['document_version_id'] || $ext['action'] !== $inc['action']) {
+                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
+                }
             }
 
             $events = [];
@@ -192,6 +234,7 @@ class Tecnina_legal_model extends CI_Model
                 'action' => $act,
                 'occurred_at' => $nowUtc,
                 'source' => substr(trim((string) ($payload['source'] ?? 'customer_registration')), 0, 64),
+                // Non-secret reference or deterministic SHA-256 fingerprint; NEVER stores the raw bearer capability token
                 'capability_id' => !empty($payload['capability_id']) ? substr(trim((string) $payload['capability_id']), 0, 64) : null,
                 'ip_address' => !empty($payload['client_ip']) ? substr(trim((string) $payload['client_ip']), 0, 45) : null,
                 'user_agent' => !empty($payload['user_agent']) ? substr(trim((string) $payload['user_agent']), 0, 255) : null,
