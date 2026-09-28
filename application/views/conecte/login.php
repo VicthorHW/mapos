@@ -66,7 +66,7 @@ $parse_email = $this->input->get('e');
                                         <div class="controls">
                                             <div class="main_input_box">
                                                 <span class="add-on bg_lg"><i class='bx bx-user-plus iconU'></i></span>
-                                                <input id="email" name="email" type="text" placeholder="Email" value="<?php echo trim($parse_email); ?>" />
+                                                <input id="email" name="email" type="text" placeholder="Celular ou E-mail" value="<?php echo trim($parse_email); ?>" />
                                             </div>
                                         </div>
                                     </div>
@@ -75,7 +75,7 @@ $parse_email = $this->input->get('e');
                                         <div class="controls">
                                             <div class="main_input_box">
                                                 <span class="add-on bg_ly"><i class='bx bx-id-card iconU'></i></span>
-                                                <input class="" maxlength="18" size="18" name="senha" type="password" placeholder="Senha" value="" />
+                                                <input class="" name="senha" type="password" placeholder="Senha" value="" />
                                             </div>
                                         </div>
                                     </div>
@@ -126,8 +126,7 @@ $parse_email = $this->input->get('e');
             $("#formLogin").validate({
                 rules: {
                     email: {
-                        required: true,
-                        email: true
+                        required: true
                     },
                     senha: {
                         required: true
@@ -135,8 +134,7 @@ $parse_email = $this->input->get('e');
                 },
                 messages: {
                     email: {
-                        required: 'Campo Requerido.',
-                        email: 'Insira Email válido'
+                        required: 'Campo Requerido.'
                     },
                     senha: {
                         required: 'Campo Requerido.'
