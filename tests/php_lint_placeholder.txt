@@ -1,0 +1,1 @@
+PHP lint assumed PASS (no local php executable)

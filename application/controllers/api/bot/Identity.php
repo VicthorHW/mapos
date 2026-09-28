@@ -50,26 +50,78 @@ class Identity extends REST_Controller
     public function password_reset_post()
     {
         if (! $this->authorize()) { return; }
+        $proof_payload = $this->verify_context_proof('PASSWORD_RESET_ISSUE');
+        if (!$proof_payload) { return; }
         $input = $this->post();
-        if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','proof','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (! is_array($input) || array_diff(array_keys($input), ['client_id','canonical_phone','phone_context_id','idempotency_key']) !== [] || ! isset($input['client_id'], $input['canonical_phone'], $input['phone_context_id'], $input['idempotency_key'])) { return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY); }
+        if (!$this->tecnina_context_proof->bind_password_reset($proof_payload, $input['client_id'], $input['phone_context_id'], $input['canonical_phone'])) {
+            return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+        }
+
         return $this->respondResult($this->tecnina_identity_authority->issuePasswordReset($input));
     }
 
-    public function email_verification_verify_post() { if (! $this->authorize()) return; $input=$this->post();if(!is_array($input)||array_diff(array_keys($input),['challenge_id','code','idempotency_key'])!==[])return $this->response(['status'=>false,'reason'=>'invalid_payload'],self::HTTP_UNPROCESSABLE_ENTITY);return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input)); }
+    public function email_verification_verify_post() {
+        if (! $this->authorize()) return;
+        $proof_payload = $this->verify_context_proof('EMAIL_VERIFICATION_VERIFY');
+        if (!$proof_payload) return;
+        $input = $this->post();
+        if (! Tecnina_context_proof::validate_email_verify_payload($input)) {
+            return $this->response(['status' => false, 'reason' => 'invalid_payload'], self::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $this->db->select('intake_id, client_id, purpose');
+        $this->db->where('id', $input['challenge_id']);
+        $row = $this->db->get('tecnina_email_verifications')->row_array();
+        if (!$row) { return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN); }
+        $subject_type = !empty($row['intake_id']) ? 'INTAKE' : 'CLIENT';
+        $subject_id = !empty($row['intake_id']) ? $row['intake_id'] : (string)$row['client_id'];
+        if (!$this->tecnina_context_proof->bind_email_verification($proof_payload, $input['challenge_id'], $subject_id, $row['purpose'], $subject_type)) {
+            return $this->response(['status' => false, 'reason' => 'invalid_context_proof'], self::HTTP_FORBIDDEN);
+        }
 
-    private function rate($scope,$subject,$limit,$seconds){$allowed=$this->tecnina_identity_rate_limiter->allow($scope,$subject,$limit,$seconds);if($allowed===true)return true;$this->response(['status'=>false,'reason'=>$allowed===null?'unavailable':'rate_limited'],$allowed===null?self::HTTP_SERVICE_UNAVAILABLE:self::HTTP_TOO_MANY_REQUESTS);return false;}
+        return $this->respondResult($this->tecnina_identity_authority->verifyEmail($input));
+    }
+
+    private function verify_context_proof($expected_operation)
+    {
+        $proof = $this->input->get_request_header('X-Tecnina-Context-Proof', true);
+        $secret = (string) (getenv('TECNINA_CONTEXT_PROOF_HMAC_SECRET') ?: '');
+        $this->load->library('tecnina_context_proof', ['secret' => $secret]);
+        try {
+            $result = $this->tecnina_context_proof->verify_proof($proof, $expected_operation);
+        } catch (RuntimeException $e) {
+            $this->response(['status' => false, 'reason' => 'context_authority_unavailable'], self::HTTP_SERVICE_UNAVAILABLE);
+            return false;
+        }
+        if (! $result['status']) {
+            $this->response(['status' => false, 'reason' => $result['reason']], $result['code']);
+            return false;
+        }
+        return $result['payload'];
+    }
+
+    private function rate($scope, $subject, $limit, $seconds)
+    {
+        $allowed = $this->tecnina_identity_rate_limiter->allow($scope, $subject, $limit, $seconds);
+        if ($allowed === true) return true;
+        $this->response(['status' => false, 'reason' => $allowed === null ? 'unavailable' : 'rate_limited'], $allowed === null ? self::HTTP_SERVICE_UNAVAILABLE : self::HTTP_TOO_MANY_REQUESTS);
+        return false;
+    }
 
     private function respondResult($result)
     {
         if ($result['ok']) return $this->response($result, self::HTTP_OK);
         $status = $result['reason'] === 'rate_limited' ? self::HTTP_TOO_MANY_REQUESTS : ($result['reason'] === 'unavailable' || $result['reason'] === 'delivery_unavailable' ? self::HTTP_SERVICE_UNAVAILABLE : ($result['reason'] === 'idempotency_conflict' || $result['reason'] === 'invalid_or_expired_code' ? self::HTTP_CONFLICT : self::HTTP_UNPROCESSABLE_ENTITY));
-        return $this->response(['status'=>false,'reason'=>$result['reason']], $status);
+        return $this->response(['status' => false, 'reason' => $result['reason']], $status);
     }
 
     private function authorize()
     {
         $auth = $this->tecnina_bot_auth->authorize($this->input->get_request_header('Authorization', true));
-        if (! $auth['ok']) { $this->response(['status' => false, 'reason' => $auth['reason']], $auth['status']); return false; }
+        if (! $auth['ok']) {
+            $this->response(['status' => false, 'reason' => $auth['reason']], $auth['status']);
+            return false;
+        }
         return true;
     }
 }

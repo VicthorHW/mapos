@@ -37,8 +37,9 @@ $dotenv->load();
 
 $botToken = (string)($_ENV['MAPOS_BOT_TOKEN'] ?? '');
 $hmacSecret = (string)($_ENV['TECNINA_IDENTITY_HMAC_SECRET'] ?? '');
-if (strlen($botToken) < 32 || strlen($hmacSecret) < 32) {
-    die("FATAL: Required secrets missing or invalid\n");
+$contextProofSecret = (string)($_ENV['TECNINA_CONTEXT_PROOF_HMAC_SECRET'] ?? '');
+if (strlen($botToken) < 32 || strlen($hmacSecret) < 32 || strlen($contextProofSecret) < 32) {
+    die("TARGET_CONFIGURATION_REQUIRED\n");
 }
 
 // 2. Database Connection
@@ -70,6 +71,27 @@ function testAssert($condition, $name, $detail = '', $category = 'EXECUTED_ON_TA
 }
 
 // Helper for HTTP requests directly to Nginx container
+function generate_context_proof($operation, array $claims) {
+    global $contextProofSecret;
+    if (strlen($contextProofSecret) < 32) {
+        throw new RuntimeException('TARGET_CONFIGURATION_REQUIRED');
+    }
+    $now = time();
+    $payload = [
+        'v' => '1',
+        'operation' => $operation,
+        'issued_at' => $now,
+        'expires_at' => $now + 300,
+        'nonce' => bin2hex(random_bytes(16)),
+    ] + $claims;
+    ksort($payload, SORT_STRING);
+    $b64 = strtr(base64_encode(json_encode($payload)), '+/', '-_');
+    $b64 = rtrim($b64, '=');
+    $domainKey = hash_hmac('sha256', 'context-proof/' . strtolower($operation) . '/v1', $contextProofSecret, true);
+    $sig = hash_hmac('sha256', $b64, $domainKey);
+    return "v1.$b64.$sig";
+}
+
 function httpRequest($method, $path, $data = null, $headers = [], $cookies = []) {
     $ch = curl_init();
     $url = 'http://10.0.4.5' . $path;
@@ -77,6 +99,49 @@ function httpRequest($method, $path, $data = null, $headers = [], $cookies = [])
     $reqHeaders = [
         'Host: gestao.tecnina.com',
     ];
+    $hasProof = false;
+    foreach ($headers as $k => $v) {
+        if (strcasecmp($k, 'X-Tecnina-Context-Proof') === 0) {
+            $hasProof = true;
+            break;
+        }
+    }
+    if (!$hasProof) {
+        if (strpos($path, 'email-verification/verify') !== false && is_array($data) && !empty($data['challenge_id'])) {
+            try {
+                global $pdo;
+                $stmt = $pdo->prepare("SELECT intake_id, client_id, purpose FROM tecnina_email_verifications WHERE id = ?");
+                $stmt->execute([$data['challenge_id']]);
+                $chRow = $stmt->fetch();
+                if ($chRow) {
+                    $subjType = !empty($chRow['intake_id']) ? 'INTAKE' : 'CLIENT';
+                    $subjId = !empty($chRow['intake_id']) ? $chRow['intake_id'] : (string)$chRow['client_id'];
+                    $headers['X-Tecnina-Context-Proof'] = generate_context_proof('EMAIL_VERIFICATION_VERIFY', [
+                        'challenge_id' => $data['challenge_id'],
+                        'subject_type' => $subjType,
+                        'subject_id' => $subjId,
+                        'phone_context_id' => $subjId,
+                        'purpose' => $chRow['purpose'],
+                    ]);
+                }
+            } catch (Throwable $e) {
+                // pass
+            }
+        } elseif (strpos($path, 'password-reset/issue') !== false && is_array($data)) {
+            global $contextProofSecret;
+            $cId = (int)($data['client_id'] ?? 0);
+            $pCtx = (string)($data['phone_context_id'] ?? 'ctx-default');
+            $cPhone = (string)($data['canonical_phone'] ?? '');
+            $domainKey = hash_hmac('sha256', 'fingerprint/canonical-phone/v1', $contextProofSecret, true);
+            $phoneFp = hash_hmac('sha256', $cPhone, $domainKey);
+            $headers['X-Tecnina-Context-Proof'] = generate_context_proof('PASSWORD_RESET_ISSUE', [
+                'client_id' => $cId,
+                'phone_context_id' => $pCtx,
+                'canonical_phone_fp' => $phoneFp,
+            ]);
+        }
+    }
+
     foreach ($headers as $k => $v) {
         $reqHeaders[] = "{$k}: {$v}";
     }

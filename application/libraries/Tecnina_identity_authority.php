@@ -242,7 +242,7 @@ class Tecnina_identity_authority
         }
 
         try {
-            $fingerprint = hash_hmac('sha256', $lookup['client_id'] . '|' . $phone . '|' . (string)$contextId . '|' . (string)($input['proof'] ?? ''), $this->secret());
+            $fingerprint = hash_hmac('sha256', $lookup['client_id'] . '|' . $phone . '|' . (string)$contextId, $this->secret());
             $old = $this->CI->db->get_where('tecnina_password_resets', ['idempotency_key' => $key])->row();
             if ($old) {
                 if (!hash_equals((string)$old->request_fingerprint, $fingerprint) || $old->state !== 'PENDING' || !$this->future($old->expires_at)) {
