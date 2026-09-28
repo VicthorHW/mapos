@@ -11,6 +11,8 @@ class Mine extends CI_Controller
         parent::__construct();
         $this->load->model('Conecte_model');
         $this->load->helper('Security_helper');
+        $this->load->library('Tecnina_phone');
+        $this->load->library('Tecnina_identity_authority');
     }
 
     public function index()
@@ -22,6 +24,45 @@ class Mine extends CI_Controller
     {
         $this->session->sess_destroy();
         redirect(cliente_url('mine'));
+        exit;
+    }
+
+    /**
+     * Authoritative Client Area session verification.
+     * Enforces active session, valid client identity, and credential_version match.
+     * Unversioned legacy sessions or version mismatches are safely invalidated.
+     */
+    protected function checkSession()
+    {
+        if (! session_id() || ! $this->session->userdata('conectado') || ! $this->session->userdata('isCliente')) {
+            $this->session->sess_destroy();
+            redirect(cliente_url('mine'));
+            exit;
+        }
+
+        $clientId = (int) $this->session->userdata('cliente_id');
+        $sessionVersion = $this->session->userdata('credential_version');
+
+        // Unversioned legacy session: fail safely and require reauthentication
+        if ($sessionVersion === null || $sessionVersion === false || ! is_numeric($sessionVersion)) {
+            $this->session->sess_destroy();
+            redirect(cliente_url('mine'));
+            exit;
+        }
+
+        $identity = $this->db->select('credential_version')
+            ->from('tecnina_client_identity')
+            ->where('client_id', $clientId)
+            ->get()
+            ->row();
+
+        if (! $identity || (int) $identity->credential_version !== (int) $sessionVersion) {
+            $this->session->sess_destroy();
+            redirect(cliente_url('mine'));
+            exit;
+        }
+
+        return true;
     }
 
     public function resetarSenha()
@@ -51,22 +92,46 @@ class Mine extends CI_Controller
                 echo json_encode(['result' => false, 'message' => 'Token inválido ou expirado. Solicite uma nova recuperação de senha.']);
             } else {
                 if ($token->email == $cliente->email) {
-                    $data = [
-                        'senha' => password_hash($this->input->post('senha'), PASSWORD_DEFAULT),
-                    ];
-
-                    $dataToken = [
-                        'token_utilizado' => true,
-                    ];
-                    $this->load->model('resetSenhas_model', '', true);
-                    if ($this->Conecte_model->edit('clientes', $data, 'idClientes', $cliente->idClientes) == true) {
-                        if ($this->resetSenhas_model->edit('resets_de_senha', $dataToken, 'id', $token->id) == true) {
-                            $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
-                            $this->session->set_userdata($session_mine_data);
-                            log_info('Alteração da senha realizada com sucesso.');
-                            echo json_encode(['result' => true]);
-                        }
+                    $rawSenha = (string) $this->input->post('senha', false);
+                    $hashResult = $this->tecnina_identity_authority->passwordHash($rawSenha);
+                    if (! $hashResult['ok']) {
+                        echo json_encode(['result' => false, 'message' => 'A senha deve conter no mínimo 6 caracteres.']);
+                        return;
                     }
+
+                    $this->load->model('resetSenhas_model', '', true);
+
+                    $this->db->trans_begin();
+
+                    $exists = $this->db->where('client_id', (int) $cliente->idClientes)->count_all_results('tecnina_client_identity');
+                    if ($exists === 0) {
+                        $this->db->insert('tecnina_client_identity', [
+                            'client_id' => (int) $cliente->idClientes,
+                            'credential_version' => 1,
+                            'email_state' => ! empty($cliente->email) ? 'LEGACY_EXISTING' : 'NONE',
+                        ]);
+                    }
+
+                    $editClientOk = $this->Conecte_model->edit('clientes', ['senha' => $hashResult['hash']], 'idClientes', $cliente->idClientes);
+                    $editTokenOk = $this->resetSenhas_model->edit('resets_de_senha', ['token_utilizado' => true], 'id', $token->id);
+                    $this->db->where('client_id', (int) $cliente->idClientes)
+                        ->set('credential_version', 'credential_version+1', false)
+                        ->update('tecnina_client_identity');
+
+                    if ($this->db->trans_status() === false || ! $editClientOk || ! $editTokenOk) {
+                        $this->db->trans_rollback();
+                        log_info('Alteração de senha falhou durante transação.');
+                        echo json_encode(['result' => false, 'message' => 'Falha ao atualizar credenciais.']);
+                        return;
+                    }
+
+                    $this->db->trans_commit();
+
+                    $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
+                    $this->session->set_userdata($session_mine_data);
+                    log_info('Alteração da senha realizada com sucesso.');
+                    echo json_encode(['result' => true]);
+                    return;
                 } else {
                     $session_mine_data = $cliente->nomeCliente ? ['nome' => $cliente->nomeCliente] : ['nome' => 'Inexistente'];
                     $this->session->set_userdata($session_mine_data);
@@ -182,58 +247,146 @@ class Mine extends CI_Controller
         header('Access-Control-Allow-Headers: Content-Type');
 
         $this->load->library('form_validation');
-        $this->form_validation->set_rules('email', 'E-mail', 'valid_email|required|trim');
-        $this->form_validation->set_rules('senha', 'Senha', 'required|trim');
+        $this->form_validation->set_rules('email', 'Celular ou E-mail', 'required|trim');
+        $this->form_validation->set_rules('senha', 'Senha', 'required');
         if ($this->form_validation->run() == false) {
             echo json_encode(['result' => false, 'message' => validation_errors()]);
         } else {
-            $email = $this->input->post('email');
-            $password = $this->input->post('senha');
-            $cliente = $this->check_credentials($email);
+            $identifier = $this->input->post('identificador') ?: $this->input->post('email');
+            $password = (string) $this->input->post('senha', false);
+            $cliente = $this->resolveClientForLogin($identifier);
 
-            if ($cliente) {
-                // Verificar credenciais do usuário
-                if (password_verify($password, $cliente->senha)) {
-                    // Novo ID de sessão a cada autenticação, para que um ID
-                    // fixado antes do login não continue válido depois dele.
-                    $this->session->sess_regenerate(true);
+            if ($cliente && ! empty($cliente->senha) && password_verify($password, $cliente->senha)) {
+                $this->session->sess_regenerate(true);
 
-                    $session_mine_data = [
-                        'nome' => $cliente->nomeCliente,
-                        'cliente_id' => $cliente->idClientes,
-                        'email' => $cliente->email,
-                        'conectado' => true,
-                        'isCliente' => true
-                    ];
-                    $this->session->set_userdata($session_mine_data);
-                    $this->load->model('Audit_model');
-                    $log_data = [
-                        'usuario' => $cliente->nomeCliente,
-                        'tarefa' => 'Cliente ' . $cliente->nomeCliente . ' efetuou login',
-                        'data' => date('Y-m-d'),
-                        'hora' => date('H:i:s'),
-                        'ip' => $_SERVER['REMOTE_ADDR']
-                    ];
+                $credentialVersion = isset($cliente->credential_version) && $cliente->credential_version !== null
+                    ? (int) $cliente->credential_version
+                    : 1;
 
-                    $this->Audit_model->add($log_data);
-
-                    echo json_encode(['result' => true]);
-                } else {
-                    echo json_encode(['result' => false, 'message' => 'Os dados de acesso estão incorretos.', 'MAPOS_TOKEN' => $this->security->get_csrf_hash()]);
+                if (! isset($cliente->credential_version) || $cliente->credential_version === null) {
+                    $this->db->insert('tecnina_client_identity', [
+                        'client_id' => (int) $cliente->idClientes,
+                        'credential_version' => 1,
+                        'email_state' => ! empty($cliente->email) ? 'LEGACY_EXISTING' : 'NONE',
+                    ]);
+                    $credentialVersion = 1;
                 }
+
+                $session_mine_data = [
+                    'nome' => $cliente->nomeCliente,
+                    'cliente_id' => (int) $cliente->idClientes,
+                    'email' => (string) $cliente->email,
+                    'credential_version' => $credentialVersion,
+                    'conectado' => true,
+                    'isCliente' => true,
+                ];
+                $this->session->set_userdata($session_mine_data);
+                $this->load->model('Audit_model');
+                $log_data = [
+                    'usuario' => $cliente->nomeCliente,
+                    'tarefa' => 'Cliente ' . $cliente->nomeCliente . ' efetuou login',
+                    'data' => date('Y-m-d'),
+                    'hora' => date('H:i:s'),
+                    'ip' => $_SERVER['REMOTE_ADDR'],
+                ];
+
+                $this->Audit_model->add($log_data);
+
+                echo json_encode(['result' => true]);
             } else {
-                // Mesma mensagem do erro de senha: mensagens distintas revelam
-                // quais e-mails possuem cadastro.
-                echo json_encode(['result' => false, 'message' => 'Os dados de acesso estão incorretos.', 'MAPOS_TOKEN' => $this->security->get_csrf_hash()]);
+                echo json_encode([
+                    'result' => false,
+                    'message' => 'Os dados de acesso estão incorretos.',
+                    'MAPOS_TOKEN' => $this->security->get_csrf_hash(),
+                ]);
             }
         }
     }
 
+    private function resolveClientForLogin($identifier)
+    {
+        $identifier = trim((string) $identifier);
+        if ($identifier === '') {
+            return null;
+        }
+
+        // Email login path
+        if (strpos($identifier, '@') !== false) {
+            // 1. Query exact trusted clientes.email first
+            $cliente = $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
+                ->from('clientes c')
+                ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'left')
+                ->where('c.email', $identifier)
+                ->limit(1)
+                ->get()
+                ->row();
+
+            if ($cliente && ! empty($cliente->email) && strcasecmp((string) $cliente->email, $identifier) === 0) {
+                return $cliente;
+            }
+
+            // 2. An unverified email_candidate value alone must never independently authorize login
+            // A pending candidate belonging to Client B must NEVER shadow Client A or authorize login on its own.
+            $candClient = $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
+                ->from('clientes c')
+                ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'inner')
+                ->where('i.email_candidate', $identifier)
+                ->limit(1)
+                ->get()
+                ->row();
+
+            if ($candClient) {
+                $emailState = $candClient->email_state ?? 'PENDING';
+                if ($emailState !== 'VERIFIED' && $emailState !== 'LEGACY_EXISTING') {
+                    return null;
+                }
+                return $candClient;
+            }
+
+            return null;
+        }
+
+        // Phone login path
+        $candidates = [];
+        $canonical = $this->tecnina_phone->normalizeCanonicalIdentity($identifier);
+        if ($canonical !== null) {
+            $candidates[] = $canonical;
+        }
+        $digits = preg_replace('/\D+/', '', $identifier);
+        if ($digits !== '') {
+            foreach ($this->tecnina_phone->brazilianIdentityAliases($digits) as $alias) {
+                if (! in_array($alias, $candidates, true)) {
+                    $candidates[] = $alias;
+                }
+            }
+            $normDigits = $this->tecnina_phone->normalizeCanonicalIdentity($digits);
+            if ($normDigits !== null && ! in_array($normDigits, $candidates, true)) {
+                $candidates[] = $normDigits;
+            }
+        }
+
+        foreach ($candidates as $cand) {
+            $lookup = $this->tecnina_identity_authority->lookupCanonicalPhone($cand);
+            if (! empty($lookup['ok']) && $lookup['match'] === 'UNIQUE') {
+                return $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
+                    ->from('clientes c')
+                    ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'left')
+                    ->where('c.idClientes', (int) $lookup['client_id'])
+                    ->limit(1)
+                    ->get()
+                    ->row();
+            }
+            if (! empty($lookup['ok']) && $lookup['match'] === 'AMBIGUOUS') {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
     public function painel()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuPainel'] = 'painel';
         $data['compras'] = $this->Conecte_model->getLastCompras($this->session->userdata('cliente_id'));
@@ -244,9 +397,7 @@ class Mine extends CI_Controller
 
     public function conta()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuConta'] = 'conta';
         $data['result'] = $this->Conecte_model->getDados();
@@ -257,73 +408,125 @@ class Mine extends CI_Controller
 
     public function editarDados()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuConta'] = 'conta';
+        $clientId = (int) $this->session->userdata('cliente_id');
 
         $this->load->library('form_validation');
         $data['custom_error'] = '';
 
-        if ($this->form_validation->run('clientes') == false) {
-            $this->data['custom_error'] = (validation_errors() ? '<div class="form_error">' . validation_errors() . '</div>' : false);
+        $this->form_validation->set_rules('nomeCliente', 'Nome', 'required|trim');
+        $this->form_validation->set_rules('documento', 'CPF/CNPJ', 'trim|verific_cpf_cnpj|unique[clientes.documento.' . $clientId . '.idClientes]');
+        $this->form_validation->set_rules('telefone', 'Telefone', 'trim');
+        $this->form_validation->set_rules('email', 'Email', 'trim|valid_email');
+        $this->form_validation->set_rules('rua', 'Rua', 'trim');
+        $this->form_validation->set_rules('numero', 'Número', 'trim');
+        $this->form_validation->set_rules('bairro', 'Bairro', 'trim');
+        $this->form_validation->set_rules('cidade', 'Cidade', 'trim');
+        $this->form_validation->set_rules('estado', 'Estado', 'trim');
+        $this->form_validation->set_rules('cep', 'CEP', 'trim');
+
+        if ($this->form_validation->run() == false) {
+            $data['custom_error'] = (validation_errors() ? '<div class="form_error">' . validation_errors() . '</div>' : false);
         } else {
-            $senha = $this->input->post('senha');
-            if ($senha != null) {
-                $senha = password_hash($senha, PASSWORD_DEFAULT);
-                $data = [
-                    'nomeCliente' => $this->input->post('nomeCliente'),
-                    'documento' => $this->input->post('documento'),
-                    'telefone' => $this->input->post('telefone'),
-                    'celular' => $this->input->post('celular'),
-                    'email' => $this->input->post('email'),
-                    'senha' => $senha,
-                    'rua' => $this->input->post('rua'),
-                    'numero' => $this->input->post('numero'),
-                    'complemento' => $this->input->post('complemento'),
-                    'bairro' => $this->input->post('bairro'),
-                    'cidade' => $this->input->post('cidade'),
-                    'estado' => $this->input->post('estado'),
-                    'cep' => $this->input->post('cep'),
-                    'contato' => $this->input->post('contato'),
-                ];
-            } else {
-                $data = [
-                    'nomeCliente' => $this->input->post('nomeCliente'),
-                    'documento' => $this->input->post('documento'),
-                    'telefone' => $this->input->post('telefone'),
-                    'celular' => $this->input->post('celular'),
-                    'email' => $this->input->post('email'),
-                    'rua' => $this->input->post('rua'),
-                    'numero' => $this->input->post('numero'),
-                    'complemento' => $this->input->post('complemento'),
-                    'bairro' => $this->input->post('bairro'),
-                    'cidade' => $this->input->post('cidade'),
-                    'estado' => $this->input->post('estado'),
-                    'cep' => $this->input->post('cep'),
-                    'contato' => $this->input->post('contato'),
-                ];
+            $currentClient = $this->Conecte_model->getDados();
+            $currentEmail = trim((string) ($currentClient->email ?? ''));
+            $submittedEmail = trim((string) $this->input->post('email'));
+
+            // Password handling: authoritative minimum 6 Unicode characters, bcrypt hash, increment credential_version
+            $senha = $this->input->post('senha', false);
+            $senhaHash = null;
+            if ($senha !== null && $senha !== '') {
+                $hashResult = $this->tecnina_identity_authority->passwordHash($senha);
+                if (! $hashResult['ok']) {
+                    $this->session->set_flashdata('error', 'A senha deve conter no mínimo 6 caracteres.');
+                    redirect(cliente_url('mine/editarDados'));
+                    return;
+                }
+                $senhaHash = $hashResult['hash'];
             }
 
-            if ($this->Conecte_model->edit('clientes', $data, 'idClientes', $this->session->userdata('cliente_id')) == true) {
-                $this->session->set_flashdata('success', 'Dados editados com sucesso!');
-                redirect(cliente_url('mine/conta'));
-            } else {
+            // Email handling: candidate email becomes PENDING in tecnina_client_identity; clientes.email is NOT overwritten
+            $emailToSave = $currentEmail;
+
+            $clientData = [
+                'nomeCliente' => $this->input->post('nomeCliente'),
+                'documento' => $this->input->post('documento'),
+                'telefone' => $this->input->post('telefone'),
+                'celular' => $this->input->post('celular'),
+                'email' => $emailToSave,
+                'rua' => $this->input->post('rua'),
+                'numero' => $this->input->post('numero'),
+                'complemento' => $this->input->post('complemento'),
+                'bairro' => $this->input->post('bairro'),
+                'cidade' => $this->input->post('cidade'),
+                'estado' => $this->input->post('estado'),
+                'cep' => $this->input->post('cep'),
+                'contato' => $this->input->post('contato'),
+            ];
+            if ($senhaHash !== null) {
+                $clientData['senha'] = $senhaHash;
             }
+
+            $this->db->trans_begin();
+
+            $exists = $this->db->where('client_id', $clientId)->count_all_results('tecnina_client_identity');
+            if ($exists === 0) {
+                $this->db->insert('tecnina_client_identity', [
+                    'client_id' => $clientId,
+                    'credential_version' => 1,
+                    'email_state' => ! empty($currentEmail) ? 'LEGACY_EXISTING' : 'NONE',
+                ]);
+            }
+
+            $editOk = $this->Conecte_model->edit('clientes', $clientData, 'idClientes', $clientId);
+
+            if ($submittedEmail !== $currentEmail && $submittedEmail !== '') {
+                $this->db->where('client_id', $clientId)->update('tecnina_client_identity', [
+                    'email_candidate' => $submittedEmail,
+                    'email_state' => 'PENDING',
+                    'email_verified_at' => null,
+                ]);
+            }
+
+            if ($senhaHash !== null) {
+                $this->db->where('client_id', $clientId)->set('credential_version', 'credential_version+1', false)->update('tecnina_client_identity');
+            }
+
+            if ($this->db->trans_status() === false || ! $editOk) {
+                $this->db->trans_rollback();
+                $this->session->set_flashdata('error', 'Falha ao atualizar dados.');
+                redirect(cliente_url('mine/editarDados'));
+                return;
+            }
+
+            $this->db->trans_commit();
+
+            // Update current session version in-memory only after successful commit so the active user stays authenticated
+            if ($senhaHash !== null) {
+                $identRow = $this->db->select('credential_version')->from('tecnina_client_identity')->where('client_id', $clientId)->get()->row();
+                $newVersion = $identRow ? (int) $identRow->credential_version : 1;
+                $this->session->set_userdata('credential_version', $newVersion);
+            }
+
+            if ($submittedEmail !== $currentEmail && $submittedEmail !== '') {
+                $this->session->set_flashdata('success', 'Dados editados com sucesso! O novo e-mail informado requer confirmação.');
+            } else {
+                $this->session->set_flashdata('success', 'Dados editados com sucesso!');
+            }
+            redirect(cliente_url('mine/conta'));
+            return;
         }
 
         $data['result'] = $this->Conecte_model->getDados();
-
         $data['output'] = 'conecte/editar_dados';
         $this->load->view('conecte/template', $data);
     }
 
     public function compras()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuVendas'] = 'vendas';
         $this->load->library('pagination');
@@ -360,9 +563,7 @@ class Mine extends CI_Controller
 
     public function cobrancas()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $this->load->library('pagination');
         $this->load->config('payment_gateways');
@@ -401,9 +602,7 @@ class Mine extends CI_Controller
 
     public function atualizarcobranca($id = null)
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         if (! $this->uri->segment(3) || ! is_numeric($this->uri->segment(3))) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
@@ -423,9 +622,7 @@ class Mine extends CI_Controller
 
     public function enviarcobranca()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         if (! $this->uri->segment(3) || ! is_numeric($this->uri->segment(3))) {
             $this->session->set_flashdata('error', 'Item não pode ser encontrado, parâmetro não foi passado corretamente.');
@@ -446,13 +643,10 @@ class Mine extends CI_Controller
 
     public function os()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuOs'] = 'os';
         $this->load->library('pagination');
-
         $config['base_url'] = cliente_url('mine/os/');
         $config['total_rows'] = $this->Conecte_model->count('os', $this->session->userdata('cliente_id'));
         $config['per_page'] = 10;
@@ -485,9 +679,7 @@ class Mine extends CI_Controller
 
     public function visualizarOs($id = null)
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuOs'] = 'os';
         $this->data['custom_error'] = '';
@@ -595,9 +787,7 @@ class Mine extends CI_Controller
 
     public function imprimirOs($id = null)
     {
-        if (!session_id() || !$this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuOs'] = 'os';
         $this->data['custom_error'] = '';
@@ -625,9 +815,7 @@ class Mine extends CI_Controller
 
     public function visualizarCompra($id = null)
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuVendas'] = 'vendas';
         $data['custom_error'] = '';
@@ -660,9 +848,7 @@ class Mine extends CI_Controller
 
     public function imprimirCompra($id = null)
     {
-        if (!session_id() || !$this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         $data['menuVendas'] = 'vendas';
         $data['custom_error'] = '';
@@ -694,9 +880,7 @@ class Mine extends CI_Controller
         // O identificador enviado por e-mail é apenas uma ofuscação reversível
         // (y = 7653 * ID + 44023), portanto não pode ser tratado como segredo.
         // O cliente precisa estar autenticado e a OS precisa ser dele.
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         if (($y == null) || (! is_numeric($y))) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
@@ -736,9 +920,7 @@ class Mine extends CI_Controller
 
     public function adicionarOs()
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
         $this->load->library('form_validation');
 
         $this->form_validation->set_rules('descricaoProduto', 'Descrição', 'required');
@@ -806,9 +988,7 @@ class Mine extends CI_Controller
 
     public function detalhesOs($id = null)
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         if (! is_numeric($id) || $id == null) {
             $this->session->set_flashdata('error', 'Ordem de serviço não encontrada.');
@@ -894,9 +1074,7 @@ class Mine extends CI_Controller
 
     public function downloadanexo($id = null)
     {
-        if (! session_id() || ! $this->session->userdata('conectado')) {
-            redirect(cliente_url('mine'));
-        }
+        $this->checkSession();
 
         if ($id == null || ! is_numeric($id)) {
             $this->session->set_flashdata('error', 'Anexo não encontrado.');
