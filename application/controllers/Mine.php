@@ -299,7 +299,10 @@ class Mine extends CI_Controller
             $cliente = $this->db->select('c.*, i.credential_version, i.email_state, i.email_candidate, i.phone_state')
                 ->from('clientes c')
                 ->join('tecnina_client_identity i', 'i.client_id = c.idClientes', 'left')
-                ->where('c.email', $identifier)
+                ->group_start()
+                    ->where('c.email', $identifier)
+                    ->or_where('i.email_candidate', $identifier)
+                ->group_end()
                 ->limit(1)
                 ->get()
                 ->row();
@@ -308,9 +311,16 @@ class Mine extends CI_Controller
                 return null;
             }
 
-            // Only trusted states authorize email login: VERIFIED or LEGACY_EXISTING
-            $emailState = $cliente->email_state ?? null;
-            if ($emailState !== 'VERIFIED' && $emailState !== 'LEGACY_EXISTING') {
+            // Candidato não verificado (PENDING / NONE) JAMAIS autoriza autenticação por e-mail
+            if (! empty($cliente->email_candidate) && strcasecmp((string) $cliente->email_candidate, $identifier) === 0) {
+                $emailState = $cliente->email_state ?? 'PENDING';
+                if ($emailState !== 'VERIFIED' && $emailState !== 'LEGACY_EXISTING') {
+                    return null;
+                }
+            }
+
+            // O identificador precisa corresponder ao e-mail confiável em clientes.email
+            if (empty($cliente->email) || strcasecmp((string) $cliente->email, $identifier) !== 0) {
                 return null;
             }
 
