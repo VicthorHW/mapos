@@ -58,6 +58,8 @@ $route['api/bot/email-verification/issue'] = 'api/bot/identity/email_verificatio
 $route['api/bot/email-verification/verify'] = 'api/bot/identity/email_verification_verify';
 $route['api/bot/password-reset/issue'] = 'api/bot/identity/password_reset';
 $route['cliente/password-reset/(:any)'] = 'cliente/password_reset/$1';
+$route['api/bot/legal/current'] = 'api/bot/legal/current';
+$route['api/bot/legal/manifestations'] = 'api/bot/legal/manifestations';
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 
 // Rotas da API
