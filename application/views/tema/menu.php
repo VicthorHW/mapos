@@ -109,7 +109,7 @@
                     </li>
                 <?php } ?>
 
-                <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'cSistema')) { ?>
+                <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'cSistema') || $this->permission->checkPermission($this->session->userdata('permissao'), 'vOs') || $this->permission->checkPermission($this->session->userdata('permissao'), 'aOs') || $this->permission->checkPermission($this->session->userdata('permissao'), 'eOs')) { ?>
                     <li class="<?php if (isset($menuPreAtendimentos)) {
                         echo 'active';
                     }; ?>">
@@ -118,6 +118,8 @@
                             <span class="title-tooltip">Pré-atendimentos</span>
                         </a>
                     </li>
+                <?php } ?>
+                <?php if ($this->permission->checkPermission($this->session->userdata('permissao'), 'cSistema')) { ?>
                     <li class="<?php if (isset($menuBotLab)) {
                         echo 'active';
                     }; ?>">
