@@ -6,10 +6,17 @@
     var base = String(config.attr('data-base') || '');
     var receivingBase = String(config.attr('data-receiving-base') || '/tecnina/pre-atendimentos');
     var osEditBase = String(config.attr('data-os-edit-base') || '');
-    var csrfName = String(config.attr('data-csrf-name') || '');
-    var csrfHash = String(config.attr('data-csrf-hash') || '');
+    var csrfName = $('meta[name="csrf-token-name"]').attr('content') || String(config.attr('data-csrf-name') || '');
+    var csrfHash = $('meta[name="csrf-token"]').attr('content') || String(config.attr('data-csrf-hash') || '');
     var currentList = 'pending';
     var currentIntakeData = null;
+
+    function updateCsrf(token) {
+        if (!token) { return; }
+        csrfHash = token;
+        $('meta[name="csrf-token"]').attr('content', token);
+        config.attr('data-csrf-hash', token);
+    }
 
     function esc(value) { return $('<div>').text(value == null ? '' : value).html(); }
     function error(message) { $('#wa-error').text(message || 'Não foi possível comunicar com o Gateway.').show(); }
@@ -59,6 +66,8 @@
             invalid_intake_fields: 'Revise os campos. Faltam informações obrigatórias do equipamento, cliente ou endereço.',
             pickup_fee_not_confirmed: 'A taxa de coleta precisa ser informada e confirmada pelo cliente antes da aprovação.',
             idempotency_conflict: 'Uma confirmação diferente já foi registrada com esta chave de idempotência.',
+            receiving_already_confirmed: 'O recebimento físico deste equipamento já foi confirmado e não pode ser alterado.',
+            invalid_idempotency_key: 'Chave de idempotência ausente ou inválida.',
             file_size_exceeded: 'O arquivo excede o limite máximo permitido de 15 MiB.',
             intake_total_size_exceeded: 'O tamanho total de anexos deste atendimento ultrapassou o limite de 60 MiB.',
             unsupported_file_type: 'Tipo de arquivo não permitido. Apenas JPEG, PNG e PDF são aceitos.',
@@ -104,14 +113,24 @@
 
         return $.ajax(ajaxOpts)
             .done(function (response) {
-                if (response.csrf) { csrfHash = response.csrf; }
-                if (!response.ok) { error(reasonMessage(response.reason)); return; }
+                if (typeof response === 'string') {
+                    try { response = JSON.parse(response); } catch (e) {}
+                }
+                if (response && response.csrf) {
+                    updateCsrf(response.csrf);
+                }
+                if (!response || !response.ok) { error(reasonMessage(response ? response.reason : 'unknown')); return; }
                 clearError();
                 done(response.data !== undefined ? response.data : response);
             })
             .fail(function (xhr) {
                 var response = xhr.responseJSON || {};
-                if (response.csrf) { csrfHash = response.csrf; }
+                if (typeof response === 'string') {
+                    try { response = JSON.parse(response); } catch (e) {}
+                }
+                if (response && response.csrf) {
+                    updateCsrf(response.csrf);
+                }
                 if (method === 'GET' && !retryAttempt) {
                     window.setTimeout(function () { request(path, method, data, done, true, extraHeaders); }, 800);
                     return;
@@ -321,8 +340,9 @@
 
             var conditionValue = receiving.device_condition || '';
 
-            var actions = '<button type="button" class="btn btn-primary wa-receiving-save"><i class="fas fa-save"></i> Salvar preparação</button> ';
+            var actions = '';
             if (!isReceived) {
+                actions += '<button type="button" class="btn btn-primary wa-receiving-save"><i class="fas fa-save"></i> Salvar preparação</button> ';
                 actions += '<button type="button" class="btn btn-success wa-receiving-modal-open"><i class="fas fa-boxes"></i> Confirmar recebimento físico</button> ';
             }
             actions += '<button type="button" class="btn btn-danger wa-intake-reject">Descartar</button>';
@@ -354,10 +374,10 @@
                 pickupFeeAction(data, feeActionable) +
 
                 '<hr style="margin:16px 0 12px 0;">' +
-                '<h5><i class="fas fa-search"></i> Triagem e Inspeção Física do Equipamento</h5>' +
+                '<h5><i class="fas fa-search"></i> Triagem e Inspeção Física do Equipamento' + (isReceived ? ' <small class="text-success">(Concluída e Bloqueada)</small>' : '') + '</h5>' +
 
                 '<label><strong>Condição física geral do equipamento</strong></label>' +
-                '<select class="input-block-level wa-i-condition">' +
+                '<select class="input-block-level wa-i-condition"' + (isReceived ? ' disabled' : '') + '>' +
                 '<option value=""' + (!conditionValue ? ' selected' : '') + '>— Selecione a condição física —</option>' +
                 '<option value="EXCELENTE"' + (conditionValue === 'EXCELENTE' ? ' selected' : '') + '>Intacto / Excelente (sem marcas de uso)</option>' +
                 '<option value="BOM"' + (conditionValue === 'BOM' ? ' selected' : '') + '>Bom estado (marcas de uso leves)</option>' +
@@ -371,22 +391,22 @@
 
                 '<label><strong>Acessórios entregues junto ao equipamento</strong></label>' +
                 '<div class="well well-small" style="padding:6px 12px;margin-bottom:10px;">' +
-                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-charger"' + (hasCharger ? ' checked' : '') + '> Carregador / Fonte</label>' +
-                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-cable"' + (hasCable ? ' checked' : '') + '> Cabo de força/USB</label>' +
-                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-case"' + (hasCase ? ' checked' : '') + '> Capa / Case</label>' +
-                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-adapter"' + (hasAdapter ? ' checked' : '') + '> Adaptador</label>' +
-                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-media"' + (hasMedia ? ' checked' : '') + '> Cartão de memória / Mídia</label>' +
-                '<div style="margin-top:6px;"><label style="font-size:12px;">Outros acessórios entregues:</label><input class="input-block-level wa-i-other-acc" placeholder="Ex: mouse, caneta touch, bolsa" value="' + esc(accText) + '"></div>' +
+                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-charger"' + (hasCharger ? ' checked' : '') + (isReceived ? ' disabled' : '') + '> Carregador / Fonte</label>' +
+                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-cable"' + (hasCable ? ' checked' : '') + (isReceived ? ' disabled' : '') + '> Cabo de força/USB</label>' +
+                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-case"' + (hasCase ? ' checked' : '') + (isReceived ? ' disabled' : '') + '> Capa / Case</label>' +
+                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-adapter"' + (hasAdapter ? ' checked' : '') + (isReceived ? ' disabled' : '') + '> Adaptador</label>' +
+                '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-media"' + (hasMedia ? ' checked' : '') + (isReceived ? ' disabled' : '') + '> Cartão de memória / Mídia</label>' +
+                '<div style="margin-top:6px;"><label style="font-size:12px;">Outros acessórios entregues:</label><input class="input-block-level wa-i-other-acc" placeholder="Ex: mouse, caneta touch, bolsa" value="' + esc(accText) + '"' + (isReceived ? ' readonly' : '') + '></div>' +
                 '</div>' +
 
                 '<div class="row-fluid">' +
-                '<div class="span4"><label>Número de Série</label><input class="input-block-level wa-i-serial" maxlength="128" placeholder="Opcional" value="' + esc(receiving.serial_number || '') + '"></div>' +
-                '<div class="span4"><label>IMEI / Chassi</label><input class="input-block-level wa-i-imei" maxlength="32" placeholder="Opcional" value="' + esc(receiving.imei || '') + '"></div>' +
-                '<div class="span4"><label>Tag de serviço / Outro ID</label><input class="input-block-level wa-i-other-ids" placeholder="Opcional" value="' + esc(receiving.other_identifiers || '') + '"></div>' +
+                '<div class="span4"><label>Número de Série</label><input class="input-block-level wa-i-serial" maxlength="128" placeholder="Opcional" value="' + esc(receiving.serial_number || '') + '"' + (isReceived ? ' readonly' : '') + '></div>' +
+                '<div class="span4"><label>IMEI / Chassi</label><input class="input-block-level wa-i-imei" maxlength="32" placeholder="Opcional" value="' + esc(receiving.imei || '') + '"' + (isReceived ? ' readonly' : '') + '></div>' +
+                '<div class="span4"><label>Tag de serviço / Outro ID</label><input class="input-block-level wa-i-other-ids" placeholder="Opcional" value="' + esc(receiving.other_identifiers || '') + '"' + (isReceived ? ' readonly' : '') + '></div>' +
                 '</div>' +
 
                 '<label><strong>Observações integrais de recebimento</strong></label>' +
-                '<textarea class="input-block-level wa-i-receiving-notes" rows="4" placeholder="Registre aqui detalhes da inspeção, condição das peças, bateria, periféricos e instruções especiais…">' + esc(receiving.notes || '') + '</textarea>' +
+                '<textarea class="input-block-level wa-i-receiving-notes" rows="4" placeholder="Registre aqui detalhes da inspeção, condição das peças, bateria, periféricos e instruções especiais…"' + (isReceived ? ' readonly' : '') + '>' + esc(receiving.notes || '') + '</textarea>' +
 
                 '<hr style="margin:16px 0 12px 0;">' +
                 '<h5><i class="fas fa-camera"></i> Fotos e Documentos de Triagem (Anexos Privados)</h5>' +

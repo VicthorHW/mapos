@@ -54,11 +54,20 @@ class Tecnina_receiving_model extends CI_Model
     /**
      * Save receiving preparation data without marking as RECEIVED.
      * State remains PENDING_DELIVERY (or new record created in PENDING_DELIVERY).
+     * Locks once state is RECEIVED.
      */
     public function savePreparation(string $intakeId, array $data, ?int $operatorId = null): array
     {
         $table = $this->db->dbprefix('tecnina_physical_receiving');
         $existing = $this->getReceiving($intakeId);
+
+        if ($existing && $existing['state'] === 'RECEIVED') {
+            return [
+                'ok' => false,
+                'reason' => 'receiving_already_confirmed',
+                'data' => $existing,
+            ];
+        }
 
         $record = [
             'device_condition' => isset($data['device_condition']) ? mb_substr(trim((string) $data['device_condition']), 0, 64) : null,
@@ -71,7 +80,6 @@ class Tecnina_receiving_model extends CI_Model
         ];
 
         if ($existing) {
-            // If already received, do not regress state
             $this->db->where('intake_id', $intakeId)->update($table, $record);
         } else {
             $record['intake_id'] = $intakeId;
@@ -80,16 +88,25 @@ class Tecnina_receiving_model extends CI_Model
             $this->db->insert($table, $record);
         }
 
-        return $this->getReceiving($intakeId);
+        return [
+            'ok' => true,
+            'result' => 'saved',
+            'data' => $this->getReceiving($intakeId),
+        ];
     }
 
     /**
      * Explicitly confirm physical receipt of equipment by authenticated staff.
      * Sets state to RECEIVED, persists UTC timestamp and operator from session.
-     * Handles Idempotency-Key.
+     * Requires canonical UUIDv4 Idempotency-Key.
+     * Enforces strict idempotency and immutability once RECEIVED.
      */
     public function confirmPhysicalReceipt(string $intakeId, int $operatorId, array $data, ?string $idempotencyKey = null): array
     {
+        if (empty($idempotencyKey) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', (string) $idempotencyKey)) {
+            return ['ok' => false, 'reason' => 'invalid_idempotency_key'];
+        }
+
         if ($operatorId <= 0) {
             return ['ok' => false, 'reason' => 'invalid_operator'];
         }
@@ -121,28 +138,9 @@ class Tecnina_receiving_model extends CI_Model
         ];
         $requestHash = hash('sha256', json_encode($payloadForHash, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-        // Idempotency check if already RECEIVED
+        // If already RECEIVED: physical receiving event is immutable
         if ($existing && $existing['state'] === 'RECEIVED') {
-            if ($idempotencyKey !== null && ! empty($existing['idempotency_key'])) {
-                if ($existing['idempotency_key'] === $idempotencyKey) {
-                    if ($existing['request_hash'] === $requestHash) {
-                        return [
-                            'ok' => true,
-                            'result' => 'already_received',
-                            'receiving_id' => (int) $existing['id'],
-                            'state' => 'RECEIVED',
-                            'received_at' => $existing['received_at'],
-                            'received_by' => (int) $existing['received_by'],
-                            'data' => $existing,
-                        ];
-                    }
-
-                    // Same idempotency key with materially different payload -> CONFLICT
-                    return ['ok' => false, 'reason' => 'idempotency_conflict'];
-                }
-            }
-
-            // Same semantic data repeated without key -> reuse existing record
+            // Same semantic payload -> idempotent replay (even if new transport key used)
             if ($existing['request_hash'] === $requestHash) {
                 return [
                     'ok' => true,
@@ -154,6 +152,24 @@ class Tecnina_receiving_model extends CI_Model
                     'data' => $existing,
                 ];
             }
+
+            // Materially different payload after RECEIVED -> conflict (HTTP 409)
+            return [
+                'ok' => false,
+                'reason' => 'receiving_already_confirmed',
+                'data' => $existing,
+            ];
+        }
+
+        // Check if idempotency_key was already used on another intake
+        $otherWithKey = $this->db
+            ->get_where($table, [
+                'idempotency_key' => $idempotencyKey,
+                'intake_id !=' => $intakeId,
+            ])
+            ->row_array();
+        if ($otherWithKey) {
+            return ['ok' => false, 'reason' => 'idempotency_conflict'];
         }
 
         $nowUtc = gmdate('Y-m-d H:i:s');
@@ -167,7 +183,7 @@ class Tecnina_receiving_model extends CI_Model
             'imei' => mb_substr($payloadForHash['imei'], 0, 32) ?: null,
             'other_identifiers' => $payloadForHash['other_identifiers'] ?: null,
             'notes' => $payloadForHash['notes'] ?: null,
-            'idempotency_key' => $idempotencyKey ? mb_substr($idempotencyKey, 0, 64) : null,
+            'idempotency_key' => mb_substr($idempotencyKey, 0, 64),
             'request_hash' => $requestHash,
             'updated_at' => $nowUtc,
         ];

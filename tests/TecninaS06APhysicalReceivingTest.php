@@ -29,6 +29,13 @@ function expectReceiving($condition, $message) {
     }
 }
 
+function testUuidV4(): string {
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40); // version 4
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80); // variant RFC 4122
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
 $model = isset($this) && isset($this->Tecnina_receiving_model) ? $this->Tecnina_receiving_model : null;
 $storage = isset($this) && isset($this->tecnina_attachment_storage) ? $this->tecnina_attachment_storage : null;
 $db = isset($this) && isset($this->db) ? $this->db : null;
@@ -56,17 +63,18 @@ $prepData = [
 ];
 
 $prepResult = $model->savePreparation($testIntakeId1, $prepData, 1);
-expectReceiving($prepResult !== null, 'savePreparation must return receiving record');
-expectReceiving($prepResult['intake_id'] === $testIntakeId1, 'intake_id must match');
-expectReceiving($prepResult['state'] === 'PENDING_DELIVERY', 'State must remain PENDING_DELIVERY after preparation');
-expectReceiving($prepResult['received_at'] === null, 'received_at must remain NULL after preparation');
-expectReceiving($prepResult['received_by'] === null, 'received_by must remain NULL after preparation');
-expectReceiving($prepResult['device_condition'] === $prepData['device_condition'], 'Condition must be persisted');
-expectReceiving($prepResult['accessories'] === $prepData['accessories'], 'Accessories must be persisted');
-expectReceiving($prepResult['serial_number'] === $prepData['serial_number'], 'Serial number must be persisted');
-expectReceiving($prepResult['imei'] === $prepData['imei'], 'IMEI must be persisted');
-expectReceiving($prepResult['other_identifiers'] === $prepData['other_identifiers'], 'Other identifiers must be persisted');
-expectReceiving($prepResult['notes'] === $prepData['notes'], 'Full notes must be persisted without truncation');
+expectReceiving($prepResult['ok'] === true, 'savePreparation must succeed');
+$prepRow = $prepResult['data'];
+expectReceiving($prepRow['intake_id'] === $testIntakeId1, 'intake_id must match');
+expectReceiving($prepRow['state'] === 'PENDING_DELIVERY', 'State must remain PENDING_DELIVERY after preparation');
+expectReceiving($prepRow['received_at'] === null, 'received_at must remain NULL after preparation');
+expectReceiving($prepRow['received_by'] === null, 'received_by must remain NULL after preparation');
+expectReceiving($prepRow['device_condition'] === $prepData['device_condition'], 'Condition must be persisted');
+expectReceiving($prepRow['accessories'] === $prepData['accessories'], 'Accessories must be persisted');
+expectReceiving($prepRow['serial_number'] === $prepData['serial_number'], 'Serial number must be persisted');
+expectReceiving($prepRow['imei'] === $prepData['imei'], 'IMEI must be persisted');
+expectReceiving($prepRow['other_identifiers'] === $prepData['other_identifiers'], 'Other identifiers must be persisted');
+expectReceiving($prepRow['notes'] === $prepData['notes'], 'Full notes must be persisted without truncation');
 
 // Verify 0 OS rows created after preparation
 expectReceiving((int) $db->count_all('os') === $initialOsCount, 'Zero OS rows must be created after savePreparation');
@@ -74,12 +82,13 @@ expectReceiving((int) $db->count_all('os') === $initialOsCount, 'Zero OS rows mu
 // Update preparation with new notes
 $prepData['notes'] .= "\nAtualização: Cliente trouxe caixa original 10min depois.";
 $prepResult2 = $model->savePreparation($testIntakeId1, $prepData, 1);
-expectReceiving($prepResult2['notes'] === $prepData['notes'], 'Updated notes must be preserved');
-expectReceiving($prepResult2['state'] === 'PENDING_DELIVERY', 'State still remains PENDING_DELIVERY after update');
+expectReceiving($prepResult2['ok'] === true, 'savePreparation update must succeed');
+expectReceiving($prepResult2['data']['notes'] === $prepData['notes'], 'Updated notes must be preserved');
+expectReceiving($prepResult2['data']['state'] === 'PENDING_DELIVERY', 'State still remains PENDING_DELIVERY after update');
 
 // 2. EXPLICIT PHYSICAL RECEIPT CONFIRMATION
 $operatorId = 1; // Victhor (active staff)
-$idempotencyKey1 = 'idem-' . bin2hex(random_bytes(16));
+$idempotencyKey1 = testUuidV4();
 
 $confirmResult = $model->confirmPhysicalReceipt($testIntakeId1, $operatorId, $prepData, $idempotencyKey1);
 expectReceiving($confirmResult['ok'] === true, 'confirmPhysicalReceipt must succeed');
@@ -98,30 +107,59 @@ expectReceiving(! empty($receivingDb['received_by_name']), 'received_by_name mus
 // Verify 0 OS rows created after explicit confirmation
 expectReceiving((int) $db->count_all('os') === $initialOsCount, 'Zero OS rows must be created after confirmPhysicalReceipt');
 
-// 3. IDEMPOTENT REPLAY (SAME KEY + SAME PAYLOAD)
+// 3. FINAL-STATE IDEMPOTENT REPLAYS AFTER RECEIVED
+// 3.1 Same key + same payload
 $replayResult = $model->confirmPhysicalReceipt($testIntakeId1, $operatorId, $prepData, $idempotencyKey1);
 expectReceiving($replayResult['ok'] === true, 'Replay with same idempotency key and same payload must succeed');
 expectReceiving($replayResult['result'] === 'already_received', 'Replay result must be already_received');
 expectReceiving((int) $replayResult['receiving_id'] === (int) $confirmResult['receiving_id'], 'Replay must return same receiving_id');
 
+// 3.2 Different key + same payload after RECEIVED (TO 85-R2 Section 9)
+$differentKeySamePayload = testUuidV4();
+$replayDiffKey = $model->confirmPhysicalReceipt($testIntakeId1, $operatorId, $prepData, $differentKeySamePayload);
+expectReceiving($replayDiffKey['ok'] === true, 'Replay with different key but same payload must succeed');
+expectReceiving($replayDiffKey['result'] === 'already_received', 'Different key + same payload must return already_received');
+expectReceiving($replayDiffKey['received_at'] === $confirmResult['received_at'], 'received_at must remain unchanged');
+expectReceiving((int) $replayDiffKey['received_by'] === (int) $confirmResult['received_by'], 'received_by must remain unchanged');
+expectReceiving((int) $replayDiffKey['receiving_id'] === (int) $confirmResult['receiving_id'], 'receiving_id must remain unchanged');
+
 // Verify DB row count for this intake is still exactly 1
 $rowCount = $db->where('intake_id', $testIntakeId1)->count_all_results('tecnina_physical_receiving');
 expectReceiving($rowCount === 1, 'Exactly one receiving record must exist for the intake');
 
-// 4. CONFLICTING IDEMPOTENCY KEY (SAME KEY + DIFFERENT PAYLOAD)
+// 4. FINAL-STATE CONFLICT TESTS AFTER RECEIVED (TO 85-R2 Section 9)
+// 4.1 Different key + different payload after RECEIVED must be rejected with conflict
+$differentKeyDiffPayload = testUuidV4();
 $conflictingPayload = $prepData;
 $conflictingPayload['serial_number'] = 'DIFFERENT-SERIAL-99999';
 
-$conflictResult = $model->confirmPhysicalReceipt($testIntakeId1, $operatorId, $conflictingPayload, $idempotencyKey1);
-expectReceiving($conflictResult['ok'] === false, 'Replay with conflicting payload must fail');
-expectReceiving($conflictResult['reason'] === 'idempotency_conflict', 'Failure reason must be idempotency_conflict');
+$conflictDiffKey = $model->confirmPhysicalReceipt($testIntakeId1, $operatorId, $conflictingPayload, $differentKeyDiffPayload);
+expectReceiving($conflictDiffKey['ok'] === false, 'Different key + different payload after RECEIVED must fail');
+expectReceiving($conflictDiffKey['reason'] === 'receiving_already_confirmed', 'Failure reason must be receiving_already_confirmed');
 
-// 5. OPERATOR VALIDATION
-$invalidOpResult = $model->confirmPhysicalReceipt('s06a-fake-' . bin2hex(random_bytes(4)), 99999, $prepData, 'key-fake');
+// Verify DB row unchanged byte-for-byte
+$dbCheck = $model->getReceiving($testIntakeId1);
+expectReceiving($dbCheck['serial_number'] === $prepData['serial_number'], 'DB row serial must remain unchanged');
+expectReceiving($dbCheck['received_at'] === $confirmResult['received_at'], 'received_at must remain unchanged in DB');
+expectReceiving((int) $dbCheck['received_by'] === $operatorId, 'received_by must remain unchanged in DB');
+
+// 4.2 Preparation after RECEIVED must be rejected (TO 85-R2 Section 7 & 9)
+$prepAfterReceived = $model->savePreparation($testIntakeId1, ['notes' => 'Tentativa de alteração de preparação pós-RECEIVED'], 1);
+expectReceiving($prepAfterReceived['ok'] === false, 'savePreparation after RECEIVED must be rejected');
+expectReceiving($prepAfterReceived['reason'] === 'receiving_already_confirmed', 'Reason must be receiving_already_confirmed');
+$dbCheck2 = $model->getReceiving($testIntakeId1);
+expectReceiving($dbCheck2['notes'] === $prepData['notes'], 'DB notes must remain unchanged after rejected prep save');
+
+// 5. VALIDATION: OPERATOR AND UUIDv4 KEY
+$nonUuidResult = $model->confirmPhysicalReceipt('s06a-fake-' . bin2hex(random_bytes(4)), $operatorId, $prepData, 'not-a-valid-uuid');
+expectReceiving($nonUuidResult['ok'] === false, 'Non-UUIDv4 key must be rejected');
+expectReceiving($nonUuidResult['reason'] === 'invalid_idempotency_key', 'Reason must be invalid_idempotency_key');
+
+$invalidOpResult = $model->confirmPhysicalReceipt('s06a-fake-' . bin2hex(random_bytes(4)), 99999, $prepData, testUuidV4());
 expectReceiving($invalidOpResult['ok'] === false, 'Invalid non-existent operator must be rejected');
 expectReceiving($invalidOpResult['reason'] === 'invalid_operator', 'Reason must be invalid_operator');
 
-$zeroOpResult = $model->confirmPhysicalReceipt('s06a-fake-' . bin2hex(random_bytes(4)), 0, $prepData, 'key-fake');
+$zeroOpResult = $model->confirmPhysicalReceipt('s06a-fake-' . bin2hex(random_bytes(4)), 0, $prepData, testUuidV4());
 expectReceiving($zeroOpResult['ok'] === false, 'Zero operator must be rejected');
 
 // 6. PRIVATE ATTACHMENT STORAGE & CONTENT VALIDATION
@@ -252,11 +290,31 @@ $fakeJpgUpload = ['name' => 'fake.jpg', 'tmp_name' => $fakeJpgPath, 'size' => fi
 $vBad4 = $storage->validateUpload($fakeJpgUpload, 0);
 expectReceiving($vBad4['ok'] === false, 'HTML disguised as JPG must be rejected');
 
-// E. SIZE LIMIT ENFORCEMENT
-// Max file size: 15 MiB
+// E. SIZE LIMIT ENFORCEMENT & CONFIGURABILITY (TO 85-R2 Section 14)
+// Default limits: 15 MiB file, 60 MiB intake
+expectReceiving($storage->getMaxFileSizeBytes() === 15728640, 'Default max file size must be 15 MiB');
+expectReceiving($storage->getMaxIntakeSizeBytes() === 62914560, 'Default max intake size must be 60 MiB');
+
 $hugeUpload = ['name' => 'big.jpg', 'tmp_name' => $validJpgPath, 'size' => 15728641, 'error' => UPLOAD_ERR_OK];
 $vHuge = $storage->validateUpload($hugeUpload, 0);
 expectReceiving($vHuge['ok'] === false && $vHuge['reason'] === 'file_size_exceeded', 'File > 15 MiB must be rejected');
+
+// Configured reduced limit: 5 MiB
+putenv('TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES=5242880');
+$_ENV['TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES'] = '5242880';
+expectReceiving($storage->getMaxFileSizeBytes() === 5242880, 'Configured reduced file limit (5 MiB) must be respected');
+$reducedUpload = ['name' => 'medium.jpg', 'tmp_name' => $validJpgPath, 'size' => 6000000, 'error' => UPLOAD_ERR_OK];
+$vReduced = $storage->validateUpload($reducedUpload, 0);
+expectReceiving($vReduced['ok'] === false && $vReduced['reason'] === 'file_size_exceeded', 'File > reduced 5 MiB limit must be rejected');
+
+// Attempt to raise above ceiling (e.g. 25 MiB) must be capped at 15 MiB ceiling
+putenv('TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES=26214400');
+$_ENV['TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES'] = '26214400';
+expectReceiving($storage->getMaxFileSizeBytes() === 15728640, 'Attempt to raise limit above 15 MiB ceiling must be capped at 15 MiB');
+
+// Reset env vars
+putenv('TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES');
+unset($_ENV['TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES']);
 
 // Intake total size: 60 MiB
 $nearTotal = 62914560 - 100;
@@ -332,7 +390,7 @@ $originalHash = $client4['senha'];
 // Simulate another intake linking to client 4
 $testIntakeId2 = 's06a-client4-' . bin2hex(random_bytes(8));
 $prepClient4 = $model->savePreparation($testIntakeId2, ['device_condition' => 'Em bom estado', 'notes' => 'Cliente existente #4'], 1);
-$confirmClient4 = $model->confirmPhysicalReceipt($testIntakeId2, 1, ['device_condition' => 'Em bom estado', 'notes' => 'Cliente existente #4'], 'key-client4');
+$confirmClient4 = $model->confirmPhysicalReceipt($testIntakeId2, 1, ['device_condition' => 'Em bom estado', 'notes' => 'Cliente existente #4'], testUuidV4());
 
 // Re-check client 4 password hash and row count
 $client4After = $db->get_where('clientes', ['idClientes' => 4])->row_array();

@@ -20,8 +20,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 class Tecnina_attachment_storage
 {
-    public const MAX_FILE_SIZE_BYTES = 15728640;     // 15 MiB
-    public const MAX_INTAKE_SIZE_BYTES = 62914560;   // 60 MiB
+    public const CEILING_FILE_SIZE_BYTES = 15728640;     // 15 MiB hard ceiling
+    public const CEILING_INTAKE_SIZE_BYTES = 62914560;   // 60 MiB hard ceiling
+    public const MAX_FILE_SIZE_BYTES = 15728640;     // 15 MiB legacy constant
+    public const MAX_INTAKE_SIZE_BYTES = 62914560;   // 60 MiB legacy constant
 
     private const ALLOWED_MIME_EXT_MAP = [
         'image/jpeg' => ['jpg', 'jpeg'],
@@ -53,6 +55,30 @@ class Tecnina_attachment_storage
         }
     }
 
+    public function getMaxFileSizeBytes(): int
+    {
+        $val = $_ENV['TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES'] ?? getenv('TECNINA_PRIVATE_ATTACHMENT_MAX_FILE_BYTES');
+        if ($val !== false && $val !== null && $val !== '') {
+            $num = (int) $val;
+            if ($num > 0) {
+                return min($num, self::CEILING_FILE_SIZE_BYTES);
+            }
+        }
+        return self::CEILING_FILE_SIZE_BYTES;
+    }
+
+    public function getMaxIntakeSizeBytes(): int
+    {
+        $val = $_ENV['TECNINA_PRIVATE_ATTACHMENT_MAX_INTAKE_BYTES'] ?? getenv('TECNINA_PRIVATE_ATTACHMENT_MAX_INTAKE_BYTES');
+        if ($val !== false && $val !== null && $val !== '') {
+            $num = (int) $val;
+            if ($num > 0) {
+                return min($num, self::CEILING_INTAKE_SIZE_BYTES);
+            }
+        }
+        return self::CEILING_INTAKE_SIZE_BYTES;
+    }
+
     public function getStorageRoot(): string
     {
         return $this->storageRoot;
@@ -69,11 +95,13 @@ class Tecnina_attachment_storage
         }
 
         $size = (int) ($fileInfo['size'] ?? 0);
-        if ($size <= 0 || $size > self::MAX_FILE_SIZE_BYTES) {
+        $maxFile = $this->getMaxFileSizeBytes();
+        if ($size <= 0 || $size > $maxFile) {
             return ['ok' => false, 'reason' => 'file_size_exceeded'];
         }
 
-        if (($currentIntakeTotalBytes + $size) > self::MAX_INTAKE_SIZE_BYTES) {
+        $maxIntake = $this->getMaxIntakeSizeBytes();
+        if (($currentIntakeTotalBytes + $size) > $maxIntake) {
             return ['ok' => false, 'reason' => 'intake_total_size_exceeded'];
         }
 
