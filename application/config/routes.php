@@ -63,6 +63,7 @@ $route['api/bot/legal/manifestations'] = 'api/bot/legal/manifestations';
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 $route['tecnina/pre-atendimentos'] = 'tecnina_whatsapp/pre_atendimentos';
 $route['tecnina/pre-atendimentos/(:any)/receiving'] = 'tecnina_whatsapp/receiving/$1';
+$route['tecnina/pre-atendimentos/(:any)/readiness'] = 'tecnina_whatsapp/readiness/$1';
 $route['tecnina/pre-atendimentos/(:any)/attachments'] = 'tecnina_whatsapp/attachments/$1';
 $route['tecnina/pre-atendimentos/(:any)/attachments/(:num)'] = 'tecnina_whatsapp/attachment_download/$1/$2';
 $route['tecnina/pre-atendimentos/(:any)/attachments/(:num)/thumbnail'] = 'tecnina_whatsapp/attachment_thumbnail/$1/$2';

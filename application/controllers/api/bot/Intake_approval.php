@@ -62,6 +62,21 @@ class Intake_approval extends REST_Controller
             'sha256',
             json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         );
+
+        // ADR-004: Nenhuma fase permite bypass do recebimento físico
+        $receivingRow = $this->db
+            ->select('state')
+            ->from('tecnina_physical_receiving')
+            ->where('intake_id', $intakeId)
+            ->limit(1)
+            ->get()
+            ->row_array();
+        if (! $receivingRow || strtoupper(trim((string) $receivingRow['state'])) !== 'RECEIVED') {
+            $this->response(['status' => false, 'reason' => 'physical_receipt_required'], self::HTTP_CONFLICT);
+
+            return;
+        }
+
         try {
             $result = $this->Tecnina_intake_approval_model->approve($intakeId, $requestHash, $payload);
             if (! $result['ok']) {

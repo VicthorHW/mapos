@@ -173,6 +173,17 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         if ($action === 'approve') {
+            $this->load->library('Tecnina_readiness_service');
+            $readiness = $this->tecnina_readiness_service->evaluateReadiness($intakeId);
+            if (! $readiness['ready']) {
+                return $this->json([
+                    'ok' => false,
+                    'reason' => 'readiness_gate_blocked',
+                    'blocking_reasons' => $readiness['blocking_reasons'],
+                    'readiness' => $readiness,
+                ], 409);
+            }
+
             $clientAction = (string) $this->input->post('client_action', true);
             $clientId = $this->input->post('client_id', true);
             if (! in_array($clientAction, ['LINK_EXISTING', 'CREATE_NEW'], true)) {
@@ -770,6 +781,26 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         return $this->json($result, 200);
+    }
+
+    public function readiness($intakeId = '')
+    {
+        if (! $this->authorizedRead(true)) {
+            return;
+        }
+
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $this->load->library('Tecnina_readiness_service');
+        $report = $this->tecnina_readiness_service->evaluateReadiness($intakeId);
+
+        return $this->json([
+            'ok' => true,
+            'intake_id' => $intakeId,
+            'readiness' => $report,
+        ], 200);
     }
 
     public function attachments($intakeId = '')

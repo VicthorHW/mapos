@@ -266,6 +266,84 @@
         return html;
     }
 
+    function renderReadinessPlaceholder(intakeId) {
+        return '<div class="well well-small" id="wa-readiness-box" style="margin-top:16px;background:#fcfcfc;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<h6><i class="fas fa-traffic-light"></i> Gate de Prontidão para Abertura de OS (S06B)</h6>' +
+            '<button type="button" class="btn btn-mini btn-info" id="btn-recheck-readiness" data-id="' + esc(intakeId) + '"><i class="fas fa-sync"></i> Revalidar</button>' +
+            '</div>' +
+            '<div id="wa-readiness-content" class="muted" style="font-size:12px;margin-top:6px;"><i class="fas fa-spinner fa-spin"></i> Avaliando dimensões de prontidão…</div>' +
+            '</div>';
+    }
+
+    function renderReadinessDetails(report) {
+        var physicalBadge = (report.physical_receiving === 'RECEIVED')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> POSSE CONFIRMADA</span>'
+            : '<span class="label label-warning"><i class="fas fa-clock"></i> PENDENTE</span>';
+
+        var identityBadge = (report.identity_resolution === 'READY')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> RESOLVIDO</span>'
+            : (report.identity_resolution === 'AMBIGUOUS' ? '<span class="label label-important">AMBÍGUO</span>' : '<span class="label label-warning">PENDENTE</span>');
+
+        var regBadge = (report.registration === 'READY_TO_MATERIALIZE' || report.registration === 'EXISTING_ACCOUNT')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> ' + esc(report.registration) + '</span>'
+            : '<span class="label label-warning"><i class="fas fa-clock"></i> CADASTRO PENDENTE</span>';
+
+        var credBadge = (report.credential === 'PRESENT' || report.credential === 'EXISTING_ACCOUNT')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> ' + esc(report.credential) + '</span>'
+            : '<span class="label label-warning"><i class="fas fa-key"></i> AUSENTE</span>';
+
+        var legalBadge = (report.legal === 'SATISFIED')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> SATISFEITO</span>'
+            : '<span class="label label-important"><i class="fas fa-times"></i> PENDENTE</span>';
+
+        var snapshotBadge = (report.intake_snapshot === 'READY')
+            ? '<span class="label label-success"><i class="fas fa-check"></i> SELADO</span>'
+            : '<span class="label label-important"><i class="fas fa-times"></i> ' + esc(report.intake_snapshot) + '</span>';
+
+        var items = '<table class="table table-condensed table-bordered" style="margin-top:8px;font-size:11px;background:#fff;">' +
+            '<thead><tr><th>Dimensão</th><th>Status</th></tr></thead>' +
+            '<tbody>' +
+            '<tr><td><strong>1. Posse Física (ADR-004)</strong></td><td>' + physicalBadge + '</td></tr>' +
+            '<tr><td><strong>2. Identificação do Cliente</strong></td><td>' + identityBadge + '</td></tr>' +
+            '<tr><td><strong>3. Cadastro de Conta</strong></td><td>' + regBadge + '</td></tr>' +
+            '<tr><td><strong>4. Credencial de Acesso</strong></td><td>' + credBadge + '</td></tr>' +
+            '<tr><td><strong>5. Manifestações Legais</strong></td><td>' + legalBadge + '</td></tr>' +
+            '<tr><td><strong>6. Snapshot Autoritativo</strong></td><td>' + snapshotBadge + '</td></tr>' +
+            '</tbody></table>';
+
+        var statusAlert = '';
+        if (report.ready) {
+            statusAlert = '<div class="alert alert-success" style="margin-bottom:0;"><i class="fas fa-check-circle"></i> <strong>Gate S06B Satisfeito:</strong> Todos os requisitos foram cumpridos. Pronto para abertura de OS (aguardando conversão S07).</div>';
+        } else {
+            var reasonsHtml = '';
+            if (report.blocking_reasons && report.blocking_reasons.length > 0) {
+                reasonsHtml = '<ul style="margin:4px 0 0 16px;">';
+                $.each(report.blocking_reasons, function (i, r) {
+                    reasonsHtml += '<li>' + esc(r) + '</li>';
+                });
+                reasonsHtml += '</ul>';
+            }
+            statusAlert = '<div class="alert alert-block alert-warning" style="margin-bottom:0;"><i class="fas fa-lock"></i> <strong>Abertura de OS Bloqueada (Gate S06B):</strong> Requisitos pendentes:' + reasonsHtml + '</div>';
+        }
+
+        return items + statusAlert;
+    }
+
+    function fetchReadiness(intakeId) {
+        var base = $('#wa-panel-config').data('receiving-base');
+        var url = base + '/' + encodeURIComponent(intakeId) + '/readiness';
+        $.getJSON(url, function (res) {
+            if (res.ok && res.readiness) {
+                $('#wa-readiness-content').html(renderReadinessDetails(res.readiness));
+            } else {
+                $('#wa-readiness-content').html('<span class="text-error">Erro ao carregar prontidão.</span>');
+            }
+        }).fail(function () {
+            $('#wa-readiness-content').html('<span class="text-error">Falha na verificação de prontidão.</span>');
+        });
+    }
+
     function loadIntake(id) {
         request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (data) {
             currentIntakeData = data;
@@ -417,10 +495,12 @@
                 '<button type="button" class="btn btn-info" id="btn-trigger-upload"><i class="fas fa-paperclip"></i> Adicionar Foto / Anexo</button>' +
                 '</div>' +
 
+                '<div id="wa-readiness-widget-container">' + renderReadinessPlaceholder(data.id) + '</div>' +
                 '<div class="wa-form-actions" style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e5e5;">' + actions + '</div>' +
                 '</div>';
 
             $('#wa-intake-detail').attr('class', '').html(html);
+            fetchReadiness(data.id);
         });
     }
 
@@ -597,6 +677,15 @@
             emptyDetail('Taxa enviada; aguardando confirmação do cliente');
             loadList();
         });
+    });
+
+    $(document).on('click', '#btn-recheck-readiness', function (e) {
+        e.preventDefault();
+        var intakeId = String($(this).data('id'));
+        if (intakeId) {
+            $('#wa-readiness-content').html('<i class="fas fa-spinner fa-spin"></i> Reavaliando prontidão…');
+            fetchReadiness(intakeId);
+        }
     });
 
     var booted = false;

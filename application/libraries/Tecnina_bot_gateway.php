@@ -20,8 +20,8 @@ class Tecnina_bot_gateway
     public function __construct()
     {
         $url = (string) ($_ENV['TECNINA_BOT_BASE_URL'] ?? getenv('TECNINA_BOT_BASE_URL') ?? '');
-        if ($url === 'http://tecnina-bot-dev.invalid' || $url === 'https://tecnina-bot-dev.invalid') {
-            $url = 'http://tecnina-bot-dev:8080';
+        if ($url === 'http://tecnina-bot-dev.invalid' || $url === 'https://tecnina-bot-dev.invalid' || $url === 'http://tecnina-bot-dev:8080') {
+            $url = 'http://10.0.12.1:18081';
         }
         $this->baseUrl = rtrim($url, '/');
         $this->token = (string) ($_ENV['MAPOS_BOT_TOKEN'] ?? getenv('MAPOS_BOT_TOKEN') ?? '');
@@ -211,6 +211,8 @@ class Tecnina_bot_gateway
                 'simulation_manager_unavailable',
                 'simulation_execution_failed',
                 'simulation_operational_config_unavailable',
+                'snapshot_stale',
+                'intake_sealed_in_materialization',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
@@ -231,5 +233,14 @@ class Tecnina_bot_gateway
         }
 
         return ['ok' => true, 'status' => $status, 'reason' => 'ok', 'data' => $decoded];
+    }
+
+    public function fetchMaterializationSnapshot(string $intakeId, ?int $expectedIntakeVersion = null): array
+    {
+        $path = '/admin/intakes/' . urlencode($intakeId) . '/materialization-snapshot';
+        if ($expectedIntakeVersion !== null) {
+            $path .= '?expected_intake_version=' . (int) $expectedIntakeVersion;
+        }
+        return $this->request('GET', $path);
     }
 }
