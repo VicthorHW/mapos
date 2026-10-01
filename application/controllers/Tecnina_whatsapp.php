@@ -8,6 +8,8 @@ class Tecnina_whatsapp extends MY_Controller
     {
         parent::__construct();
         $this->load->library('tecnina_bot_gateway');
+        $this->load->library('tecnina_attachment_storage');
+        $this->load->model('Tecnina_receiving_model');
     }
 
     public function index()
@@ -76,6 +78,7 @@ class Tecnina_whatsapp extends MY_Controller
         }
 
         $result = $this->tecnina_bot_gateway->request('GET', $paths[$resource]);
+
         if (
             $result['ok']
             && in_array($resource, ['intakes', 'intake-history'], true)
@@ -83,7 +86,7 @@ class Tecnina_whatsapp extends MY_Controller
         ) {
             $result['data'] = $this->withMaposClientNames($result['data']);
         }
-        return $this->json($result, $result['status']);
+        return $this->json($result, $result['status'] ?? 200);
     }
 
     public function pre_atendimento($intakeId = '', $action = '')
@@ -98,14 +101,33 @@ class Tecnina_whatsapp extends MY_Controller
         $method = $this->input->method(true);
         if ($method === 'GET' && $action === '') {
             $result = $this->tecnina_bot_gateway->request('GET', '/admin/intakes/' . rawurlencode($intakeId));
+
             if ($result['ok'] && is_array($result['data'])) {
                 $rows = $this->withMaposClientNames([$result['data']]);
                 $result['data'] = $rows[0];
+                $result['data']['receiving'] = $this->Tecnina_receiving_model->getReceiving($intakeId) ?? [
+                    'state' => 'PENDING_DELIVERY',
+                    'device_condition' => null,
+                    'accessories' => null,
+                    'serial_number' => null,
+                    'imei' => null,
+                    'other_identifiers' => null,
+                    'notes' => null,
+                    'received_at' => null,
+                    'received_by' => null,
+                    'received_by_name' => null,
+                ];
+                $result['data']['attachments'] = $this->Tecnina_receiving_model->getAttachments($intakeId);
+                $result['data']['location_data'] = $this->Tecnina_receiving_model->getLocation($intakeId);
             }
-            return $this->json($result, $result['status']);
+            return $this->json($result, $result['status'] ?? 200);
         }
         if ($method !== 'POST' || ! in_array($action, ['save', 'reject', 'approve', 'pickup-fee'], true)) {
             return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+        }
+
+        if (! $this->authorizedMutation(true)) {
+            return;
         }
 
         $operatorId = (int) $this->session->userdata('id_admin');
@@ -115,6 +137,29 @@ class Tecnina_whatsapp extends MY_Controller
         $version = filter_var($this->input->post('review_version'), FILTER_VALIDATE_INT);
         if ($version === false || $version < 0) {
             return $this->json(['ok' => false, 'reason' => 'invalid_review_version'], 422);
+        }
+
+        if ($action === 'save') {
+            $payload = [
+                'review_version' => $version,
+                'name' => trim((string) $this->input->post('name', true)) ?: null,
+                'city' => trim((string) $this->input->post('city', true)) ?: null,
+                'device_type' => trim((string) $this->input->post('device_type', true)) ?: null,
+                'brand' => trim((string) $this->input->post('brand', true)) ?: null,
+                'model' => trim((string) $this->input->post('model', true)) ?: null,
+                'problem_description' => trim((string) $this->input->post('problem_description', true)) ?: null,
+                'notes' => trim((string) $this->input->post('notes', true)) ?: null,
+            ];
+            $sm = trim((string) $this->input->post('service_mode', true));
+            if ($sm === 'DROPOFF') {
+                $sm = 'DROP_OFF';
+            }
+            if (in_array($sm, ['DROP_OFF', 'PICKUP_REQUESTED'], true)) {
+                $payload['service_mode'] = $sm;
+            }
+            $payload = array_filter($payload, function ($v) { return $v !== null; });
+            $result = $this->tecnina_bot_gateway->request('PUT', '/admin/intakes/' . rawurlencode($intakeId), $payload);
+            return $this->json($result, $result['status'] ?? 200);
         }
 
         if ($action === 'reject') {
@@ -638,23 +683,339 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status']);
     }
 
+    public function receiving($intakeId = '')
+    {
+        $method = $this->input->method(true);
+        if ($method === 'GET') {
+            if (! $this->authorizedRead(true)) {
+                return;
+            }
+            if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+            }
+
+            $receiving = $this->Tecnina_receiving_model->getReceiving($intakeId) ?? [
+                'state' => 'PENDING_DELIVERY',
+                'device_condition' => null,
+                'accessories' => null,
+                'serial_number' => null,
+                'imei' => null,
+                'other_identifiers' => null,
+                'notes' => null,
+                'received_at' => null,
+                'received_by' => null,
+                'received_by_name' => null,
+            ];
+            $attachments = $this->Tecnina_receiving_model->getAttachments($intakeId);
+            $location = $this->Tecnina_receiving_model->getLocation($intakeId);
+            return $this->json([
+                'ok' => true,
+                'intake_id' => $intakeId,
+                'receiving' => $receiving,
+                'attachments' => $attachments,
+                'location' => $location,
+            ], 200);
+        }
+
+        if ($method !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'invalid_method'], 405);
+        }
+
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($operatorId <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
+        }
+
+        $action = (string) $this->input->post('action', true);
+        $payload = [
+            'device_condition' => $this->input->post('device_condition', true),
+            'accessories' => $this->input->post('accessories', true),
+            'serial_number' => $this->input->post('serial_number', true),
+            'imei' => $this->input->post('imei', true),
+            'other_identifiers' => $this->input->post('other_identifiers', true),
+            'notes' => $this->input->post('notes', true),
+        ];
+
+        if ($action === 'prepare') {
+            $record = $this->Tecnina_receiving_model->savePreparation($intakeId, $payload, $operatorId);
+            if (! $record['ok']) {
+                $status = ($record['reason'] === 'receiving_already_confirmed') ? 409 : 422;
+                return $this->json($record, $status);
+            }
+            return $this->json($record, 200);
+        }
+
+        $idempotencyKey = $this->input->get_request_header('Idempotency-Key', true);
+        if (empty($idempotencyKey)) {
+            $idempotencyKey = $this->input->post('idempotency_key', true);
+        }
+
+        if (empty($idempotencyKey) || ! preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', (string) $idempotencyKey)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_idempotency_key'], 422);
+        }
+
+        // Explicit physical receipt confirmation
+        $result = $this->Tecnina_receiving_model->confirmPhysicalReceipt($intakeId, $operatorId, $payload, $idempotencyKey);
+        if (! $result['ok']) {
+            $status = in_array($result['reason'], ['idempotency_conflict', 'receiving_already_confirmed'], true) ? 409 : 422;
+            return $this->json($result, $status);
+        }
+
+        return $this->json($result, 200);
+    }
+
+    public function attachments($intakeId = '')
+    {
+        $method = $this->input->method(true);
+        if ($method === 'GET') {
+            if (! $this->authorizedRead(true)) {
+                return;
+            }
+            if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+                return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+            }
+            $list = $this->Tecnina_receiving_model->getAttachments($intakeId);
+            return $this->json(['ok' => true, 'data' => $list], 200);
+        }
+
+        if ($method !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'invalid_method'], 405);
+        }
+
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        if (! isset($_FILES['file']) || ! is_uploaded_file($_FILES['file']['tmp_name'])) {
+            return $this->json(['ok' => false, 'reason' => 'missing_file'], 422);
+        }
+
+        $currentTotal = $this->Tecnina_receiving_model->getTotalAttachmentBytes($intakeId);
+        $validation = $this->tecnina_attachment_storage->validateUpload($_FILES['file'], $currentTotal);
+        if (! $validation['ok']) {
+            return $this->json($validation, 422);
+        }
+
+        $stored = $this->tecnina_attachment_storage->storeUpload($_FILES['file'], $validation);
+        if (! $stored['ok']) {
+            return $this->json($stored, 500);
+        }
+
+        $caption = $this->input->post('caption', true);
+        $saved = $this->Tecnina_receiving_model->saveAttachment(
+            $intakeId,
+            $stored['original_name'],
+            $stored['storage_key'],
+            $stored['detected_mime'],
+            $stored['size_bytes'],
+            $stored['sha256'],
+            $caption
+        );
+
+        return $this->json(['ok' => true, 'result' => 'uploaded', 'data' => $saved], 201);
+    }
+
+    public function attachment_download($intakeId = '', $attachmentId = 0)
+    {
+        if (! $this->authorizedRead(false)) {
+            return;
+        }
+        $attachmentId = (int) $attachmentId;
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId) || $attachmentId <= 0) {
+            show_404();
+            return;
+        }
+
+        $row = $this->Tecnina_receiving_model->getAttachment($intakeId, $attachmentId);
+        if (! $row) {
+            show_404();
+            return;
+        }
+
+        $path = $this->tecnina_attachment_storage->resolveFilePath($row['storage_key'], false);
+        if (! $path || ! file_exists($path)) {
+            show_404();
+            return;
+        }
+
+        $mime = $row['detected_mime'] ?: 'application/octet-stream';
+        $filename = rawurlencode($row['original_name']);
+
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: attachment; filename="' . addslashes($row['original_name']) . '"; filename*=UTF-8\'\'' . $filename);
+        header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, no-cache, no-store, must-revalidate');
+        readfile($path);
+        exit;
+    }
+
+    public function attachment_thumbnail($intakeId = '', $attachmentId = 0)
+    {
+        if (! $this->authorizedRead(false)) {
+            return;
+        }
+        $attachmentId = (int) $attachmentId;
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId) || $attachmentId <= 0) {
+            show_404();
+            return;
+        }
+
+        $row = $this->Tecnina_receiving_model->getAttachment($intakeId, $attachmentId);
+        if (! $row || ! in_array($row['detected_mime'], ['image/jpeg', 'image/png'], true)) {
+            show_404();
+            return;
+        }
+
+        $path = $this->tecnina_attachment_storage->resolveFilePath($row['storage_key'], true);
+        if (! $path || ! file_exists($path)) {
+            $path = $this->tecnina_attachment_storage->resolveFilePath($row['storage_key'], false);
+        }
+
+        if (! $path || ! file_exists($path)) {
+            show_404();
+            return;
+        }
+
+        header('Content-Type: ' . $row['detected_mime']);
+        header('Content-Disposition: inline');
+        header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, max-age=3600');
+        readfile($path);
+        exit;
+    }
+
+    public function attachment_delete($intakeId = '', $attachmentId = 0)
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+        $attachmentId = (int) $attachmentId;
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId) || $attachmentId <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_request'], 400);
+        }
+
+        $row = $this->Tecnina_receiving_model->getAttachment($intakeId, $attachmentId);
+        if (! $row) {
+            return $this->json(['ok' => false, 'reason' => 'attachment_not_found'], 404);
+        }
+
+        $this->tecnina_attachment_storage->deleteFile($row['storage_key']);
+        $this->Tecnina_receiving_model->deleteAttachment($intakeId, $attachmentId);
+
+        return $this->json(['ok' => true, 'result' => 'deleted'], 200);
+    }
+
+    public function location($intakeId = '')
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $lat = $this->input->post('latitude');
+        $lon = $this->input->post('longitude');
+        if (! is_numeric($lat) || ! is_numeric($lon) || (float) $lat < -90 || (float) $lat > 90 || (float) $lon < -180 || (float) $lon > 180) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_coordinates'], 422);
+        }
+
+        $saved = $this->Tecnina_receiving_model->saveLocation($intakeId, [
+            'adjusted_latitude' => (float) $lat,
+            'adjusted_longitude' => (float) $lon,
+            'adjusted_accuracy_meters' => $this->input->post('accuracy') ? (float) $this->input->post('accuracy') : null,
+            'adjusted_source' => 'STAFF_ADJUSTED',
+        ]);
+
+        return $this->json(['ok' => true, 'result' => 'saved', 'data' => $saved], 200);
+    }
+
+    public function trigger_deferred_registration($intakeId = '')
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/intakes/' . rawurlencode($intakeId) . '/deferred-registration',
+            ['purpose' => 'DEFERRED_AT_RECEIVING']
+        );
+
+        return $this->json($result, $result['status'] ?? 200);
+    }
+
     private function validateSimulationId($simulationId)
     {
         return (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', (string) $simulationId);
     }
 
-    private function authorized($json = false)
+    private function checkAccess(array $allowedPerms, $json = false)
     {
-        if ($this->permission->checkPermission($this->session->userdata('permissao'), 'cSistema')) {
+        if (! $this->session->userdata('logado')) {
+            if ($json) {
+                $this->json(['ok' => false, 'reason' => 'unauthorized'], 401);
+            } else {
+                redirect(site_url('login'));
+            }
+            return false;
+        }
+
+        $perm = $this->session->userdata('permissao');
+        $hasPerm = false;
+        foreach ($allowedPerms as $permKey) {
+            if ($this->permission->checkPermission($perm, $permKey)) {
+                $hasPerm = true;
+                break;
+            }
+        }
+
+        if ($hasPerm) {
             return true;
         }
+
         if ($json) {
             $this->json(['ok' => false, 'reason' => 'forbidden'], 403);
         } else {
-            $this->session->set_flashdata('error', 'Você não tem permissão para configurar o sistema');
+            $this->session->set_flashdata('error', 'Você não tem permissão para acessar esta área');
             redirect(base_url());
         }
         return false;
+    }
+
+    private function authorizedRead($json = false)
+    {
+        return $this->checkAccess(['cSistema', 'vOs', 'aOs', 'eOs'], $json);
+    }
+
+    private function authorizedMutation($json = false)
+    {
+        return $this->checkAccess(['cSistema', 'aOs', 'eOs'], $json);
+    }
+
+    private function authorized($json = false, $requireAdmin = false)
+    {
+        if ($requireAdmin) {
+            return $this->checkAccess(['cSistema'], $json);
+        }
+        return $this->authorizedRead($json);
     }
 
     private function preparePanel($view)

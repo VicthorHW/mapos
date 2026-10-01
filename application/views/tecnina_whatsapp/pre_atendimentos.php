@@ -5,7 +5,7 @@
             <div class="widget-title"><span class="icon"><i class="bx bx-conversation"></i></span><h5>Pré-atendimentos</h5></div>
             <div class="widget-content">
                 <div class="wa-page-heading">
-                    <div><h3>Revisão de pré-atendimentos</h3><p class="muted">Revise as solicitações recebidas pelo WhatsApp e transforme-as em ordens de serviço.</p></div>
+                    <div><h3>Revisão e Recebimento Físico</h3><p class="muted">Inspecione a condição física, registre acessórios e identificadores, anexe fotos de triagem e confirme a posse física do equipamento.</p></div>
                     <div class="btn-group wa-history-filter" data-toggle="buttons-radio">
                         <button type="button" class="btn btn-primary active" data-list="pending">Pendentes</button>
                         <button type="button" class="btn" data-list="history">Histórico</button>
@@ -23,6 +23,30 @@
         </div>
     </div>
 </div>
-<div id="wa-panel-config" data-base="<?= html_escape(site_url('tecnina_whatsapp')); ?>" data-os-edit-base="<?= html_escape(site_url('os/editar')); ?>" data-csrf-name="<?= html_escape($csrfName); ?>" data-csrf-hash="<?= html_escape($csrfHash); ?>" style="display:none"></div>
+
+<div id="modal-confirm-receiving" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="modalReceivingLabel" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h4 id="modalReceivingLabel"><i class="fas fa-boxes"></i> Confirmar Recebimento Físico</h4>
+    </div>
+    <div class="modal-body">
+        <div class="alert alert-info">
+            <strong>Atestação de Posse Física:</strong> Esta ação confirma que a <strong>TecNina recebeu fisicamente o equipamento</strong>.<br>
+            <small>Nenhuma Ordem de Serviço (OS) será criada nesta etapa (fronteira estrita S06A).</small>
+        </div>
+        <div id="modal-receiving-summary" class="well well-small"></div>
+        <div class="control-group" style="margin-top:10px;">
+            <label class="checkbox">
+                <input type="checkbox" id="wa-confirm-possession-ack"> <strong>Confirmo que o equipamento acima foi fisicamente entregue e está em posse da equipe TecNina.</strong>
+            </label>
+        </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn btn-warning" data-dismiss="modal" aria-hidden="true">Cancelar</button>
+        <button class="btn btn-success" id="btn-submit-physical-receipt" disabled><i class="fas fa-check"></i> Confirmar Posse Física</button>
+    </div>
+</div>
+
+<div id="wa-panel-config" data-base="<?= html_escape(site_url('tecnina_whatsapp')); ?>" data-receiving-base="<?= html_escape(site_url('tecnina/pre-atendimentos')); ?>" data-os-edit-base="<?= html_escape(site_url('os/editar')); ?>" data-csrf-name="<?= html_escape($csrfName); ?>" data-csrf-hash="<?= html_escape($csrfHash); ?>" style="display:none"></div>
 <script src="<?= base_url(); ?>assets/tecnina/js/whatsapp-panel-diagnostics.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/whatsapp-panel-diagnostics.js'); ?>"></script>
 <script src="<?= base_url(); ?>assets/tecnina/js/pre-attendance-panel.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/pre-attendance-panel.js'); ?>"></script>

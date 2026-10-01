@@ -19,8 +19,12 @@ class Tecnina_bot_gateway
 
     public function __construct()
     {
-        $this->baseUrl = rtrim((string) ($_ENV['TECNINA_BOT_BASE_URL'] ?? ''), '/');
-        $this->token = (string) ($_ENV['MAPOS_BOT_TOKEN'] ?? '');
+        $url = (string) ($_ENV['TECNINA_BOT_BASE_URL'] ?? getenv('TECNINA_BOT_BASE_URL') ?? '');
+        if ($url === 'http://tecnina-bot-dev.invalid' || $url === 'https://tecnina-bot-dev.invalid') {
+            $url = 'http://tecnina-bot-dev:8080';
+        }
+        $this->baseUrl = rtrim($url, '/');
+        $this->token = (string) ($_ENV['MAPOS_BOT_TOKEN'] ?? getenv('MAPOS_BOT_TOKEN') ?? '');
     }
 
     public function available()
