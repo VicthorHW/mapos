@@ -29,10 +29,13 @@
 
 $GLOBALS['s07_assertions'] = 0;
 
-function expectS07($condition, $message) {
+function expectS07($condition, $message, $extra = null) {
     ++$GLOBALS['s07_assertions'];
     if (! $condition) {
         fwrite(STDERR, "[FAIL] " . $message . PHP_EOL);
+        if ($extra !== null) {
+            fwrite(STDERR, "[DETAIL] " . (is_string($extra) ? $extra : json_encode($extra, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) . PHP_EOL);
+        }
         exit(1);
     }
 }
@@ -73,8 +76,8 @@ function buildSealedSnapshot(array $overrides = []): array {
         'seal_expires_at' => $sealExpires,
         'data' => [
             'name' => 'Cliente Teste S07',
-            'phone_canonical' => '+5541998877665',
-            'registration_cpf' => '12345678901',
+            'phone_canonical' => '+55419' . mt_rand(10000000, 99999999),
+            'registration_cpf' => sprintf('%011d', mt_rand(10000000000, 99999999999)),
             'registration_choice' => 'REGISTER_NOW',
             'registration_email' => 'cliente.s07@example.invalid',
             'registration_postal_code' => '80000000',
@@ -212,17 +215,19 @@ $stagedAttachmentId = (int) $db->insert_id();
 
 $test2Phone = '+55419' . mt_rand(10000000, 99999999);
 $test2PhoneDigits = substr($test2Phone, 1);
+$test2Cpf = sprintf('%011d', mt_rand(10000000000, 99999999999));
 
 $snap2 = buildSealedSnapshot([
     'intake_id' => $intakeId2,
     'data' => [
         'phone_canonical' => $test2Phone,
+        'registration_cpf' => $test2Cpf,
         'account_password_hash' => $opaqueHash,
     ],
 ]);
 
 $res2 = $matService->materialize($intakeId2, 1, [], $snap2);
-expectS07($res2['ok'] === true, 'Test 2: Materialization must succeed');
+expectS07($res2['ok'] === true, 'Test 2: Materialization must succeed', $res2);
 expectS07($res2['result'] === 'created', 'Test 2: Result must be created');
 expectS07($res2['client_created'] === true, 'Test 2: Client must be newly created');
 expectS07($res2['client_id'] > 0, 'Test 2: Client ID must be valid');
@@ -233,7 +238,7 @@ expectS07($res2['attachment_sync_state'] === 'COMPLETED', 'Test 2: Attachments m
 $clientRow2 = $db->get_where('clientes', ['idClientes' => $res2['client_id']])->row_array();
 expectS07(! empty($clientRow2), 'Test 2: Client record must exist');
 expectS07($clientRow2['nomeCliente'] === 'Cliente Teste S07', 'Test 2: Client name must match');
-expectS07($clientRow2['documento'] === '12345678901', 'Test 2: CPF must match');
+expectS07($clientRow2['documento'] === $test2Cpf, 'Test 2: CPF must match');
 expectS07($clientRow2['email'] === 'cliente.s07@example.invalid', 'Test 2: Email must match');
 expectS07($clientRow2['rua'] === 'Rua Marechal Deodoro', 'Test 2: Registered street must match');
 expectS07($clientRow2['numero'] === '500', 'Test 2: Registered number must match');
