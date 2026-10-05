@@ -422,6 +422,12 @@
             if (!isReceived) {
                 actions += '<button type="button" class="btn btn-primary wa-receiving-save"><i class="fas fa-save"></i> Salvar preparação</button> ';
                 actions += '<button type="button" class="btn btn-success wa-receiving-modal-open"><i class="fas fa-boxes"></i> Confirmar recebimento físico</button> ';
+            } else {
+                if (data.mapos_os_id) {
+                    actions += '<a href="' + esc(osEditBase + '/' + data.mapos_os_id) + '" class="btn btn-info btn-large" target="_blank"><i class="fas fa-external-link-alt"></i> Ver Ordem de Serviço #' + esc(data.mapos_os_id) + '</a> ';
+                } else {
+                    actions += '<button type="button" class="btn btn-success btn-large" id="btn-materialize-os" data-id="' + esc(data.id) + '"><i class="fas fa-file-invoice"></i> Converter em Ordem de Serviço (OS)</button> ';
+                }
             }
             actions += '<button type="button" class="btn btn-danger wa-intake-reject">Descartar</button>';
 
@@ -686,6 +692,33 @@
             $('#wa-readiness-content').html('<i class="fas fa-spinner fa-spin"></i> Reavaliando prontidão…');
             fetchReadiness(intakeId);
         }
+    });
+
+    $(document).on('click', '#btn-materialize-os', function (e) {
+        e.preventDefault();
+        var btn = $(this);
+        var intakeId = String(btn.data('id'));
+        if (!intakeId) { return; }
+
+        if (!window.confirm('Deseja converter este pré-atendimento em Ordem de Serviço (OS) definitiva no MapOS?')) {
+            return;
+        }
+
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Convertendo em OS…');
+        clearError();
+
+        request('/tecnina/pre-atendimentos/' + encodeURIComponent(intakeId) + '/materialize', 'POST', {}, function (res) {
+            btn.remove();
+            if (res.ok && res.os_id) {
+                var successBox = '<div class="alert alert-success" style="margin-top:12px;">' +
+                    '<h4><i class="fas fa-check-double"></i> OS #' + esc(res.os_id) + ' Materializada com Sucesso!</h4>' +
+                    '<p>Cliente ID: #' + esc(res.client_id) + (res.client_created ? ' (Novo cadastro criado)' : ' (Vínculo a cadastro existente)') + '</p>' +
+                    '<a href="' + esc(osEditBase + '/' + res.os_id) + '" class="btn btn-success" target="_blank"><i class="fas fa-external-link-alt"></i> Acessar OS #' + esc(res.os_id) + '</a>' +
+                    '</div>';
+                $('#wa-readiness-widget-container').append(successBox);
+                loadList();
+            }
+        });
     });
 
     var booted = false;

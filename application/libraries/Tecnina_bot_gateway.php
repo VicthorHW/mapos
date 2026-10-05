@@ -213,6 +213,7 @@ class Tecnina_bot_gateway
                 'simulation_operational_config_unavailable',
                 'snapshot_stale',
                 'intake_sealed_in_materialization',
+                'snapshot_identity_conflict',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
@@ -242,5 +243,11 @@ class Tecnina_bot_gateway
             $path .= '?expected_intake_version=' . (int) $expectedIntakeVersion;
         }
         return $this->request('GET', $path);
+    }
+
+    public function finalizeMaterialization(string $intakeId, array $payload): array
+    {
+        $path = '/admin/intakes/' . urlencode($intakeId) . '/materializations/finalize';
+        return $this->request('POST', $path, $payload);
     }
 }

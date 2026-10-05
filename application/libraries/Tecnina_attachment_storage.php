@@ -302,4 +302,102 @@ class Tecnina_attachment_storage
         $clean = trim($clean, '. ');
         return mb_substr($clean ?: 'anexo', 0, 255);
     }
+
+    /**
+     * Promote a staged pre-OS attachment to MapOS definitive attachments (`anexos`).
+     * Governed by ADR-005.
+     *
+     * @param int $attachmentId Row ID in tecnina_pre_os_attachments
+     * @param int $osId Destination MapOS OS ID
+     * @return int|null The newly created or existing idAnexos, or null on failure
+     */
+    public function promoteAttachment(int $attachmentId, int $osId): ?int
+    {
+        $CI = &get_instance();
+        $CI->load->database();
+
+        $row = $CI->db->get_where('tecnina_pre_os_attachments', ['id' => $attachmentId])->row_array();
+        if (! $row) {
+            return null;
+        }
+
+        // Idempotency: if already promoted, return existing anexo ID
+        if ($row['state'] === 'PROMOTED' && ! empty($row['promoted_anexo_id'])) {
+            return (int) $row['promoted_anexo_id'];
+        }
+
+        $srcPath = $this->resolveFilePath($row['storage_key'], false);
+        if (! $srcPath || ! file_exists($srcPath)) {
+            $CI->db->where('id', $attachmentId)->update('tecnina_pre_os_attachments', [
+                'state' => 'FAILED',
+                'last_error_code' => 'source_file_missing',
+                'attempt_count' => (int) $row['attempt_count'] + 1,
+            ]);
+            return null;
+        }
+
+        // Destination directory: assets/anexos inside MapOS
+        $destDir = FCPATH . 'assets' . DIRECTORY_SEPARATOR . 'anexos' . DIRECTORY_SEPARATOR;
+        if (! is_dir($destDir)) {
+            @mkdir($destDir, 0755, true);
+        }
+
+        // Random server-generated filename in definitive storage
+        $ext = strtolower(pathinfo($row['storage_key'], PATHINFO_EXTENSION));
+        $destFilename = bin2hex(random_bytes(16)) . '.' . $ext;
+        $destPath = $destDir . $destFilename;
+
+        // Copy physical file
+        if (! @copy($srcPath, $destPath)) {
+            $CI->db->where('id', $attachmentId)->update('tecnina_pre_os_attachments', [
+                'state' => 'FAILED',
+                'last_error_code' => 'copy_failed',
+                'attempt_count' => (int) $row['attempt_count'] + 1,
+            ]);
+            return null;
+        }
+
+        // Verify checksum matches exactly
+        $destSha = hash_file('sha256', $destPath);
+        if ($destSha !== $row['sha256']) {
+            @unlink($destPath);
+            $CI->db->where('id', $attachmentId)->update('tecnina_pre_os_attachments', [
+                'state' => 'FAILED',
+                'last_error_code' => 'checksum_mismatch',
+                'attempt_count' => (int) $row['attempt_count'] + 1,
+            ]);
+            return null;
+        }
+
+        // Copy thumbnail if available
+        $thumbDestFilename = null;
+        $thumbSrc = $this->resolveFilePath($row['storage_key'], true);
+        if ($thumbSrc && file_exists($thumbSrc)) {
+            $thumbDestDir = $destDir . 'thumbs' . DIRECTORY_SEPARATOR;
+            if (! is_dir($thumbDestDir)) {
+                @mkdir($thumbDestDir, 0755, true);
+            }
+            $thumbDestFilename = 'thumb_' . $destFilename;
+            @copy($thumbSrc, $thumbDestDir . $thumbDestFilename);
+        }
+
+        // Insert into definitive anexos table
+        $CI->db->insert('anexos', [
+            'anexo' => mb_substr($row['original_name'], 0, 45),
+            'thumb' => $thumbDestFilename ? mb_substr($thumbDestFilename, 0, 45) : null,
+            'url' => base_url('assets/anexos/' . $destFilename),
+            'path' => $destDir,
+            'os_id' => $osId,
+        ]);
+        $anexoId = (int) $CI->db->insert_id();
+
+        // Update staging record to PROMOTED
+        $CI->db->where('id', $attachmentId)->update('tecnina_pre_os_attachments', [
+            'state' => 'PROMOTED',
+            'promoted_anexo_id' => $anexoId,
+            'updated_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        return $anexoId;
+    }
 }

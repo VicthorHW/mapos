@@ -993,6 +993,56 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status'] ?? 200);
     }
 
+    public function materialize($intakeId = '')
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        if (! preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', (string) $intakeId)) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_intake_id'], 400);
+        }
+
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($operatorId <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
+        }
+
+        $options = [];
+        $clientAction = $this->input->post('client_action');
+        if (in_array($clientAction, ['CREATE_NEW', 'LINK_EXISTING'], true)) {
+            $options['client_action'] = $clientAction;
+        }
+        $clientId = $this->input->post('client_id');
+        if (! empty($clientId) && is_numeric($clientId)) {
+            $options['client_id'] = (int) $clientId;
+        }
+        if ($this->input->post('force_create_new') !== null) {
+            $options['force_create_new'] = filter_var($this->input->post('force_create_new'), FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $this->load->library('Tecnina_materialization_service');
+        $result = $this->tecnina_materialization_service->materialize($intakeId, $operatorId, $options);
+
+        if (! ($result['ok'] ?? false)) {
+            $status = 422;
+            if (($result['reason'] ?? '') === 'snapshot_stale' || ($result['reason'] ?? '') === 'idempotency_conflict') {
+                $status = 409;
+            } elseif (($result['reason'] ?? '') === 'invalid_operator') {
+                $status = 403;
+            } elseif (($result['reason'] ?? '') === 'invalid_intake_id') {
+                $status = 400;
+            }
+            return $this->json($result, $status);
+        }
+
+        return $this->json($result, 200);
+    }
+
     private function validateSimulationId($simulationId)
     {
         return (bool) preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i', (string) $simulationId);
