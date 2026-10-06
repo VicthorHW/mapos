@@ -28,12 +28,20 @@ class Customer_welcome_email
         $this->CI->load->model('mapos_model');
         $this->CI->load->model('clientes_model');
         $this->CI->load->model('email_model');
+        $this->CI->load->library('Tecnina_notifications');
 
         $emitente = $this->CI->mapos_model->getEmitente();
         $cliente = $this->CI->clientes_model->getById($customerId);
 
         if (! $emitente || ! $cliente || ! filter_var($cliente->email, FILTER_VALIDATE_EMAIL) || ! filter_var($emitente->email, FILTER_VALIDATE_EMAIL)) {
             log_message('error', 'E-mail de boas-vindas não adicionado à fila. Cliente ID: ' . $customerId);
+
+            return false;
+        }
+
+        // ADJ-020: E-mail só recebe notificação quando real e confirmado.
+        if (! $this->CI->tecnina_notifications->isEmailNotificationAllowed($customerId, $cliente->email)) {
+            log_message('info', 'E-mail não confirmado; notificação de boas-vindas suprimida (ADJ-020). Cliente ID: ' . $customerId);
 
             return false;
         }
