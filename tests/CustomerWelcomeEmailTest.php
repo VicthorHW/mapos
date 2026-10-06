@@ -57,6 +57,16 @@ expectWelcomeContains(
     'O serviço deve usar a fila de e-mails existente.'
 );
 expectWelcomeContains(
+    "load->library('Tecnina_notifications')",
+    $welcomeLibrary,
+    'O serviço de boas-vindas deve carregar a biblioteca Tecnina_notifications (ADJ-020).'
+);
+expectWelcomeContains(
+    "isEmailNotificationAllowed(\$customerId, \$cliente->email)",
+    $welcomeLibrary,
+    'O serviço deve validar se o e-mail é confirmado antes de enfileirar (ADJ-020).'
+);
+expectWelcomeContains(
     'Sua conta na Área do Cliente já está liberada.',
     $welcomeView,
     'A boas-vindas deve informar que a conta já está liberada.'
