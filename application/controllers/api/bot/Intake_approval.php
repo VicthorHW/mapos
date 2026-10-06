@@ -20,14 +20,16 @@ class Intake_approval extends REST_Controller
 
     public function index_post($intakeId = null)
     {
-        if (! $this->authorizeRequest()) {
-            return;
-        }
-        if (! $this->validUuid($intakeId)) {
-            $this->response(['status' => false, 'reason' => 'invalid_intake_id'], self::HTTP_BAD_REQUEST);
+        // CIAO-S07 / Tech Lead Review: Deprecated endpoint.
+        // Materialization is strictly handled via Tecnina_materialization_service.
+        $this->response([
+            'status' => false,
+            'reason' => 'endpoint_deprecated',
+            'message' => 'Legacy intake approval endpoint is deprecated and disabled (HTTP 410 Gone). Materialization must be executed via Tecnina_materialization_service.',
+        ], self::HTTP_GONE);
 
-            return;
-        }
+        return;
+    }
 
         $input = $this->post();
         if (! is_array($input)

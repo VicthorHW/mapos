@@ -60,6 +60,7 @@ $route['api/bot/password-reset/issue'] = 'api/bot/identity/password_reset';
 $route['cliente/password-reset/(:any)'] = 'cliente/password_reset/$1';
 $route['api/bot/legal/current'] = 'api/bot/legal/current';
 $route['api/bot/legal/manifestations'] = 'api/bot/legal/manifestations';
+// DEPRECATED (CIAO-S07): Rota legada desativada (retorna HTTP 410 Gone). Toda materializacao ocorre via Tecnina_materialization_service.
 $route['api/bot/intakes/(:any)/approve'] = 'api/bot/intake_approval/index/$1';
 $route['tecnina/pre-atendimentos'] = 'tecnina_whatsapp/pre_atendimentos';
 $route['tecnina/pre-atendimentos/(:any)/receiving'] = 'tecnina_whatsapp/receiving/$1';
