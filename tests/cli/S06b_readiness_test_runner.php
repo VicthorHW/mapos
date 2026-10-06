@@ -1,16 +1,11 @@
 <?php
 
-defined('BASEPATH') or exit('No direct script access allowed');
+defined('BASEPATH') or require_once __DIR__ . '/bootstrap.php';
 
 class S06b_readiness_test_runner extends CI_Controller
 {
     public function index()
     {
-        if (! is_cli()) {
-            show_404();
-            return;
-        }
-
         $this->load->database();
         $this->load->library('tecnina_readiness_service');
         $this->load->library('tecnina_attachment_storage');
@@ -20,20 +15,18 @@ class S06b_readiness_test_runner extends CI_Controller
 
     public function count_os()
     {
-        if (! is_cli()) {
-            show_404();
-            return;
-        }
         $this->load->database();
         echo (int) $this->db->count_all('os');
     }
 
     public function ping_test()
     {
+        $botBaseUrl = getenv('BOT_INTERNAL_URL') ?: ($_ENV['BOT_INTERNAL_URL'] ?? 'http://127.0.0.1:8080');
+        $botBaseUrl = rtrim($botBaseUrl, '/');
         $hosts = ['tecnina-bot-dev.invalid', 'bot-dev.invalid', 'tecnina-bot-dev', 'mapos-dev.invalid'];
         $results = [];
         foreach ($hosts as $h) {
-            $ch = curl_init('http://10.0.12.1:18080/health/live');
+            $ch = curl_init("{$botBaseUrl}/health/live");
             curl_setopt($ch, CURLOPT_HTTPHEADER, ["Host: {$h}"]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 2);
@@ -47,11 +40,9 @@ class S06b_readiness_test_runner extends CI_Controller
 
     public function env_debug()
     {
-        if (! is_cli()) {
-            show_404();
-            return;
-        }
-        $ch = curl_init('http://tecnina-bot-dev:8080/health/live');
+        $botBaseUrl = getenv('BOT_INTERNAL_URL') ?: ($_ENV['BOT_INTERNAL_URL'] ?? 'http://tecnina-bot-dev:8080');
+        $botBaseUrl = rtrim($botBaseUrl, '/');
+        $ch = curl_init("{$botBaseUrl}/health/live");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
         curl_setopt($ch, CURLOPT_TIMEOUT, 5);
@@ -69,10 +60,6 @@ class S06b_readiness_test_runner extends CI_Controller
 
     public function users_debug()
     {
-        if (! is_cli()) {
-            show_404();
-            return;
-        }
         $this->load->database();
         $rows = $this->db->select('idUsuarios, nome, email, permissoes_id, situacao')->get('usuarios')->result_array();
         $perms = $this->db->get('permissoes')->result_array();
@@ -81,10 +68,6 @@ class S06b_readiness_test_runner extends CI_Controller
 
     public function setup_test_users()
     {
-        if (! is_cli()) {
-            show_404();
-            return;
-        }
         $this->load->database();
 
         // 1. Admin Operator
@@ -149,5 +132,16 @@ class S06b_readiness_test_runner extends CI_Controller
         }
 
         echo json_encode(['admin_id' => $adminId, 'view_user_id' => $viewUserId, 'view_perm_id' => $viewPermId]);
+    }
+}
+
+if (php_sapi_name() === 'cli' && realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === realpath(__FILE__)) {
+    $runner = new S06b_readiness_test_runner();
+    $method = $argv[1] ?? 'index';
+    if (method_exists($runner, $method)) {
+        $runner->$method();
+    } else {
+        fwrite(STDERR, "Unknown method: {$method}\n");
+        exit(1);
     }
 }
