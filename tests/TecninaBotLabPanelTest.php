@@ -237,4 +237,17 @@ expectBotLab(strpos($script, "$('#panel-scenarios-mode').show()") !== false, 'sw
 expectBotLab(strpos($script, "$('#panel-scenarios-mode').hide()") !== false, 'switchPanelMode não oculta #panel-scenarios-mode.');
 expectBotLab(strpos($script, "$('#panel-interactive-mode').show()") !== false, 'switchPanelMode não exibe #panel-interactive-mode.');
 
+// Contract AH: Post-intake and materialization state fields in Estado tab and script
+expectBotLab(strpos($view, 'id="st-registration-choice"') !== false, 'View não contém st-registration-choice.');
+expectBotLab(strpos($view, 'id="st-registration-state"') !== false, 'View não contém st-registration-state.');
+expectBotLab(strpos($view, 'id="st-materialization-state"') !== false, 'View não contém st-materialization-state.');
+expectBotLab(strpos($view, 'id="st-mapos-client-id"') !== false, 'View não contém st-mapos-client-id.');
+expectBotLab(strpos($view, 'id="st-mapos-os-id"') !== false, 'View não contém st-mapos-os-id.');
+expectBotLab(strpos($script, '#st-registration-choice') !== false, 'Browser JS não atualiza #st-registration-choice.');
+expectBotLab(strpos($script, '#st-registration-state') !== false, 'Browser JS não atualiza #st-registration-state.');
+expectBotLab(strpos($script, '#st-materialization-state') !== false, 'Browser JS não atualiza #st-materialization-state.');
+expectBotLab(strpos($script, '#st-mapos-client-id') !== false, 'Browser JS não atualiza #st-mapos-client-id.');
+expectBotLab(strpos($script, '#st-mapos-os-id') !== false, 'Browser JS não atualiza #st-mapos-os-id.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
+
