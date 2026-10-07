@@ -21,8 +21,10 @@
                 <div class="tab-content wa-tab-content">
                     <div class="tab-pane active" id="wa-status">
                         <h4>Saúde dos serviços</h4>
-                        <p class="muted">Resumo técnico da integração neste momento.</p>
+                        <p class="muted">Status da infraestrutura e dos serviços do ecossistema TECNINA.</p>
                         <div id="wa-overview" class="wa-health-grid"><div class="wa-loading"><i class="fas fa-spinner fa-spin"></i> Carregando visão geral…</div></div>
+                        <div id="wa-overview-watchdog" style="margin-top:20px;"></div>
+                        <div id="wa-overview-queue" style="margin-top:12px;"></div>
                     </div>
                     <div class="tab-pane" id="wa-conversas"><div id="wa-conversations" class="wa-loading">Carregando…</div></div>
                     <div class="tab-pane" id="wa-cidades"><div id="wa-pickup-cities" class="wa-loading">Carregando…</div></div>

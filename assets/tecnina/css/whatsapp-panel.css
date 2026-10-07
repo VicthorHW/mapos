@@ -5,7 +5,7 @@
 .wa-loading { color: #777; padding: 18px 0; }
 .wa-section { margin-bottom: 28px; }
 .wa-section + .wa-section { border-top: 1px solid #e5e5e5; padding-top: 22px; }
-.wa-health-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 760px; }
+.wa-health-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 960px; }
 .wa-health-card { align-items: center; background: #fff; border: 1px solid #ddd; border-left: 5px solid #999; border-radius: 5px; display: flex; gap: 12px; min-height: 62px; padding: 12px 14px; }
 .wa-health-card.is-ok { border-left-color: #2e9b58; }
 .wa-health-card.is-warning { border-left-color: #e5a817; }
