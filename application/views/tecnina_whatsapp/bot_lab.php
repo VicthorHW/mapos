@@ -268,6 +268,11 @@
                                                 <tr><td><strong>Human takeover</strong></td><td id="st-human-takeover">—</td></tr>
                                                 <tr><td><strong>Capabilities pendentes</strong></td><td id="st-capability-count">—</td></tr>
                                                 <tr><td><strong>Tipos de capability</strong></td><td id="st-capability-purposes">—</td></tr>
+                                                <tr><td><strong>Opção de cadastro</strong></td><td id="st-registration-choice">—</td></tr>
+                                                <tr><td><strong>Estado de cadastro</strong></td><td id="st-registration-state">—</td></tr>
+                                                <tr><td><strong>Materialização</strong></td><td id="st-materialization-state">—</td></tr>
+                                                <tr><td><strong>Cliente MapOS final</strong></td><td id="st-mapos-client-id">—</td></tr>
+                                                <tr><td><strong>OS MapOS final</strong></td><td id="st-mapos-os-id">—</td></tr>
                                             </tbody>
                                         </table>
                                         <h5 style="margin-top:15px; margin-bottom:5px; font-size:12px; text-transform:uppercase; color:#666;">Configuração operacional da sessão</h5>

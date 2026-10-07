@@ -300,6 +300,11 @@
         $('#st-capability-count').text(st.pending_capability_count != null ? st.pending_capability_count : '0');
         var caps = (st.capability_purposes && st.capability_purposes.length) ? st.capability_purposes.join(', ') : '—';
         $('#st-capability-purposes').text(caps);
+        $('#st-registration-choice').text(st.registration_choice || '—');
+        $('#st-registration-state').text(st.registration_state || '—');
+        $('#st-materialization-state').text(st.materialization_state || '—');
+        $('#st-mapos-client-id').text(st.mapos_client_id != null ? st.mapos_client_id : '—');
+        $('#st-mapos-os-id').text(st.mapos_os_id != null ? st.mapos_os_id : '—');
 
         var op = sessionView.operational_config || {};
         $('#st-op-captured-at').text(op.captured_at ? op.captured_at : '—');
