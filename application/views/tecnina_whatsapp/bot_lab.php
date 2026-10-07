@@ -16,6 +16,29 @@
                 <div id="bot-lab-error" class="alert alert-error" style="display:none"></div>
                 <div id="bot-lab-success" class="alert alert-success" style="display:none"></div>
 
+                <!-- Service Watchdog Inspection Box -->
+                <div id="bot-lab-watchdog-box" class="bot-lab-watchdog-box">
+                    <div class="bot-lab-watchdog-header">
+                        <div class="bot-lab-watchdog-title">
+                            <i class="bx bx-pulse" style="font-size: 16px; color: #0088cc; vertical-align: middle;"></i>
+                            <strong>Watchdog de Serviços & Auto-Recuperação</strong>
+                            <span id="bot-lab-watchdog-badge" class="badge">Verificando...</span>
+                        </div>
+                        <div class="bot-lab-watchdog-actions">
+                            <label class="bot-lab-watchdog-toggle-label" title="Ativar ou desativar recuperação automática de serviços">
+                                <input type="checkbox" id="bot-lab-watchdog-toggle"> Auto-Recuperação
+                            </label>
+                            <button type="button" class="btn btn-mini btn-info" id="bot-lab-watchdog-recover-btn" title="Executar teste de auto-reconexão">
+                                <i class="bx bx-refresh"></i> Reconectar agora
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bot-lab-watchdog-footer">
+                        <span id="bot-lab-watchdog-stats" class="muted bot-lab-watchdog-stats">Carregando métricas de serviços...</span>
+                        <span id="bot-lab-watchdog-feedback" class="bot-lab-watchdog-feedback"></span>
+                    </div>
+                </div>
+
                 <div class="bot-lab-nav-header">
                     <ul class="nav nav-tabs" id="bot-lab-mode-tabs" style="margin-bottom: 0;">
                         <li class="active"><a href="#" id="tab-nav-interactive"><i class="bx bx-chat"></i> Sessão Interativa</a></li>
@@ -344,6 +367,18 @@
                                 <button type="button" class="btn btn-primary btn-block" id="btn-run-selected" data-action="btn-run-scenarios">
                                     <i class="bx bx-check-square"></i> Executar selecionados
                                 </button>
+                            </div>
+                        </div>
+                        <div class="row-fluid" style="margin-top: 8px;">
+                            <div class="span12">
+                                <span class="muted" style="font-size: 11px; margin-right: 6px;">Atalhos de tags:</span>
+                                <div id="sc-quick-tags" class="sc-quick-tags" style="display: inline-block;">
+                                    <button type="button" class="btn btn-mini sc-quick-tag-btn" data-tag="">Todas</button>
+                                    <button type="button" class="btn btn-mini btn-danger sc-quick-tag-btn" data-tag="high-risk"><i class="bx bx-shield-quarter"></i> high-risk</button>
+                                    <button type="button" class="btn btn-mini btn-warning sc-quick-tag-btn" data-tag="materialization"><i class="bx bx-check-shield"></i> materialization</button>
+                                    <button type="button" class="btn btn-mini btn-info sc-quick-tag-btn" data-tag="post-intake"><i class="bx bx-user-check"></i> post-intake</button>
+                                    <button type="button" class="btn btn-mini sc-quick-tag-btn" data-tag="compliance"><i class="bx bx-file"></i> compliance</button>
+                                </div>
                             </div>
                         </div>
                         <div class="row-fluid" style="margin-top: 10px;">
