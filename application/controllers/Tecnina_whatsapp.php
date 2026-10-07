@@ -70,6 +70,7 @@ class Tecnina_whatsapp extends MY_Controller
             'status-rules' => '/admin/status-rules',
             'templates' => '/admin/templates',
             'settings' => '/admin/settings/status-notifications',
+            'watchdog' => '/admin/watchdog',
             'pickup-cities' => '/admin/pickup-cities',
             'dropoff-schedule' => '/admin/dropoff-schedule',
         ];
@@ -271,6 +272,31 @@ class Tecnina_whatsapp extends MY_Controller
         $enabled = filter_var($this->input->post('enabled'), FILTER_VALIDATE_BOOLEAN);
         $result = $this->tecnina_bot_gateway->request('PUT', '/admin/settings/status-notifications', ['enabled' => $enabled]);
         return $this->json($result, $result['status']);
+    }
+
+    public function watchdog_toggle()
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        $enabled = filter_var($this->input->post('enabled'), FILTER_VALIDATE_BOOLEAN);
+        $result = $this->tecnina_bot_gateway->request('POST', '/admin/watchdog/toggle', ['enabled' => $enabled]);
+        return $this->json($result, $result['status'] ?? 200);
+    }
+
+    public function watchdog_recover()
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+        $result = $this->tecnina_bot_gateway->request('POST', '/admin/watchdog/recover', []);
+        return $this->json($result, $result['status'] ?? 200);
     }
 
     public function entrega_configuracao()

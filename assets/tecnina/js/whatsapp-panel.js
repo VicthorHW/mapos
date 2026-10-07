@@ -63,20 +63,90 @@
     }
     function componentLabel(component) {
         if (!component) { return 'Sem informação'; }
+        if (component.instance_state) {
+            var stateMap = {
+                'open': 'Conectado (open)',
+                'close': 'Desconectado (close)',
+                'connecting': 'Conectando…',
+                'unavailable': 'Indisponível'
+            };
+            return stateMap[component.instance_state] || (component.ok ? 'Funcionando normalmente' : 'Indisponível');
+        }
         return component.ok ? 'Funcionando normalmente' : 'Indisponível';
     }
     function renderConnection() {
         if (!overviewData) { return; }
         var components = overviewData.components || {};
         var evolution = components.evolution || {};
-        var gateway = components.gateway || {};
+        var bot = components.bot || components.gateway || {};
         var mapos = components.mapos || {};
         var manager = evolution.manager_url ? '<p style="margin:14px 0 0"><a class="btn btn-primary" href="' + esc(evolution.manager_url) + '" target="_blank" rel="noopener noreferrer">Abrir gerenciador da sessão</a></p>' : '';
         $('#wa-connection').html('<div class="wa-connection-card">' +
-            '<div class="wa-connection-line"><span>Sessão WhatsApp</span><strong>' + esc(componentLabel(evolution)) + '</strong></div>' +
-            '<div class="wa-connection-line"><span>Gateway</span><strong>' + esc(componentLabel(gateway)) + '</strong></div>' +
-            '<div class="wa-connection-line"><span>MapOS</span><strong>' + esc(componentLabel(mapos)) + '</strong></div>' +
+            '<div class="wa-connection-line"><span>WhatsApp Infra (Evolution API)</span><strong>' + esc(componentLabel(evolution)) + '</strong></div>' +
+            '<div class="wa-connection-line"><span>TecNina Bot (API & Atendimento)</span><strong>' + esc(componentLabel(bot)) + '</strong></div>' +
+            '<div class="wa-connection-line"><span>MapOS Gestão (ERP)</span><strong>' + esc(componentLabel(mapos)) + '</strong></div>' +
             '<p class="muted" style="margin:12px 0 0">A autenticação e o QR Code continuam restritos ao gerenciador da Evolution.</p>' + manager + '</div>');
+    }
+    function renderWatchdogSection(watchdog) {
+        var isEnabled = watchdog && watchdog.enabled === true;
+        var statusBadge = isEnabled
+            ? '<span class="wa-state-badge wa-status-ready"><i class="fas fa-shield-alt"></i> Ativado</span>'
+            : '<span class="wa-state-badge wa-status-closed"><i class="fas fa-pause"></i> Desativado</span>';
+
+        var statsParts = [];
+        if (watchdog && watchdog.recovery_count != null) {
+            statsParts.push('Recuperações automáticas: ' + (watchdog.recovery_count || 0));
+        }
+        if (watchdog && watchdog.last_checked_at) {
+            statsParts.push('Última checagem: ' + shortDate(watchdog.last_checked_at));
+        }
+        if (watchdog && watchdog.last_recovery_at) {
+            statsParts.push('Última recuperação: ' + shortDate(watchdog.last_recovery_at));
+        }
+        var stats = statsParts.length ? '<span class="muted" style="font-size:12px;">' + statsParts.join(' • ') + '</span>' : '';
+
+        var html = '<div class="wa-connection-card" style="margin-bottom:14px;">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">' +
+                '<div>' +
+                    '<h4 style="margin:0 0 4px 0; font-size:15px;"><i class="fas fa-heartbeat"></i> Watchdog de Auto-Recuperação</h4>' +
+                    '<p class="muted" style="margin:0; font-size:13px;">Monitora a saúde da Evolution API e reconecta a sessão automaticamente em caso de indisponibilidade ou reboot.</p>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:10px;">' +
+                    statusBadge +
+                    '<label style="margin:0 0 0 6px; cursor:pointer; font-weight:600; display:inline-flex; align-items:center; gap:5px;">' +
+                        '<input type="checkbox" id="wa-watchdog-toggle" ' + (isEnabled ? 'checked' : '') + '> Auto-Recuperação' +
+                    '</label>' +
+                    '<button type="button" class="btn btn-mini btn-info" id="wa-watchdog-recover-btn" title="Executar teste de auto-reconexão" style="margin-left:8px;">' +
+                        '<i class="fas fa-sync-alt"></i> Reconectar agora' +
+                    '</button>' +
+                '</div>' +
+            '</div>' +
+            '<div style="margin-top:10px; border-top:1px solid #eee; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">' +
+                '<div>' + stats + '</div>' +
+                '<span id="wa-watchdog-feedback" style="font-size:12px; font-weight:bold;"></span>' +
+            '</div>' +
+        '</div>';
+
+        $('#wa-overview-watchdog').html(html);
+    }
+    function renderQueueSummary(queue, pending) {
+        var statusText = pending === 0 ? 'Nenhum envio pendente no momento' : pending + ' mensagem(ns) transacional(is) aguardando processamento';
+        var badgeClass = pending === 0 ? 'wa-status-ready' : 'wa-status-progress';
+
+        var html = '<div class="wa-connection-card">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">' +
+                '<div>' +
+                    '<h4 style="margin:0 0 4px 0; font-size:15px;"><i class="fas fa-tasks"></i> Fila de Mensagens Transacionais</h4>' +
+                    '<p class="muted" style="margin:0; font-size:13px;">Notificações e mensagens do sistema aguardando despacho para o WhatsApp.</p>' +
+                '</div>' +
+                '<div style="display:flex; align-items:center; gap:10px;">' +
+                    '<span class="wa-state-badge ' + badgeClass + '">' + esc(statusText) + '</span>' +
+                    ' <a href="#wa-conexao" data-toggle="tab" class="btn btn-mini">Ver detalhes da fila &rarr;</a>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+
+        $('#wa-overview-queue').html(html);
     }
     function loadOverview() {
         request('/dados/overview', 'GET', null, function (data) {
@@ -85,12 +155,19 @@
             var components = data.components || {};
             var queue = data.queue || {};
             var pending = (queue.PENDING || 0) + (queue.RETRY || 0) + (queue.DEFERRED || 0);
+
+            var botComp = components.bot || components.gateway || {};
+            var waComp = components.evolution || {};
+            var maposComp = components.mapos || {};
+
             $('#wa-overview').html(
-                healthCard('Gateway', components.gateway && components.gateway.ok, componentLabel(components.gateway)) +
-                healthCard('MapOS', components.mapos && components.mapos.ok, componentLabel(components.mapos)) +
-                healthCard('Evolution', components.evolution && components.evolution.ok, componentLabel(components.evolution)) +
-                healthCard('Fila de envios', pending === 0, pending === 0 ? 'Nenhum envio pendente' : pending + ' envio(s) pendente(s)', pending > 0)
+                healthCard(botComp.name || 'TecNina Bot', botComp.ok, (botComp.role ? botComp.role + ' • ' : '') + componentLabel(botComp)) +
+                healthCard(waComp.name || 'WhatsApp Infra', waComp.ok, (waComp.role ? waComp.role + ' • ' : '') + componentLabel(waComp)) +
+                healthCard(maposComp.name || 'MapOS Gestão', maposComp.ok, (maposComp.role ? maposComp.role + ' • ' : '') + componentLabel(maposComp))
             );
+
+            renderWatchdogSection(data.watchdog || {enabled: data.watchdog_enabled});
+            renderQueueSummary(queue, pending);
             renderConnection();
             loaded.overview = true;
         });
@@ -238,6 +315,24 @@
     $(document).on('click', '.wa-period-add', function () { $(this).closest('.wa-schedule-day').find('.wa-periods').append(periodRow('', '')); });
     $(document).on('click', '.wa-period-remove', function () { $(this).closest('.wa-period-row').remove(); });
     $(document).on('click', '#wa-dropoff-save', function () { request('/entrega_configuracao', 'POST', {schedule_json: JSON.stringify(collectDropoffSchedule())}, loadDropoffSchedule); });
+    $(document).on('change', '#wa-watchdog-toggle', function () {
+        var enabled = $(this).is(':checked');
+        $('#wa-watchdog-feedback').text(enabled ? 'Ativando watchdog…' : 'Desativando watchdog…').css('color', '#333');
+        request('/watchdog_toggle', 'POST', {enabled: enabled ? 1 : 0}, function () {
+            $('#wa-watchdog-feedback').text(enabled ? 'Watchdog ativado com sucesso!' : 'Watchdog desativado!').css('color', '#2e9b58');
+            window.setTimeout(loadOverview, 600);
+        });
+    });
+    $(document).on('click', '#wa-watchdog-recover-btn', function () {
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Reconectando…');
+        $('#wa-watchdog-feedback').text('Solicitando reconexão à Evolution…').css('color', '#333');
+        request('/watchdog_recover', 'POST', {}, function () {
+            btn.prop('disabled', false).html('<i class="fas fa-sync-alt"></i> Reconectar agora');
+            $('#wa-watchdog-feedback').text('Reconexão executada com sucesso!').css('color', '#2e9b58');
+            window.setTimeout(loadOverview, 1000);
+        });
+    });
     $('a[data-toggle="tab"]').on('shown.bs.tab', function (event) {
         var target = $(event.target).attr('href');
         if (target === '#wa-conversas' && !loaded.conversations) { loadConversations(); }
