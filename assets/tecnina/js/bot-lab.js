@@ -300,11 +300,48 @@
         $('#st-capability-count').text(st.pending_capability_count != null ? st.pending_capability_count : '0');
         var caps = (st.capability_purposes && st.capability_purposes.length) ? st.capability_purposes.join(', ') : '—';
         $('#st-capability-purposes').text(caps);
-        $('#st-registration-choice').text(st.registration_choice || '—');
-        $('#st-registration-state').text(st.registration_state || '—');
-        $('#st-materialization-state').text(st.materialization_state || '—');
-        $('#st-mapos-client-id').text(st.mapos_client_id != null ? st.mapos_client_id : '—');
-        $('#st-mapos-os-id').text(st.mapos_os_id != null ? st.mapos_os_id : '—');
+        var regChoice = st.registration_choice || '—';
+        if (regChoice === 'REGISTER_NOW') {
+            $('#st-registration-choice').html('<span class="label label-success">' + esc(regChoice) + '</span>');
+        } else if (regChoice === 'DEFER_REGISTRATION') {
+            $('#st-registration-choice').html('<span class="label label-warning">' + esc(regChoice) + '</span>');
+        } else if (regChoice === 'EXISTING_CLIENT') {
+            $('#st-registration-choice').html('<span class="label label-info">' + esc(regChoice) + '</span>');
+        } else {
+            $('#st-registration-choice').text(regChoice);
+        }
+
+        var regState = st.registration_state || '—';
+        if (regState === 'VERIFIED') {
+            $('#st-registration-state').html('<span class="label label-success">' + esc(regState) + '</span>');
+        } else if (regState === 'PENDING') {
+            $('#st-registration-state').html('<span class="label label-warning">' + esc(regState) + '</span>');
+        } else {
+            $('#st-registration-state').text(regState);
+        }
+
+        var matState = st.materialization_state || '—';
+        if (matState === 'FINALIZED') {
+            $('#st-materialization-state').html('<span class="label label-success">' + esc(matState) + '</span>');
+        } else if (matState === 'PENDING') {
+            $('#st-materialization-state').html('<span class="label label-warning">' + esc(matState) + '</span>');
+        } else {
+            $('#st-materialization-state').text(matState);
+        }
+
+        var cId = st.mapos_client_id != null ? String(st.mapos_client_id) : '—';
+        if (cId !== '—') {
+            $('#st-mapos-client-id').html('<code>#' + esc(cId) + '</code>');
+        } else {
+            $('#st-mapos-client-id').text('—');
+        }
+
+        var oId = st.mapos_os_id != null ? String(st.mapos_os_id) : '—';
+        if (oId !== '—') {
+            $('#st-mapos-os-id').html('<code>#' + esc(oId) + '</code>');
+        } else {
+            $('#st-mapos-os-id').text('—');
+        }
 
         var op = sessionView.operational_config || {};
         $('#st-op-captured-at').text(op.captured_at ? op.captured_at : '—');
@@ -937,6 +974,18 @@
 
             left.append(checkbox).append(titleEl).append(idBadge).append(statusBadge);
 
+            if (tags.indexOf('high-risk') !== -1) {
+                item.addClass('sc-catalog-high-risk');
+                left.append($('<span>').addClass('badge badge-important sc-badge-high-risk').html('<i class="bx bx-shield-quarter"></i> ALTO RISCO'));
+            }
+            if (tags.indexOf('materialization') !== -1) {
+                item.addClass('sc-catalog-materialization');
+                left.append($('<span>').addClass('badge badge-warning sc-badge-materialization').html('<i class="bx bx-check-shield"></i> MATERIALIZAÇÃO'));
+            }
+            if (tags.indexOf('post-intake') !== -1) {
+                left.append($('<span>').addClass('badge badge-info sc-badge-post-intake').html('<i class="bx bx-user-check"></i> PÓS-INTAKE'));
+            }
+
             var right = $('<div>').addClass('sc-catalog-right');
             var caseCount = sc.case_count != null ? sc.case_count : (sc.cases ? sc.cases.length : 0);
             var caseBadge = $('<span>').addClass('badge badge-info').text(caseCount + ' ' + (caseCount === 1 ? 'caso' : 'casos'));
@@ -1072,6 +1121,11 @@
         var left = $('<div>');
         var title = $('<div>').addClass('sc-result-title').text(res.title || res.case_id);
         var subtitle = $('<div>').addClass('sc-result-subtitle').text(res.scenario_id + ' :: ' + res.case_id);
+        if (res.scenario_id === 'intake-high-risk-branches') {
+            subtitle.append($('<span>').addClass('badge badge-important sc-badge-high-risk').css({ fontSize: '10px', marginLeft: '6px' }).text('HIGH-RISK'));
+        } else if (res.scenario_id === 'post-intake-materialization-reconciliation') {
+            subtitle.append($('<span>').addClass('badge badge-warning sc-badge-materialization').css({ fontSize: '10px', marginLeft: '6px' }).text('MATERIALIZAÇÃO'));
+        }
         left.append(title).append(subtitle);
 
         var right = $('<div>').addClass('sc-result-meta');
@@ -1118,10 +1172,19 @@
             for (var s = 0; s < res.steps.length; s++) {
                 var step = res.steps[s];
                 var stepRow = $('<div>').addClass('sc-step-row');
-                var stepHeader = $('<div>').css({ display: 'flex', justifyContent: 'space-between' });
+                var stepHeader = $('<div>').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center' });
                 var stepTitle = $('<strong>').text('Passo #' + step.sequence + ' [' + step.action + ']');
+                if (step.action === 'REGISTRATION_CHOICE_SUBMIT') {
+                    stepTitle.append($('<span>').addClass('label label-info').css({ marginLeft: '6px', fontSize: '10px' }).text('Escolha de Cadastro'));
+                } else if (step.action === 'FINALIZE_MATERIALIZATION') {
+                    stepTitle.append($('<span>').addClass('label label-success').css({ marginLeft: '6px', fontSize: '10px' }).text('Materialização'));
+                }
                 var stepStatusBadge = $('<span>').addClass(step.status === 'PASS' ? 'badge badge-success' : 'badge badge-important').text(step.status);
-                stepHeader.append(stepTitle).append(stepStatusBadge);
+                var headerRight = $('<div>').append(stepStatusBadge);
+                if (step.safe_summary && step.safe_summary.indexOf('Expected conflict') !== -1) {
+                    headerRight.prepend($('<span>').addClass('label label-info').css({ marginRight: '6px', fontSize: '10px' }).text('Conflito Interceptado'));
+                }
+                stepHeader.append(stepTitle).append(headerRight);
 
                 var stepSummary = $('<div>').css({ color: '#555', marginTop: '2px' }).text(step.safe_summary || '');
                 stepRow.append(stepHeader).append(stepSummary);
@@ -1183,7 +1246,76 @@
         executeScenariosSuite({});
     });
 
-    // Initialization: Check for restored session
+    // UI Event: Quick Tag Shortcut Buttons
+    $(document).on('click', '.sc-quick-tag-btn', function () {
+        var tag = $(this).data('tag') || '';
+        $('#sc-filter-tag').val(tag).trigger('change');
+    });
+
+    // Service Watchdog Inspection & Control
+    function loadWatchdogStatus() {
+        request('/dados/watchdog', 'GET', {}, function (data) {
+            var wd = (data && data.enabled !== undefined) ? data : (data && data.watchdog ? data.watchdog : null);
+            if (!wd) return;
+            var isEnabled = !!wd.enabled;
+            $('#bot-lab-watchdog-toggle').prop('checked', isEnabled);
+            if (isEnabled) {
+                $('#bot-lab-watchdog-badge')
+                    .removeClass('badge-important badge-inverse')
+                    .addClass('badge-success')
+                    .text('Ativado');
+            } else {
+                $('#bot-lab-watchdog-badge')
+                    .removeClass('badge-success')
+                    .addClass('badge-inverse')
+                    .text('Desativado');
+            }
+            var parts = [];
+            if (wd.recovery_count !== undefined) {
+                parts.push('Recuperações: ' + wd.recovery_count);
+            }
+            if (wd.last_check_at) {
+                var d = new Date(wd.last_check_at);
+                var formatted = !isNaN(d.getTime()) ? d.toLocaleTimeString('pt-BR') : wd.last_check_at;
+                parts.push('Última checagem: ' + formatted);
+            }
+            if (wd.consecutive_failures) {
+                parts.push('Falhas consecutivas: ' + wd.consecutive_failures);
+            }
+            $('#bot-lab-watchdog-stats').text(parts.length ? parts.join(' • ') : 'Serviços monitorados');
+        }, function () {
+            $('#bot-lab-watchdog-badge').removeClass('badge-success badge-inverse').addClass('badge-important').text('Indisponível');
+            $('#bot-lab-watchdog-stats').text('Não foi possível consultar o watchdog de serviços.');
+        });
+    }
+
+    $('#bot-lab-watchdog-toggle').on('change', function () {
+        var enabled = $(this).is(':checked');
+        $('#bot-lab-watchdog-feedback').text(enabled ? 'Ativando watchdog…' : 'Desativando watchdog…').css('color', '#333');
+        request('/watchdog_toggle', 'POST', { enabled: enabled ? 1 : 0 }, function () {
+            $('#bot-lab-watchdog-feedback').text(enabled ? 'Watchdog ativado!' : 'Watchdog desativado!').css('color', '#2e9b58');
+            window.setTimeout(loadWatchdogStatus, 600);
+        }, function () {
+            $('#bot-lab-watchdog-feedback').text('Erro ao atualizar watchdog.').css('color', '#dc3545');
+        });
+    });
+
+    $('#bot-lab-watchdog-recover-btn').on('click', function () {
+        var btn = $(this);
+        btn.prop('disabled', true).html('<i class="bx bx-loader-alt bx-spin"></i> Reconectando…');
+        $('#bot-lab-watchdog-feedback').text('Solicitando reconexão…').css('color', '#333');
+        request('/watchdog_recover', 'POST', {}, function () {
+            btn.prop('disabled', false).html('<i class="bx bx-refresh"></i> Reconectar agora');
+            $('#bot-lab-watchdog-feedback').text('Reconexão executada!').css('color', '#2e9b58');
+            window.setTimeout(loadWatchdogStatus, 1000);
+        }, function () {
+            btn.prop('disabled', false).html('<i class="bx bx-refresh"></i> Reconectar agora');
+            $('#bot-lab-watchdog-feedback').text('Falha na reconexão.').css('color', '#dc3545');
+        });
+    });
+
+    // Initialization: Watchdog and restored session
+    loadWatchdogStatus();
     var initialId = getInitialSimulationId();
     if (initialId) {
         currentSimulationId = initialId;

@@ -249,5 +249,39 @@ expectBotLab(strpos($script, '#st-materialization-state') !== false, 'Browser JS
 expectBotLab(strpos($script, '#st-mapos-client-id') !== false, 'Browser JS não atualiza #st-mapos-client-id.');
 expectBotLab(strpos($script, '#st-mapos-os-id') !== false, 'Browser JS não atualiza #st-mapos-os-id.');
 
+// Contract AI: Service Watchdog inspection & controls in Bot Lab
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-box"') !== false, 'View não contém #bot-lab-watchdog-box.');
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-badge"') !== false, 'View não contém #bot-lab-watchdog-badge.');
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-toggle"') !== false, 'View não contém #bot-lab-watchdog-toggle.');
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-recover-btn"') !== false, 'View não contém #bot-lab-watchdog-recover-btn.');
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-stats"') !== false, 'View não contém #bot-lab-watchdog-stats.');
+expectBotLab(strpos($view, 'id="bot-lab-watchdog-feedback"') !== false, 'View não contém #bot-lab-watchdog-feedback.');
+expectBotLab(strpos($style, '.bot-lab-watchdog-box') !== false, 'CSS não estiliza .bot-lab-watchdog-box.');
+expectBotLab(strpos($style, '.bot-lab-watchdog-toggle-label') !== false, 'CSS não estiliza .bot-lab-watchdog-toggle-label.');
+expectBotLab(strpos($script, 'function loadWatchdogStatus(') !== false, 'Script não define loadWatchdogStatus.');
+expectBotLab(strpos($script, "request('/dados/watchdog'") !== false, 'Script não consulta /dados/watchdog.');
+expectBotLab(strpos($script, "request('/watchdog_toggle'") !== false, 'Script não aciona /watchdog_toggle.');
+expectBotLab(strpos($script, "request('/watchdog_recover'") !== false, 'Script não aciona /watchdog_recover.');
+expectBotLab(strpos($script, '#bot-lab-watchdog-toggle') !== false, 'Script não observa #bot-lab-watchdog-toggle.');
+expectBotLab(strpos($script, '#bot-lab-watchdog-recover-btn') !== false, 'Script não observa #bot-lab-watchdog-recover-btn.');
+
+// Contract AJ: High-risk branches & materialization scenario exposure
+expectBotLab(strpos($view, 'id="sc-quick-tags"') !== false, 'View não contém #sc-quick-tags.');
+expectBotLab(strpos($view, 'data-tag="high-risk"') !== false, 'View não contém atalho para tag high-risk.');
+expectBotLab(strpos($view, 'data-tag="materialization"') !== false, 'View não contém atalho para tag materialization.');
+expectBotLab(strpos($style, '.sc-catalog-high-risk') !== false, 'CSS não define .sc-catalog-high-risk.');
+expectBotLab(strpos($style, '.sc-badge-high-risk') !== false, 'CSS não define .sc-badge-high-risk.');
+expectBotLab(strpos($style, '.sc-badge-materialization') !== false, 'CSS não define .sc-badge-materialization.');
+expectBotLab(strpos($script, 'sc-badge-high-risk') !== false, 'Script não renderiza badge sc-badge-high-risk.');
+expectBotLab(strpos($script, 'sc-badge-materialization') !== false, 'Script não renderiza badge sc-badge-materialization.');
+expectBotLab(strpos($script, 'sc-quick-tag-btn') !== false, 'Script não observa botões .sc-quick-tag-btn.');
+expectBotLab(strpos($script, 'Conflito Interceptado') !== false, 'Script não destaca conflito esperado interceptado no resultado.');
+
+// Contract AK: Rich formatting of post-intake inspector fields
+expectBotLab(strpos($script, 'REGISTER_NOW') !== false, 'Script não trata valor REGISTER_NOW no inspetor.');
+expectBotLab(strpos($script, 'DEFER_REGISTRATION') !== false, 'Script não trata valor DEFER_REGISTRATION no inspetor.');
+expectBotLab(strpos($script, 'EXISTING_CLIENT') !== false, 'Script não trata valor EXISTING_CLIENT no inspetor.');
+expectBotLab(strpos($script, 'FINALIZED') !== false, 'Script não trata valor FINALIZED no inspetor.');
+
 echo "TecninaBotLabPanelTest: " . $assertions . " assertions passed." . PHP_EOL;
 
