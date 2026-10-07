@@ -39,11 +39,29 @@ class Client_open_os extends REST_Controller
 
     private function nullableText($value)
     {
-        if ($value === null || trim((string) $value) === '') {
+        if ($value === null) {
             return null;
         }
 
-        return (string) $value;
+        $text = (string) $value;
+        // Separate paragraph/block tags with hyphen separator
+        $text = preg_replace('/<\s*\/\s*(?:p|div|li)\s*>\s*<\s*(?:p|div|li)[^>]*>/i', ' - ', $text);
+        // Replace block closing and break tags with spaces
+        $text = preg_replace('/<\s*\/\s*(?:p|div|li)\s*>/i', ' ', $text);
+        $text = preg_replace('/<\s*br\s*\/?>/i', ' ', $text);
+        // Strip any remaining HTML tags
+        $text = strip_tags($text);
+        // Decode HTML entities (e.g. &nbsp;, &amp;)
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Normalize unicode whitespace (including \u{00A0} non-breaking spaces)
+        $text = preg_replace('/[\s\x{00a0}]+/u', ' ', $text);
+        $text = trim($text);
+
+        if ($text === '') {
+            return null;
+        }
+
+        return mb_substr($text, 0, 250);
     }
 
     private function authorizeRequest()

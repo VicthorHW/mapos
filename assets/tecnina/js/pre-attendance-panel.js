@@ -72,7 +72,11 @@
             intake_total_size_exceeded: 'O tamanho total de anexos deste atendimento ultrapassou o limite de 60 MiB.',
             unsupported_file_type: 'Tipo de arquivo não permitido. Apenas JPEG, PNG e PDF são aceitos.',
             extension_mime_mismatch: 'A extensão do arquivo não corresponde ao seu tipo real.',
-            dangerous_content_detected: 'Arquivo rejeitado por conter código potencialmente perigoso.'
+            dangerous_content_detected: 'Arquivo rejeitado por conter código potencialmente perigoso.',
+            server_error: 'Erro interno ao processar a requisição no servidor. Tente novamente ou verifique os logs.',
+            error: 'Erro ao comunicar com o servidor ou processar a solicitação.',
+            unauthorized: 'Sessão expirada. Recarregue a página ou faça login novamente.',
+            forbidden: 'Você não tem permissão para realizar esta operação.'
         };
         var msg = messages[parsedReason] || ('Operação não concluída (' + parsedReason + ').');
         if (debugMode) {
@@ -135,7 +139,19 @@
                     window.setTimeout(function () { request(path, method, data, done, true, extraHeaders); }, 800);
                     return;
                 }
-                error(reasonMessage(response.reason || xhr.statusText));
+                var errReason = response.reason;
+                if (!errReason) {
+                    if (xhr.status === 500) {
+                        errReason = 'server_error';
+                    } else if (xhr.status === 403) {
+                        errReason = 'forbidden';
+                    } else if (xhr.status === 401) {
+                        errReason = 'unauthorized';
+                    } else {
+                        errReason = xhr.statusText || 'error';
+                    }
+                }
+                error(reasonMessage(errReason));
             });
     }
 

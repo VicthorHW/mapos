@@ -63,4 +63,9 @@ echo "[MapOS] Armazenamento pronto."
 # pelo nginx, sem conceder escrita a outros usuários.
 umask 0022
 
+if [ -f "/var/www/html/index.php" ]; then
+    echo "[MapOS] Executando migrations pendentes..."
+    php /var/www/html/index.php tools migrate || true
+fi
+
 exec "$@"
