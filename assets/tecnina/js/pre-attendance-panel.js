@@ -6,6 +6,8 @@
     var base = String(config.attr('data-base') || '');
     var receivingBase = String(config.attr('data-receiving-base') || '/tecnina/pre-atendimentos');
     var osEditBase = String(config.attr('data-os-edit-base') || '');
+    var clientAddBase = String(config.attr('data-client-add-base') || '');
+    var clientEditBase = String(config.attr('data-client-edit-base') || '');
     var csrfName = $('meta[name="csrf-token-name"]').attr('content') || String(config.attr('data-csrf-name') || '');
     var csrfHash = $('meta[name="csrf-token"]').attr('content') || String(config.attr('data-csrf-hash') || '');
     var currentList = 'pending';
@@ -62,6 +64,15 @@
             approval_unavailable: 'Não foi possível concluir. Nenhum dado parcial foi mantido.',
             gateway_not_configured: 'O Gateway não está configurado no MapOS.',
             gateway_unavailable: 'O Gateway está indisponível no momento.',
+            gateway_request_failed: 'Falha na comunicação com o assistente/bot (gateway_request_failed). Verifique se o serviço está ativo.',
+            whatsapp_send_failed: 'Não foi possível enviar a mensagem no WhatsApp. Verifique a conexão com a Evolution API.',
+            whatsapp_delivery_unknown: 'Envio no WhatsApp em estado incerto. Verifique a conversa no WhatsApp.',
+            phone_not_available: 'Este pré-atendimento não possui número de telefone/WhatsApp válido para envio.',
+            intake_not_found: 'Pré-atendimento não encontrado no sistema.',
+            intake_not_active: 'O pré-atendimento não está ativo para gerar novo link.',
+            intake_creation_failed: 'Falha ao registrar pré-atendimento no assistente. Tente novamente.',
+            invalid_phone: 'Número de telefone/WhatsApp inválido. Informe DDD + número.',
+            whatsapp_instance_disconnected: 'A instância do WhatsApp está desconectada no momento.',
             invalid_pickup_fee: 'Informe uma taxa de coleta válida.',
             invalid_intake_fields: 'Revise os campos. Faltam informações obrigatórias do equipamento, cliente ou endereço.',
             pickup_fee_not_confirmed: 'A taxa de coleta precisa ser informada e confirmada pelo cliente antes da aprovação.',
@@ -78,7 +89,7 @@
             unauthorized: 'Sessão expirada. Recarregue a página ou faça login novamente.',
             forbidden: 'Você não tem permissão para realizar esta operação.'
         };
-        var msg = messages[parsedReason] || ('Operação não concluída (' + parsedReason + ').');
+        var msg = messages[parsedReason] || ('Operação não concluída: ' + (detail ? detail : parsedReason));
         if (debugMode) {
             msg += ' [Debug: ' + reason + ']';
             console.error('TecNina Debug Error:', reason);
@@ -123,7 +134,16 @@
                 if (response && response.csrf) {
                     updateCsrf(response.csrf);
                 }
-                if (!response || !response.ok) { error(reasonMessage(response ? response.reason : 'unknown')); return; }
+                if (!response || !response.ok) {
+                    var rReason = response ? response.reason : 'unknown';
+                    error(reasonMessage(rReason));
+                    if ($('#modal-new-intake').is(':visible')) {
+                        $('#modal-new-intake-error').show().text(reasonMessage(rReason));
+                        $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
+                    }
+                    $('.wa-trigger-deferred-reg').prop('disabled', false);
+                    return;
+                }
                 clearError();
                 done(response.data !== undefined ? response.data : response);
             })
@@ -152,6 +172,11 @@
                     }
                 }
                 error(reasonMessage(errReason));
+                if ($('#modal-new-intake').is(':visible')) {
+                    $('#modal-new-intake-error').show().text(reasonMessage(errReason));
+                    $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
+                }
+                $('.wa-trigger-deferred-reg').prop('disabled', false);
             });
     }
 
@@ -243,9 +268,30 @@
             gpsPanel(data) + '</div>';
     }
 
+    function formatCurrencyMask(value) {
+        var digits = String(value || '').replace(/\D/g, '');
+        if (!digits) { return '0,00'; }
+        var cents = parseInt(digits, 10);
+        var floatVal = (cents / 100).toFixed(2);
+        var parts = floatVal.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return parts.join(',');
+    }
+
     function pickupFeeAction(data, actionable) {
-        if (!actionable || data.service_mode !== 'PICKUP_REQUESTED' || data.pickup_fee_status !== 'PENDING_TEAM') { return ''; }
-        return '<div class="alert alert-warning wa-pickup-fee-action"><strong>Taxa aguardando definição</strong><p>Informe o valor calculado pela equipe. O cliente receberá a proposta no WhatsApp e deverá confirmar antes da triagem.</p><div class="input-append"><input class="input-small wa-i-pickup-fee" inputmode="decimal" placeholder="0,00"><button class="btn btn-warning wa-intake-offer-fee" type="button">Enviar taxa</button></div></div>';
+        if (!actionable || data.service_mode !== 'PICKUP_REQUESTED') { return ''; }
+        if (data.pickup_fee_status !== 'PENDING_TEAM' && data.stage !== 'WAITING_PICKUP_FEE_TEAM') { return ''; }
+        return '<div class="alert alert-warning wa-pickup-fee-action" style="padding:14px;border-radius:6px;border:1px solid #faebcc;">' +
+            '<h5 style="margin:0 0 6px;color:#8a6d3b;"><i class="fas fa-motorcycle"></i> Taxa de Coleta Aguardando Definição</h5>' +
+            '<p style="margin:0 0 10px;font-size:12px;line-height:1.4;">Informe o valor calculado pela equipe para realizar a coleta no endereço informado. O cliente receberá a proposta no WhatsApp e deverá confirmar antes da triagem.</p>' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<div class="input-prepend" style="margin-bottom:0;">' +
+            '<span class="add-on" style="font-weight:bold;background:#fff8e7;color:#8a6d3b;">R$</span>' +
+            '<input class="input-medium wa-i-pickup-fee" inputmode="numeric" style="text-align:right;font-weight:bold;font-size:15px;color:#333;" placeholder="0,00">' +
+            '</div>' +
+            '<button class="btn btn-warning wa-intake-offer-fee" type="button" style="font-weight:bold;"><i class="fas fa-paper-plane"></i> Enviar Proposta de Taxa</button>' +
+            '</div>' +
+            '</div>';
     }
 
     function credentialSummary(data) {
@@ -299,7 +345,7 @@
 
         var identityBadge = (report.identity_resolution === 'READY')
             ? '<span class="label label-success"><i class="fas fa-check"></i> RESOLVIDO</span>'
-            : (report.identity_resolution === 'AMBIGUOUS' ? '<span class="label label-important">AMBÍGUO</span>' : '<span class="label label-warning">PENDENTE</span>');
+            : (report.identity_resolution === 'AMBIGUOUS' ? '<span class="label label-warning"><i class="fas fa-exclamation-triangle"></i> AMBÍGUO (PENDENTE)</span>' : '<span class="label label-warning"><i class="fas fa-clock"></i> PENDENTE</span>');
 
         var regBadge = (report.registration === 'READY_TO_MATERIALIZE' || report.registration === 'EXISTING_ACCOUNT')
             ? '<span class="label label-success"><i class="fas fa-check"></i> ' + esc(report.registration) + '</span>'
@@ -311,16 +357,16 @@
 
         var legalBadge = (report.legal === 'SATISFIED')
             ? '<span class="label label-success"><i class="fas fa-check"></i> SATISFEITO</span>'
-            : '<span class="label label-important"><i class="fas fa-times"></i> PENDENTE</span>';
+            : '<span class="label label-warning"><i class="fas fa-clock"></i> PENDENTE</span>';
 
         var snapshotBadge = (report.intake_snapshot === 'READY')
             ? '<span class="label label-success"><i class="fas fa-check"></i> SELADO</span>'
-            : '<span class="label label-important"><i class="fas fa-times"></i> ' + esc(report.intake_snapshot) + '</span>';
+            : '<span class="label label-warning"><i class="fas fa-clock"></i> ' + esc(report.intake_snapshot || 'PENDENTE') + '</span>';
 
         var items = '<table class="table table-condensed table-bordered" style="margin-top:8px;font-size:11px;background:#fff;">' +
             '<thead><tr><th>Dimensão</th><th>Status</th></tr></thead>' +
             '<tbody>' +
-            '<tr><td><strong>1. Posse Física (ADR-004)</strong></td><td>' + physicalBadge + '</td></tr>' +
+            '<tr><td><strong>1. Posse Física (Obrigatório)</strong></td><td>' + physicalBadge + '</td></tr>' +
             '<tr><td><strong>2. Identificação do Cliente</strong></td><td>' + identityBadge + '</td></tr>' +
             '<tr><td><strong>3. Cadastro de Conta</strong></td><td>' + regBadge + '</td></tr>' +
             '<tr><td><strong>4. Credencial de Acesso</strong></td><td>' + credBadge + '</td></tr>' +
@@ -330,17 +376,13 @@
 
         var statusAlert = '';
         if (report.ready) {
-            statusAlert = '<div class="alert alert-success" style="margin-bottom:0;"><i class="fas fa-check-circle"></i> <strong>Gate S06B Satisfeito:</strong> Todos os requisitos foram cumpridos. Pronto para abertura de OS (aguardando conversão S07).</div>';
-        } else {
-            var reasonsHtml = '';
-            if (report.blocking_reasons && report.blocking_reasons.length > 0) {
-                reasonsHtml = '<ul style="margin:4px 0 0 16px;">';
-                $.each(report.blocking_reasons, function (i, r) {
-                    reasonsHtml += '<li>' + esc(r) + '</li>';
-                });
-                reasonsHtml += '</ul>';
+            var pendingNote = '';
+            if (report.pending_items && report.pending_items.length > 0) {
+                pendingNote = '<div style="margin-top:6px;font-size:11px;" class="muted"><strong>Itens não impeditivos pendentes:</strong> ' + esc(report.pending_items.join(', ')) + '</div>';
             }
-            statusAlert = '<div class="alert alert-block alert-warning" style="margin-bottom:0;"><i class="fas fa-lock"></i> <strong>Abertura de OS Bloqueada (Gate S06B):</strong> Requisitos pendentes:' + reasonsHtml + '</div>';
+            statusAlert = '<div class="alert alert-success" style="margin-bottom:0;"><i class="fas fa-check-circle"></i> <strong>Gate de Recebimento Satisfeito:</strong> Posse física confirmada. Pronto para conversão em Ordem de Serviço (OS).' + pendingNote + '</div>';
+        } else {
+            statusAlert = '<div class="alert alert-block alert-warning" style="margin-bottom:0;"><i class="fas fa-lock"></i> <strong>Abertura de OS Bloqueada:</strong> O recebimento físico do equipamento ainda não foi confirmado na TecNina. Confirme o recebimento físico para liberar a conversão em OS.</div>';
         }
 
         return items + statusAlert;
@@ -360,12 +402,50 @@
         });
     }
 
+    function buildClientAddUrl(data, name) {
+        if (!clientAddBase || !data) {
+            return '';
+        }
+        var cleanPhone = function (val) {
+            if (!val) return '';
+            var digits = String(val).replace(/\D/g, '');
+            if (digits.length >= 12 && digits.indexOf('55') === 0) {
+                digits = digits.substring(2);
+            }
+            return digits;
+        };
+
+        var params = {
+            intake_id: data.id || '',
+            nomeCliente: name || data.name || '',
+            contato: name || data.name || '',
+            documento: data.registration_cpf || '',
+            celular: cleanPhone(data.phone_canonical || data.phone_display || ''),
+            email: data.registration_email || '',
+            cep: data.registration_postal_code || data.postal_code || '',
+            rua: data.registration_street || data.street || '',
+            numero: data.registration_street_number || data.street_number || '',
+            complemento: data.registration_complement || data.complement || '',
+            bairro: data.registration_neighborhood || data.neighborhood || '',
+            cidade: data.registration_city || data.city || '',
+            estado: data.registration_address_state || data.address_state || 'PR'
+        };
+
+        var query = [];
+        for (var key in params) {
+            if (params.hasOwnProperty(key) && params[key] !== '') {
+                query.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+            }
+        }
+        return clientAddBase + (clientAddBase.indexOf('?') === -1 ? '?' : '&') + query.join('&');
+    }
+
     function loadIntake(id) {
         request('/pre_atendimento/' + encodeURIComponent(id), 'GET', null, function (data) {
             currentIntakeData = data;
             var pickup = data.service_mode === 'PICKUP_REQUESTED';
             var actionable = data.status === 'READY' || data.status === 'UNDER_REVIEW';
-            var feeActionable = data.status === 'COLLECTING' && pickup && data.pickup_fee_status === 'PENDING_TEAM';
+            var feeActionable = pickup && (data.pickup_fee_status === 'PENDING_TEAM' || data.stage === 'WAITING_PICKUP_FEE_TEAM');
             var existingId = data.possible_mapos_client_id || data.mapos_client_id || '';
             var status = statusMeta(data);
             var name = displayName(data);
@@ -402,25 +482,38 @@
 
             // Customer verification card
             var clientResolutionCard = '';
+            var addUrl = buildClientAddUrl(data, name);
             if (existingId) {
+                var editUrl = clientEditBase ? (clientEditBase.replace(/\/+$/, '') + '/' + encodeURIComponent(existingId)) : '';
                 clientResolutionCard = '<div class="well well-small" style="background:#f4fbf4;border-color:#bce8f1;">' +
-                    '<strong><i class="fas fa-user-check text-success"></i> Cliente Cadastrado no MapOS</strong><br>' +
-                    '<span>Nome: <strong>' + esc(name) + '</strong> · ID MapOS: <strong>#' + esc(existingId) + '</strong></span><br>' +
-                    '<small class="muted"><i class="fas fa-info-circle"></i> Cadastro existente preservado. Senha de acesso e dados cadastrais não serão alterados.</small>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><strong><i class="fas fa-user-check text-success"></i> Cliente Cadastrado no MapOS</strong><br>' +
+                    '<span>Nome: <strong>' + esc(name) + '</strong> · ID MapOS: <strong>#' + esc(existingId) + '</strong></span></div>' +
+                    (editUrl ? '<a href="' + esc(editUrl) + '" target="_blank" class="btn btn-mini btn-info"><i class="fas fa-user-edit"></i> Ver/Editar Cadastro no MapOS</a>' : '') +
+                    '</div>' +
+                    '<small class="muted" style="display:block;margin-top:6px;"><i class="fas fa-info-circle"></i> Cadastro existente vinculado a este pré-atendimento.</small>' +
                     '</div>';
             } else if (data.registration_choice === 'DEFER_REGISTRATION') {
                 clientResolutionCard = '<div class="well well-small" style="background:#fcf8e3;border-color:#faebcc;">' +
-                    '<strong><i class="fas fa-user-clock text-warning"></i> Cadastro Adiado pelo Cliente</strong><br>' +
-                    '<span class="muted">O cliente optou por adiar o cadastro web de conta.</span><br>' +
-                    '<button type="button" class="btn btn-mini btn-info wa-trigger-deferred-reg" data-id="' + esc(data.id) + '" style="margin-top:6px;">' +
-                    '<i class="fas fa-paper-plane"></i> Enviar link de cadastro ao cliente' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><strong><i class="fas fa-user-clock text-warning"></i> Cadastro Adiado pelo Cliente</strong><br>' +
+                    '<span class="muted">O cliente optou por adiar o cadastro web de conta.</span></div>' +
+                    '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                    (addUrl ? '<a href="' + esc(addUrl) + '" target="_blank" class="btn btn-mini btn-success"><i class="fas fa-user-plus"></i> Cadastrar Cliente no MapOS</a>' : '') +
+                    '<button type="button" class="btn btn-mini btn-info wa-trigger-deferred-reg" data-id="' + esc(data.id) + '">' +
+                    '<i class="fas fa-paper-plane"></i> Enviar link ao cliente' +
                     '</button>' +
+                    '</div>' +
+                    '</div>' +
                     '</div>';
             } else {
                 clientResolutionCard = '<div class="well well-small">' +
-                    '<strong><i class="fas fa-user-plus text-info"></i> Novo Cliente (Cadastro Web)</strong><br>' +
-                    '<span>Nome informado: <strong>' + esc(name) + '</strong></span><br>' +
-                    '<small class="muted">Os dados cadastrais serão materializados atomicamente com a OS em S07.</small>' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><strong><i class="fas fa-user-plus text-info"></i> Novo Cliente</strong><br>' +
+                    '<span>Nome informado: <strong>' + esc(name) + '</strong></span></div>' +
+                    (addUrl ? '<a href="' + esc(addUrl) + '" target="_blank" class="btn btn-mini btn-success"><i class="fas fa-user-plus"></i> Cadastrar Cliente no MapOS</a>' : '') +
+                    '</div>' +
+                    '<small class="muted" style="display:block;margin-top:6px;"><i class="fas fa-info-circle"></i> Você pode cadastrar o cliente antecipadamente no MapOS ou aguardar a materialização com a OS.</small>' +
                     '</div>';
             }
 
@@ -512,9 +605,11 @@
                 '<h5><i class="fas fa-camera"></i> Fotos e Documentos de Triagem (Anexos Privados)</h5>' +
                 '<p class="muted" style="font-size:11px;">Arquivos são armazenados em volume privado e restritos à equipe. Formatos: JPEG, PNG, PDF (máx. 15 MiB por arquivo).</p>' +
                 '<div id="wa-attachments-container">' + renderAttachmentsGallery(data.attachments, data.id) + '</div>' +
-                '<div class="input-append" style="margin-bottom:16px;">' +
+                '<div class="input-append" style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">' +
                 '<input type="file" id="wa-file-input" accept=".jpg,.jpeg,.png,.pdf" style="display:none;">' +
-                '<button type="button" class="btn btn-info" id="btn-trigger-upload"><i class="fas fa-paperclip"></i> Adicionar Foto / Anexo</button>' +
+                '<input type="file" id="wa-camera-input" accept="image/*" capture="environment" style="display:none;">' +
+                '<button type="button" class="btn btn-primary" id="btn-trigger-camera"><i class="fas fa-camera"></i> Tirar Foto (Câmera)</button>' +
+                '<button type="button" class="btn btn-info" id="btn-trigger-upload"><i class="fas fa-paperclip"></i> Anexar Arquivo</button>' +
                 '</div>' +
 
                 '<div id="wa-readiness-widget-container">' + renderReadinessPlaceholder(data.id) + '</div>' +
@@ -523,6 +618,12 @@
 
             $('#wa-intake-detail').attr('class', '').html(html);
             fetchReadiness(data.id);
+            if (window.innerWidth <= 768) {
+                var detailEl = document.getElementById('wa-intake-detail');
+                if (detailEl) {
+                    detailEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+                }
+            }
         });
     }
 
@@ -638,6 +739,11 @@
         $('#wa-file-input').click();
     });
 
+    // Trigger camera input
+    $(document).on('click', '#btn-trigger-camera', function () {
+        $('#wa-camera-input').click();
+    });
+
     // File input changed -> upload
     $(document).on('change', '#wa-file-input', function () {
         var input = this;
@@ -660,6 +766,33 @@
         });
     });
 
+    // Camera input changed -> upload
+    $(document).on('change', '#wa-camera-input', function () {
+        var input = this;
+        if (!input.files || !input.files[0]) { return; }
+        var file = input.files[0];
+        if (file.size > 15728640) {
+            error('A foto excede o limite máximo permitido de 15 MiB.');
+            $(input).val('');
+            return;
+        }
+
+        var form = $('.wa-intake-form');
+        var intakeId = String(form.data('id'));
+        var fd = new FormData();
+        fd.append('file', file);
+
+        request('/tecnina/pre-atendimentos/' + encodeURIComponent(intakeId) + '/attachments', 'POST', fd, function () {
+            $(input).val('');
+            loadIntake(intakeId);
+        });
+    });
+
+    // Currency input mask (right-to-left cents entry)
+    $(document).on('input', '.wa-i-pickup-fee', function () {
+        $(this).val(formatCurrencyMask($(this).val()));
+    });
+
     // Delete attachment
     $(document).on('click', '.wa-attachment-delete', function () {
         if (!window.confirm('Deseja realmente excluir este anexo?')) { return; }
@@ -674,9 +807,180 @@
 
     // Trigger deferred registration capability
     $(document).on('click', '.wa-trigger-deferred-reg', function () {
-        var intakeId = $(this).data('id');
+        var btn = $(this);
+        var intakeId = btn.data('id');
+        var origHtml = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Enviando…');
+        clearError();
+
         request('/tecnina/pre-atendimentos/' + encodeURIComponent(intakeId) + '/deferred-registration', 'POST', {}, function (resp) {
+            btn.prop('disabled', false).html(origHtml);
             window.alert('Link de cadastro enviado com sucesso para o cliente no WhatsApp!');
+        });
+    });
+
+    // Abrir Modal de Novo Pré-atendimento Presencial / Balcão
+    $(document).on('click', '#wa-btn-open-new-intake', function () {
+        $('#modal-new-intake-error').hide().text('');
+        $('#new-intake-client-autocomplete').val('');
+        $('#new-intake-client-id').val('');
+        $('#new-intake-name').val('');
+        $('#new-intake-phone').val('');
+        $('#new-intake-cpf').val('');
+        $('#new-intake-email').val('');
+        $('#new-intake-birth-date').val('');
+        $('#new-intake-device-type').val('Notebook');
+        $('#new-intake-brand').val('');
+        $('#new-intake-model').val('');
+        $('#new-intake-problem').val('');
+        $('#new-intake-notes').val('');
+        $('#new-intake-cred-type').val('NONE');
+        $('#new-intake-cred-value').val('');
+        $('#new-intake-cred-val-container').hide();
+        $('#new-intake-condition').val('Aparelho em bom estado / Conservado');
+        $('#new-intake-storage').val('Balcão');
+        $('#new-intake-serial').val('');
+        $('#new-intake-imei').val('');
+        $('.new-intake-acc').prop('checked', false);
+        $('#new-intake-acc-other').val('');
+        $('#new-intake-confirm-receipt').prop('checked', true);
+        $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
+        $('#modal-new-intake').modal('show');
+    });
+
+    // Alternar campo de senha conforme tipo
+    $(document).on('change', '#new-intake-cred-type', function () {
+        if ($(this).val() === 'NONE') {
+            $('#new-intake-cred-val-container').hide();
+            $('#new-intake-cred-value').val('');
+        } else {
+            $('#new-intake-cred-val-container').show();
+            $('#new-intake-cred-value').focus();
+        }
+    });
+
+    // Autocomplete de clientes do MapOS
+    $(document).on('focus', '#new-intake-client-autocomplete', function () {
+        var $input = $(this);
+        if ($input.data('ui-autocomplete') || !$.fn.autocomplete) { return; }
+        $input.autocomplete({
+            source: base.replace(/\/+$/, '') + '/index.php/os/autoCompleteCliente',
+            minLength: 2,
+            select: function (event, ui) {
+                if (!ui || !ui.item) { return; }
+                $('#new-intake-client-id').val(ui.item.id);
+                var label = ui.item.label || '';
+                var parts = label.split('|');
+                if (parts.length > 0) {
+                    $('#new-intake-name').val($.trim(parts[0]));
+                }
+                for (var i = 1; i < parts.length; i++) {
+                    var p = parts[i];
+                    if (p.indexOf('Telefone:') !== -1 || p.indexOf('Celular:') !== -1) {
+                        var rawPhone = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
+                        if (rawPhone && rawPhone !== 'null') {
+                            $('#new-intake-phone').val(rawPhone);
+                        }
+                    }
+                    if (p.indexOf('Documento:') !== -1) {
+                        var rawDoc = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
+                        if (rawDoc && rawDoc !== 'null') {
+                            $('#new-intake-cpf').val(rawDoc);
+                        }
+                    }
+                }
+            }
+        });
+    });
+
+    // Formatação de telefone
+    $(document).on('input', '#new-intake-phone', function () {
+        var v = $(this).val().replace(/\D/g, '');
+        if (v.length > 11) { v = v.substring(0, 11); }
+        if (v.length > 10) {
+            $(this).val('(' + v.substring(0, 2) + ') ' + v.substring(2, 7) + '-' + v.substring(7));
+        } else if (v.length > 6) {
+            $(this).val('(' + v.substring(0, 2) + ') ' + v.substring(2, 6) + '-' + v.substring(6));
+        } else if (v.length > 2) {
+            $(this).val('(' + v.substring(0, 2) + ') ' + v.substring(2));
+        } else if (v.length > 0) {
+            $(this).val('(' + v);
+        }
+    });
+
+    // Submissão de Novo Pré-atendimento
+    $(document).on('click', '#btn-submit-new-intake', function (e) {
+        e.preventDefault();
+        var btn = $(this);
+        var errBox = $('#modal-new-intake-error');
+        errBox.hide().text('');
+
+        var name = $.trim($('#new-intake-name').val());
+        var phone = $.trim($('#new-intake-phone').val());
+        var deviceType = $.trim($('#new-intake-device-type').val());
+        var problem = $.trim($('#new-intake-problem').val());
+
+        if (!name) {
+            errBox.show().text('Informe o nome do cliente.');
+            $('#new-intake-name').focus();
+            return;
+        }
+        if (!phone) {
+            errBox.show().text('Informe o telefone/WhatsApp do cliente.');
+            $('#new-intake-phone').focus();
+            return;
+        }
+        if (!deviceType) {
+            errBox.show().text('Selecione o tipo de equipamento.');
+            $('#new-intake-device-type').focus();
+            return;
+        }
+        if (!problem) {
+            errBox.show().text('Informe o defeito ou problema relatado.');
+            $('#new-intake-problem').focus();
+            return;
+        }
+
+        var accList = [];
+        $('.new-intake-acc:checked').each(function () {
+            accList.push($(this).val());
+        });
+        var otherAcc = $.trim($('#new-intake-acc-other').val());
+        if (otherAcc) {
+            accList.push(otherAcc);
+        }
+
+        var payload = {
+            name: name,
+            phone: phone,
+            device_type: deviceType,
+            brand: $.trim($('#new-intake-brand').val()),
+            model: $.trim($('#new-intake-model').val()),
+            problem_description: problem,
+            notes: $.trim($('#new-intake-notes').val()),
+            possible_mapos_client_id: $('#new-intake-client-id').val() || null,
+            registration_cpf: $.trim($('#new-intake-cpf').val()),
+            registration_email: $.trim($('#new-intake-email').val()),
+            birth_date: $('#new-intake-birth-date').val() || null,
+            credential_type: $('#new-intake-cred-type').val(),
+            credential_value: $.trim($('#new-intake-cred-value').val()),
+            confirm_physical_receipt: $('#new-intake-confirm-receipt').is(':checked'),
+            device_condition: $('#new-intake-condition').val(),
+            accessories: accList,
+            serial_number: $.trim($('#new-intake-serial').val()),
+            imei: $.trim($('#new-intake-imei').val()),
+            storage_location: $.trim($('#new-intake-storage').val())
+        };
+
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Criando pré-atendimento…');
+
+        request('/tecnina/pre-atendimentos/novo', 'POST', payload, function (res) {
+            btn.prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
+            $('#modal-new-intake').modal('hide');
+            loadList();
+            if (res && res.intake_id) {
+                loadIntake(res.intake_id);
+            }
         });
     });
 
@@ -688,13 +992,17 @@
         request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/reject', 'POST', {review_version: form.data('version'), reason: reason}, function () { emptyDetail('Pré-atendimento descartado'); loadList(); });
     });
 
-    // Offer pickup fee
+    // Offer pickup fee (with masked value parsing)
     $(document).on('click', '.wa-intake-offer-fee', function () {
         var form = $(this).closest('.wa-intake-form');
-        var fee = String(form.find('.wa-i-pickup-fee').val() || '').trim();
-        if (!fee) { error('Informe o valor da taxa de coleta.'); return; }
+        var feeStr = String(form.find('.wa-i-pickup-fee').val() || '').trim();
+        var cleanFee = feeStr.replace(/\./g, '').replace(',', '.');
+        if (!cleanFee || isNaN(parseFloat(cleanFee)) || parseFloat(cleanFee) <= 0) {
+            error('Informe um valor válido para a taxa de coleta.');
+            return;
+        }
         request('/pre_atendimento/' + encodeURIComponent(form.data('id')) + '/pickup-fee', 'POST', {
-            review_version: form.data('version'), fee: fee
+            review_version: form.data('version'), fee: cleanFee
         }, function () {
             emptyDetail('Taxa enviada; aguardando confirmação do cliente');
             loadList();
@@ -737,12 +1045,39 @@
         });
     });
 
+    $(document).on('click', '#wa-btn-refresh-list', function () {
+        loadList();
+    });
+
+    var autoRefreshTimer = null;
+    function startAutoRefresh() {
+        if (autoRefreshTimer) { clearInterval(autoRefreshTimer); }
+        autoRefreshTimer = setInterval(function () {
+            if (currentList === 'pending' && !$('#modal-confirm-receiving').is(':visible')) {
+                request('/dados/intakes', 'GET', null, function (rows) {
+                    if (currentList === 'pending') {
+                        $('#wa-intakes-list').html('<h4>Aguardando recebimento e revisão</h4>' + intakeTable(rows, false));
+                    }
+                });
+            }
+        }, 12000);
+    }
+
     var booted = false;
     function bootPanel() {
         if (booted) { return; }
         booted = true;
         window.__tecninaWhatsappPanel.booted = true;
         loadList();
+        startAutoRefresh();
+
+        try {
+            var urlParams = new URLSearchParams(window.location.search);
+            var initialIntakeId = urlParams.get('intake_id');
+            if (initialIntakeId) {
+                loadIntake(initialIntakeId);
+            }
+        } catch (e) {}
     }
     $(bootPanel);
     window.setTimeout(bootPanel, 500);

@@ -88,44 +88,56 @@
             <?php if ($custom_error != '') {
                 echo '<div class="alert alert-danger">' . $custom_error . '</div>';
             } ?>
+            <?php 
+                $intakeId = $this->input->get('intake_id') ?: $this->input->post('intake_id');
+                if (!empty($intakeId)): 
+            ?>
+                <div class="alert alert-info" style="margin: 10px 20px;">
+                    <i class="fas fa-link"></i> <strong>Vinculação a Pré-atendimento:</strong> 
+                    Este cadastro será automaticamente vinculado ao pré-atendimento (ID: <code><?php echo html_escape($intakeId); ?></code>) ao salvar.
+                </div>
+            <?php endif; ?>
             <form action="<?php echo current_url(); ?>" id="formCliente" method="post" class="form-horizontal">
+                <?php if (!empty($intakeId)): ?>
+                    <input type="hidden" name="intake_id" id="intake_id" value="<?php echo html_escape($intakeId); ?>" />
+                <?php endif; ?>
                 <div class="widget-content nopadding tab-content">
                     <div class="span6">
                         <div class="control-group">
                             <label for="documento" class="control-label">CPF/CNPJ</label>
                             <div class="controls">
-                                <input id="documento" class="cpfcnpj" type="text" name="documento" value="<?php echo set_value('documento'); ?>" />
+                                <input id="documento" class="cpfcnpj" type="text" name="documento" value="<?php echo set_value('documento', $this->input->get('documento')); ?>" />
                                 <button id="buscar_info_cnpj" class="btn btn-xs" type="button">Buscar(CNPJ)</button>
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="nomeCliente" class="control-label">Nome/Razão Social<span class="required">*</span></label>
                             <div class="controls">
-                                <input id="nomeCliente" type="text" name="nomeCliente" value="<?php echo set_value('nomeCliente'); ?>" />
+                                <input id="nomeCliente" type="text" name="nomeCliente" value="<?php echo set_value('nomeCliente', $this->input->get('nomeCliente')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="contato" class="control-label">Contato:</label>
                             <div class="controls">
-                                <input class="contato" type="text" name="contato" value="<?php echo set_value('contato'); ?>" />
+                                <input class="contato" type="text" name="contato" value="<?php echo set_value('contato', $this->input->get('contato')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="telefone" class="control-label">Telefone</label>
                             <div class="controls">
-                                <input id="telefone" type="text" name="telefone" value="<?php echo set_value('telefone'); ?>" />
+                                <input id="telefone" type="text" name="telefone" value="<?php echo set_value('telefone', $this->input->get('telefone')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="celular" class="control-label">Celular</label>
                             <div class="controls">
-                                <input id="celular" type="text" name="celular" value="<?php echo set_value('celular'); ?>" />
+                                <input id="celular" type="text" name="celular" value="<?php echo set_value('celular', $this->input->get('celular')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="email" class="control-label">Email</label>
                             <div class="controls">
-                                <input id="email" type="text" name="email" value="<?php echo set_value('email'); ?>" autocomplete="off" />
+                                <input id="email" type="text" name="email" value="<?php echo set_value('email', $this->input->get('email')); ?>" autocomplete="off" />
                             </div>
                         </div>
                         <div class="control-group">
@@ -150,37 +162,37 @@
                         <div class="control-group" class="control-label">
                             <label for="cep" class="control-label">CEP</label>
                             <div class="controls">
-                                <input id="cep" type="text" name="cep" value="<?php echo set_value('cep'); ?>" />
+                                <input id="cep" type="text" name="cep" value="<?php echo set_value('cep', $this->input->get('cep')); ?>" />
                             </div>
                         </div>
                         <div class="control-group" class="control-label">
                             <label for="rua" class="control-label">Rua</label>
                             <div class="controls">
-                                <input id="rua" type="text" name="rua" value="<?php echo set_value('rua'); ?>" />
+                                <input id="rua" type="text" name="rua" value="<?php echo set_value('rua', $this->input->get('rua')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="numero" class="control-label">Número</label>
                             <div class="controls">
-                                <input id="numero" type="text" name="numero" value="<?php echo set_value('numero'); ?>" />
+                                <input id="numero" type="text" name="numero" value="<?php echo set_value('numero', $this->input->get('numero')); ?>" />
                             </div>
                         </div>
                         <div class="control-group">
                             <label for="complemento" class="control-label">Complemento</label>
                             <div class="controls">
-                                <input id="complemento" type="text" name="complemento" value="<?php echo set_value('complemento'); ?>" />
+                                <input id="complemento" type="text" name="complemento" value="<?php echo set_value('complemento', $this->input->get('complemento')); ?>" />
                             </div>
                         </div>
                         <div class="control-group" class="control-label">
                             <label for="bairro" class="control-label">Bairro</label>
                             <div class="controls">
-                                <input id="bairro" type="text" name="bairro" value="<?php echo set_value('bairro'); ?>" />
+                                <input id="bairro" type="text" name="bairro" value="<?php echo set_value('bairro', $this->input->get('bairro')); ?>" />
                             </div>
                         </div>
                         <div class="control-group" class="control-label">
                             <label for="cidade" class="control-label">Cidade</label>
                             <div class="controls">
-                                <input id="cidade" type="text" name="cidade" value="<?php echo set_value('cidade'); ?>" />
+                                <input id="cidade" type="text" name="cidade" value="<?php echo set_value('cidade', $this->input->get('cidade')); ?>" />
                             </div>
                         </div>
                         <div class="control-group" class="control-label">
@@ -197,7 +209,7 @@
                     <div class="span12">
                         <div class="span6 offset3" style="display:flex;justify-content: center">
                             <button type="submit" class="button btn btn-mini btn-success"><span class="button__icon"><i class='bx bx-save'></i></span> <span class="button__text2">Salvar</span></a></button>
-                            <a title="Voltar" class="button btn btn-warning" href="<?php echo site_url() ?>/clientes"><span class="button__icon"><i class="bx bx-undo"></i></span> <span class="button__text2">Voltar</span></a>
+                            <a title="Voltar" class="button btn btn-warning" href="<?php echo !empty($intakeId) ? site_url('tecnina_whatsapp/pre_atendimentos?intake_id=' . rawurlencode($intakeId)) : site_url('clientes'); ?>"><span class="button__icon"><i class="bx bx-undo"></i></span> <span class="button__text2">Voltar</span></a>
                         </div>
                     </div>
                 </div>
@@ -227,7 +239,7 @@
             for (i in data.estados) {
                 $('#estado').append(new Option(data.estados[i].nome, data.estados[i].sigla));
             }
-            var curState = '<?php echo set_value('estado'); ?>';
+            var curState = '<?php echo set_value('estado', $this->input->get('estado') ?: 'PR'); ?>';
             if (curState) {
                 $("#estado option[value=" + curState + "]").prop("selected", true);
             }

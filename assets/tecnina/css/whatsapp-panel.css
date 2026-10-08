@@ -82,3 +82,35 @@
     .wa-table-wrap { overflow-x: auto; }
     .wa-intake-table { min-width: 760px; }
 }
+
+@media (max-width: 768px) {
+    #modal-confirm-receiving,
+    #modal-new-intake {
+        left: 10px !important;
+        right: 10px !important;
+        width: auto !important;
+        margin-left: 0 !important;
+        top: 20px !important;
+    }
+    #modal-confirm-receiving .modal-body,
+    #modal-new-intake .modal-body {
+        max-height: calc(100vh - 180px);
+        overflow-y: auto;
+    }
+    .wa-form-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .wa-form-actions .btn {
+        width: 100%;
+        margin-left: 0 !important;
+        margin-bottom: 4px;
+        box-sizing: border-box;
+    }
+    .wa-intake-form .row-fluid [class*="span"] {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+

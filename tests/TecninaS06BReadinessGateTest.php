@@ -154,12 +154,12 @@ $snap4 = createBaseSnapshot([
 ]);
 
 $res4 = $service->evaluateReadiness($intakeId4, $snap4);
-expectReadiness($res4['ready'] === false, 'Test 4: DEFER_REGISTRATION must not be ready');
+expectReadiness($res4['ready'] === true, 'Test 4: DEFER_REGISTRATION must be ready when physical receiving is confirmed');
 expectReadiness($res4['physical_receiving'] === 'RECEIVED', 'Test 4: physical_receiving must be RECEIVED');
 expectReadiness($res4['registration'] === 'DEFERRED_NOT_COMPLETED', 'Test 4: registration must be DEFERRED_NOT_COMPLETED');
 expectReadiness($res4['credential'] === 'MISSING', 'Test 4: credential must be MISSING');
-expectReadiness(in_array('REGISTRATION_PENDING', $res4['blocking_reasons'], true), 'Test 4: Reason must include REGISTRATION_PENDING');
-echo "[PASS] Test 4: DEFER_REGISTRATION correctly blocked with REGISTRATION_PENDING" . PHP_EOL;
+expectReadiness(in_array('REGISTRATION_PENDING', $res4['pending_items'], true), 'Test 4: pending_items must include REGISTRATION_PENDING');
+echo "[PASS] Test 4: DEFER_REGISTRATION marked as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 5: Received, REGISTER_NOW, but Password missing
@@ -176,11 +176,11 @@ $snap5 = createBaseSnapshot([
 ]);
 
 $res5 = $service->evaluateReadiness($intakeId5, $snap5);
-expectReadiness($res5['ready'] === false, 'Test 5: Missing password must not be ready');
+expectReadiness($res5['ready'] === true, 'Test 5: Missing password must be ready when physical receiving is confirmed');
 expectReadiness($res5['registration'] === 'READY_TO_MATERIALIZE', 'Test 5: registration is READY_TO_MATERIALIZE');
 expectReadiness($res5['credential'] === 'MISSING', 'Test 5: credential must be MISSING');
-expectReadiness(in_array('CREDENTIAL_MISSING', $res5['blocking_reasons'], true), 'Test 5: Reason must include CREDENTIAL_MISSING');
-echo "[PASS] Test 5: Missing credential correctly blocked with CREDENTIAL_MISSING" . PHP_EOL;
+expectReadiness(in_array('CREDENTIAL_MISSING', $res5['pending_items'], true), 'Test 5: pending_items must include CREDENTIAL_MISSING');
+echo "[PASS] Test 5: Missing credential marked as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 6: Received, REGISTER_NOW, Password present, but Legal manifests missing
@@ -197,10 +197,10 @@ $snap6 = createBaseSnapshot([
 ]);
 
 $res6 = $service->evaluateReadiness($intakeId6, $snap6);
-expectReadiness($res6['ready'] === false, 'Test 6: Missing legal manifestations must not be ready');
+expectReadiness($res6['ready'] === true, 'Test 6: Missing legal manifestations must be ready when physical receiving is confirmed');
 expectReadiness($res6['legal'] === 'MISSING', 'Test 6: legal must be MISSING');
-expectReadiness(in_array('LEGAL_ACCEPTANCE_MISSING', $res6['blocking_reasons'], true), 'Test 6: Reason must include LEGAL_ACCEPTANCE_MISSING');
-echo "[PASS] Test 6: Missing legal manifestations correctly blocked with LEGAL_ACCEPTANCE_MISSING" . PHP_EOL;
+expectReadiness(in_array('LEGAL_ACCEPTANCE_PENDING', $res6['pending_items'], true), 'Test 6: pending_items must include LEGAL_ACCEPTANCE_PENDING');
+echo "[PASS] Test 6: Missing legal manifestations marked as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 7: Full Ready New Customer (Physical RECEIVED + REGISTER_NOW + Password + Legal + Valid Snapshot)
@@ -269,11 +269,21 @@ echo "[PASS] Test 7: Full ready new customer passed ALL readiness gates (ready=t
 // -------------------------------------------------------------------------
 // TEST 8: Full Ready Existing Customer (Client ID 4)
 // -------------------------------------------------------------------------
-$client4 = $db->get_where('clientes', ['idClientes' => 4])->row_array();
-expectReadiness(! empty($client4), 'Client 4 must exist in database for Test 8');
+$testClientPhone = '41999880008';
+$testCanonical = '+5541999880008';
+$client4 = $db->get_where('clientes', ['celular' => $testClientPhone])->row_array();
+if (empty($client4)) {
+    $db->insert('clientes', [
+        'nomeCliente' => 'Cliente Teste Existente 8',
+        'celular' => $testClientPhone,
+        'senha' => password_hash('SenhaTeste123!', PASSWORD_DEFAULT),
+        'dataCadastro' => date('Y-m-d'),
+    ]);
+    $client4 = $db->get_where('clientes', ['celular' => $testClientPhone])->row_array();
+}
+$targetClientId = (int) $client4['idClientes'];
 $client4OriginalPassword = $client4['senha'];
-$client4Digits = preg_replace('/\D+/', '', ! empty($client4['celular']) ? $client4['celular'] : $client4['telefone']);
-$client4Phone = '+55' . (substr($client4Digits, 0, 2) === '55' ? substr($client4Digits, 2) : $client4Digits);
+$client4Phone = $testCanonical;
 
 $intakeId8 = testUuidV4();
 $receivingModel->confirmPhysicalReceipt($intakeId8, 1, [
@@ -297,15 +307,15 @@ $snap8 = createBaseSnapshot([
 $res8 = $service->evaluateReadiness($intakeId8, $snap8);
 expectReadiness($res8['ready'] === true, 'Test 8: Full ready existing customer MUST have ready = true');
 expectReadiness($res8['identity_resolution'] === 'READY', 'Test 8: identity_resolution must be READY');
-expectReadiness((int) $res8['matched_client_id'] === 4, 'Test 8: matched_client_id must be 4');
+expectReadiness((int) $res8['matched_client_id'] === $targetClientId, "Test 8: matched_client_id must be $targetClientId");
 expectReadiness($res8['registration'] === 'EXISTING_ACCOUNT', 'Test 8: registration must be EXISTING_ACCOUNT');
 expectReadiness($res8['credential'] === 'EXISTING_ACCOUNT', 'Test 8: credential must be EXISTING_ACCOUNT');
 expectReadiness($res8['legal'] === 'SATISFIED', 'Test 8: legal must be SATISFIED (no artificial event needed for existing)');
 expectReadiness(empty($res8['blocking_reasons']), 'Test 8: blocking_reasons must be empty');
 
-// Assert Client 4 password hash is completely untouched
-$client4Recheck = $db->get_where('clientes', ['idClientes' => 4])->row_array();
-expectReadiness($client4Recheck['senha'] === $client4OriginalPassword, 'Test 8: Client 4 password hash must remain completely untouched');
+// Assert Client password hash is completely untouched
+$client4Recheck = $db->get_where('clientes', ['idClientes' => $targetClientId])->row_array();
+expectReadiness($client4Recheck['senha'] === $client4OriginalPassword, 'Test 8: Client password hash must remain completely untouched');
 echo "[PASS] Test 8: Full ready existing customer passed gates; password hash untouched" . PHP_EOL;
 
 // -------------------------------------------------------------------------
@@ -340,14 +350,14 @@ $snap9 = createBaseSnapshot([
 ]);
 
 $res9 = $service->evaluateReadiness($intakeId9, $snap9);
-expectReadiness($res9['ready'] === false, 'Test 9: Ambiguous customer must not be ready');
+expectReadiness($res9['ready'] === true, 'Test 9: Ambiguous customer must be ready when physical receiving is confirmed');
 expectReadiness($res9['identity_resolution'] === 'AMBIGUOUS', 'Test 9: identity_resolution must be AMBIGUOUS');
-expectReadiness(in_array('CLIENT_IDENTITY_AMBIGUOUS', $res9['blocking_reasons'], true), 'Test 9: Reason must include CLIENT_IDENTITY_AMBIGUOUS');
+expectReadiness(in_array('CLIENT_IDENTITY_AMBIGUOUS', $res9['pending_items'], true), 'Test 9: Reason must include CLIENT_IDENTITY_AMBIGUOUS in pending_items');
 
 // Cleanup temporary duplicate clients
 $db->where('idClientes', $dupIdA)->delete('clientes');
 $db->where('idClientes', $dupIdB)->delete('clientes');
-echo "[PASS] Test 9: Ambiguous identity correctly detected and blocked" . PHP_EOL;
+echo "[PASS] Test 9: Ambiguous identity correctly detected as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 10: Expired Snapshot Lease (seal_expires_at in past)
@@ -360,10 +370,10 @@ $snap10 = createBaseSnapshot([
 ]);
 
 $res10 = $service->evaluateReadiness($intakeId10, $snap10);
-expectReadiness($res10['ready'] === false, 'Test 10: Expired snapshot lease must not be ready');
+expectReadiness($res10['ready'] === true, 'Test 10: Expired snapshot lease must be ready when physical receiving is confirmed');
 expectReadiness($res10['intake_snapshot'] === 'STALE', 'Test 10: intake_snapshot must be STALE');
-expectReadiness(in_array('SNAPSHOT_STALE', $res10['blocking_reasons'], true), 'Test 10: Reason must include SNAPSHOT_STALE');
-echo "[PASS] Test 10: Expired snapshot lease correctly returned STALE and blocked" . PHP_EOL;
+expectReadiness(in_array('SNAPSHOT_STALE', $res10['pending_items'], true), 'Test 10: Reason must include SNAPSHOT_STALE in pending_items');
+echo "[PASS] Test 10: Expired snapshot lease correctly returned STALE as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 11: Attachments in Error State
@@ -385,10 +395,10 @@ $db->insert('tecnina_pre_os_attachments', [
 ]);
 
 $res11 = $service->evaluateReadiness($intakeId11, $snap11);
-expectReadiness($res11['ready'] === false, 'Test 11: Corrupt/error attachment must not be ready');
+expectReadiness($res11['ready'] === true, 'Test 11: Corrupt/error attachment must be ready when physical receiving is confirmed');
 expectReadiness($res11['attachments'] === 'BLOCKING_ERROR', 'Test 11: attachments must be BLOCKING_ERROR');
-expectReadiness(in_array('ATTACHMENTS_ERROR', $res11['blocking_reasons'], true), 'Test 11: Reason must include ATTACHMENTS_ERROR');
-echo "[PASS] Test 11: Attachment error correctly returned BLOCKING_ERROR and blocked" . PHP_EOL;
+expectReadiness(in_array('ATTACHMENTS_ERROR', $res11['pending_items'], true), 'Test 11: Reason must include ATTACHMENTS_ERROR in pending_items');
+echo "[PASS] Test 11: Attachment error correctly returned BLOCKING_ERROR as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 12: Incomplete Equipment Data
@@ -404,10 +414,10 @@ $snap12 = createBaseSnapshot([
 ]);
 
 $res12 = $service->evaluateReadiness($intakeId12, $snap12);
-expectReadiness($res12['ready'] === false, 'Test 12: Incomplete equipment data must not be ready');
+expectReadiness($res12['ready'] === true, 'Test 12: Incomplete equipment data must be ready when physical receiving is confirmed');
 expectReadiness($res12['equipment_minimums'] === false, 'Test 12: equipment_minimums must be false');
-expectReadiness(in_array('EQUIPMENT_DATA_INCOMPLETE', $res12['blocking_reasons'], true), 'Test 12: Reason must include EQUIPMENT_DATA_INCOMPLETE');
-echo "[PASS] Test 12: Incomplete equipment data correctly blocked with EQUIPMENT_DATA_INCOMPLETE" . PHP_EOL;
+expectReadiness(in_array('EQUIPMENT_DATA_INCOMPLETE', $res12['pending_items'], true), 'Test 12: Reason must include EQUIPMENT_DATA_INCOMPLETE in pending_items');
+echo "[PASS] Test 12: Incomplete equipment data marked as pending without blocking OS" . PHP_EOL;
 
 // -------------------------------------------------------------------------
 // TEST 13: Closed Vocabulary and Schema Contract Compliance
@@ -429,6 +439,7 @@ expectReadiness(in_array($res7['intake_snapshot'], $validSnap, true), 'Contract:
 expectReadiness(in_array($res7['attachments'], $validAtt, true), 'Contract: attachments closed vocabulary');
 expectReadiness(is_bool($res7['equipment_minimums']), 'Contract: equipment_minimums is boolean');
 expectReadiness(is_array($res7['blocking_reasons']), 'Contract: blocking_reasons is array');
+expectReadiness(is_array($res7['pending_items']), 'Contract: pending_items is array');
 expectReadiness($res7['contract_version'] === 'S01-2026-09', 'Contract: contract_version is S01-2026-09');
 echo "[PASS] Test 13: Strict compliance with S01 closed vocabulary and contract specification" . PHP_EOL;
 

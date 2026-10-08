@@ -101,6 +101,81 @@ class Clientes extends MY_Controller
                         $emailBoasVindasEnfileirado = $this->customer_welcome_email->queue($clienteId);
                     }
 
+                    $intakeId = trim((string) $this->input->post('intake_id'));
+                    if ($intakeId !== '' && preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i', $intakeId)) {
+                        $this->load->library('tecnina_phone');
+                        $this->load->library('tecnina_bot_gateway');
+
+                        // Fetch pre-attendance draft to obtain canonical phone and review_version
+                        $intakeResp = $this->tecnina_bot_gateway->request('GET', '/admin/intakes/' . rawurlencode($intakeId));
+
+                        $canonicalPhone = null;
+                        if ($intakeResp['ok'] && ! empty($intakeResp['data']['phone_canonical'])) {
+                            $canonicalPhone = (string) $intakeResp['data']['phone_canonical'];
+                        } else {
+                            $rawPhone = ! empty($data['celular']) ? $data['celular'] : $data['telefone'];
+                            $candidates = $this->tecnina_phone->candidateIdentities($rawPhone, null);
+                            $canonicalPhone = ! empty($candidates) ? $candidates[0] : null;
+                        }
+
+                        // Register / update canonical identity in tecnina_client_identity (VERIFIED)
+                        $nowUtc = gmdate('Y-m-d H:i:s');
+                        $existingIdent = $this->db->where('client_id', (int) $clienteId)->get('tecnina_client_identity')->row();
+                        if ($existingIdent) {
+                            $this->db->where('client_id', (int) $clienteId)->update('tecnina_client_identity', [
+                                'canonical_phone' => $canonicalPhone,
+                                'phone_state' => $canonicalPhone ? 'VERIFIED' : 'NONE',
+                                'phone_confirmed_at' => $canonicalPhone ? $nowUtc : null,
+                            ]);
+                        } else {
+                            $this->db->insert('tecnina_client_identity', [
+                                'client_id' => (int) $clienteId,
+                                'canonical_phone' => $canonicalPhone,
+                                'phone_state' => $canonicalPhone ? 'VERIFIED' : 'NONE',
+                                'phone_confirmed_at' => $canonicalPhone ? $nowUtc : null,
+                                'email_candidate' => ! empty($data['email']) ? $data['email'] : null,
+                                'email_state' => ! empty($data['email']) ? 'PENDING' : 'NONE',
+                                'credential_version' => 1,
+                            ]);
+                        }
+
+                        // Save profile info (birth_date) if present in intake
+                        if ($intakeResp['ok'] && is_array($intakeResp['data'])) {
+                            $intakeData = $intakeResp['data'];
+                            $birthDate = ! empty($intakeData['birth_date']) ? $intakeData['birth_date'] : null;
+                            $addressRef = ! empty($intakeData['registration_reference']) ? mb_substr(trim((string) $intakeData['registration_reference']), 0, 255) : null;
+                            if ($birthDate !== null || $addressRef !== null) {
+                                $profileRow = $this->db->where('client_id', (int) $clienteId)->get('tecnina_client_profile')->row();
+                                if ($profileRow) {
+                                    $this->db->where('client_id', (int) $clienteId)->update('tecnina_client_profile', [
+                                        'birth_date' => $birthDate,
+                                        'address_reference' => $addressRef,
+                                    ]);
+                                } else {
+                                    $this->db->insert('tecnina_client_profile', [
+                                        'client_id' => (int) $clienteId,
+                                        'birth_date' => $birthDate,
+                                        'address_reference' => $addressRef,
+                                    ]);
+                                }
+                            }
+
+                            // Link customer to the intake draft via bot gateway
+                            if (isset($intakeData['review_version'])) {
+                                $this->tecnina_bot_gateway->request('PUT', '/admin/intakes/' . rawurlencode($intakeId), [
+                                    'review_version' => (int) $intakeData['review_version'],
+                                    'possible_mapos_client_id' => (int) $clienteId,
+                                ]);
+                            }
+                        }
+
+                        $mensagemSucesso = 'Cliente cadastrado com sucesso e vinculado ao pré-atendimento!';
+                        $this->session->set_flashdata('success', $mensagemSucesso);
+                        log_info('Adicionou um cliente vinculado ao pre-atendimento ' . $intakeId . ' (Cliente #' . $clienteId . ').');
+                        redirect(site_url('tecnina_whatsapp/pre_atendimentos?intake_id=' . rawurlencode($intakeId)));
+                        return;
+                    }
+
                     $mensagemSucesso = 'Cliente adicionado com sucesso!';
                     if ($emailBoasVindasEnfileirado) {
                         $mensagemSucesso .= ' E-mail de boas-vindas adicionado à fila de envio.';

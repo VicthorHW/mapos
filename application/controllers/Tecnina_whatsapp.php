@@ -1001,6 +1001,144 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json(['ok' => true, 'result' => 'saved', 'data' => $saved], 200);
     }
 
+    public function novo_pre_atendimento()
+    {
+        if (! $this->authorizedMutation(true)) {
+            return;
+        }
+
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $operatorId = (int) $this->session->userdata('id_admin');
+        if ($operatorId <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_operator'], 403);
+        }
+
+        $name = trim((string) $this->input->post('name', true));
+        $phone = trim((string) $this->input->post('phone', true));
+        $deviceType = trim((string) $this->input->post('device_type', true));
+        $brand = trim((string) $this->input->post('brand', true));
+        $model = trim((string) $this->input->post('model', true));
+        $problem = trim((string) $this->input->post('problem_description', true));
+        $notes = trim((string) $this->input->post('notes', true));
+        $city = trim((string) $this->input->post('city', true));
+        $clientId = (int) $this->input->post('possible_mapos_client_id', true);
+        $cpf = trim((string) $this->input->post('registration_cpf', true));
+        $email = trim((string) $this->input->post('registration_email', true));
+        $birthDate = trim((string) $this->input->post('birth_date', true));
+        $credentialType = trim((string) $this->input->post('credential_type', true));
+        $credentialValue = trim((string) $this->input->post('credential_value', true));
+
+        // Physical receiving & checklist inputs
+        $confirmReceipt = filter_var($this->input->post('confirm_physical_receipt'), FILTER_VALIDATE_BOOLEAN);
+        $deviceCondition = trim((string) $this->input->post('device_condition', true));
+        $accessories = $this->input->post('accessories', true);
+        $serialNumber = trim((string) $this->input->post('serial_number', true));
+        $imei = trim((string) $this->input->post('imei', true));
+        $storageLocation = trim((string) $this->input->post('storage_location', true));
+
+        if (empty($name) || empty($phone) || empty($deviceType) || empty($problem)) {
+            return $this->json([
+                'ok' => false,
+                'reason' => 'incomplete_intake',
+                'detail' => 'Nome, telefone, tipo de equipamento e defeito são campos obrigatórios.',
+            ], 422);
+        }
+
+        $digits = preg_replace('/\D/', '', $phone);
+        if (strlen($digits) < 8) {
+            return $this->json([
+                'ok' => false,
+                'reason' => 'invalid_phone',
+                'detail' => 'Número de telefone/WhatsApp inválido.',
+            ], 422);
+        }
+        if ((strlen($digits) === 10 || strlen($digits) === 11) && substr($digits, 0, 2) !== '55') {
+            $digits = '55' . $digits;
+        }
+
+        if (is_array($accessories)) {
+            $accessories = implode(', ', array_filter($accessories));
+        }
+
+        $botPayload = [
+            'name' => $name,
+            'phone' => $digits,
+            'device_type' => $deviceType,
+            'brand' => $brand !== '' ? $brand : null,
+            'model' => $model !== '' ? $model : null,
+            'problem_description' => $problem,
+            'service_mode' => 'DROP_OFF',
+            'city' => $city !== '' ? $city : 'São Paulo',
+            'notes' => $notes !== '' ? $notes : null,
+            'possible_mapos_client_id' => $clientId > 0 ? $clientId : null,
+            'credential_type' => in_array($credentialType, ['PASSWORD', 'PATTERN', 'NONE'], true) ? $credentialType : 'NONE',
+            'credential_value' => $credentialValue !== '' ? $credentialValue : null,
+            'registration_choice' => $clientId > 0 ? 'EXISTING_ACCOUNT' : 'DEFER_REGISTRATION',
+            'registration_cpf' => $cpf !== '' ? $cpf : null,
+            'registration_email' => $email !== '' ? $email : null,
+            'birth_date' => $birthDate !== '' ? $birthDate : null,
+            'operator_id' => $operatorId,
+        ];
+
+        $botResult = $this->tecnina_bot_gateway->request('POST', '/admin/intakes', $botPayload);
+        if (! ($botResult['ok'] ?? false)) {
+            return $this->json($botResult, $botResult['status'] ?? 502);
+        }
+
+        $createdData = $botResult['data'] ?? [];
+        $intakeId = $createdData['id'] ?? null;
+        if (! $intakeId) {
+            return $this->json(['ok' => false, 'reason' => 'intake_creation_failed'], 502);
+        }
+
+        $otherIdentifiers = $storageLocation !== '' ? 'Local: ' . $storageLocation : null;
+
+        // Record immediate physical possession if confirmed
+        if ($confirmReceipt) {
+            $receivingPayload = [
+                'device_condition' => $deviceCondition !== '' ? $deviceCondition : 'Recebido no balcão para avaliação',
+                'accessories' => $accessories !== '' ? $accessories : null,
+                'serial_number' => $serialNumber !== '' ? $serialNumber : null,
+                'imei' => $imei !== '' ? $imei : null,
+                'other_identifiers' => $otherIdentifiers,
+                'notes' => $notes !== '' ? $notes : null,
+            ];
+            $idempotencyKey = sprintf(
+                '%04x%04x-%04x-4%03x-%04x-%04x%04x%04x',
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0x0fff),
+                mt_rand(0x8000, 0xbfff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff),
+                mt_rand(0, 0xffff)
+            );
+            $this->Tecnina_receiving_model->confirmPhysicalReceipt($intakeId, $operatorId, $receivingPayload, $idempotencyKey);
+        } else {
+            // Save preparation draft
+            $prepPayload = [
+                'device_condition' => $deviceCondition !== '' ? $deviceCondition : null,
+                'accessories' => $accessories !== '' ? $accessories : null,
+                'serial_number' => $serialNumber !== '' ? $serialNumber : null,
+                'imei' => $imei !== '' ? $imei : null,
+                'other_identifiers' => $otherIdentifiers,
+                'notes' => $notes !== '' ? $notes : null,
+            ];
+            $this->Tecnina_receiving_model->savePreparation($intakeId, $prepPayload, $operatorId);
+        }
+
+        return $this->json([
+            'ok' => true,
+            'result' => 'created',
+            'intake_id' => $intakeId,
+            'data' => $createdData,
+        ], 201);
+    }
+
     public function trigger_deferred_registration($intakeId = '')
     {
         if (! $this->authorizedMutation(true)) {

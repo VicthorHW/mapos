@@ -214,6 +214,8 @@ class Tecnina_bot_gateway
                 'snapshot_stale',
                 'intake_sealed_in_materialization',
                 'snapshot_identity_conflict',
+                'whatsapp_send_failed',
+                'whatsapp_delivery_unknown',
             ];
             $detail = isset($decoded['detail']) && is_string($decoded['detail'])
                 ? $decoded['detail']
@@ -228,9 +230,12 @@ class Tecnina_bot_gateway
                         break;
                     }
                 }
+                if ($reason === 'gateway_request_failed' && $detail !== '' && preg_match('/^[a-z0-9_\-:]+$/i', $detail)) {
+                    $reason = $detail;
+                }
             }
 
-            return ['ok' => false, 'status' => $status, 'reason' => $reason, 'data' => null];
+            return ['ok' => false, 'status' => $status, 'reason' => $reason, 'detail' => $detail, 'data' => null];
         }
 
         return ['ok' => true, 'status' => $status, 'reason' => 'ok', 'data' => $decoded];

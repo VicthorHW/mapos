@@ -31,6 +31,7 @@ class Tecnina_readiness_service
     public function evaluateReadiness(string $intakeId, ?array $injectedSnapshot = null): array
     {
         $blockingReasons = [];
+        $pendingItems = [];
         $now = gmdate('Y-m-d H:i:s');
         $nowTimestamp = time();
 
@@ -105,9 +106,9 @@ class Tecnina_readiness_service
         }
 
         if ($intakeSnapshot === 'STALE') {
-            $blockingReasons[] = 'SNAPSHOT_STALE';
+            $pendingItems[] = 'SNAPSHOT_STALE';
         } elseif ($intakeSnapshot === 'UNAVAILABLE') {
-            $blockingReasons[] = 'SNAPSHOT_UNAVAILABLE';
+            $pendingItems[] = 'SNAPSHOT_UNAVAILABLE';
         }
 
         $snapData = is_array($snapshotPayload['data'] ?? null) ? $snapshotPayload['data'] : ($snapshotPayload ?? []);
@@ -161,7 +162,7 @@ class Tecnina_readiness_service
             $isExistingAccount = true;
         } elseif ($matchCount > 1) {
             $identityResolution = 'AMBIGUOUS';
-            $blockingReasons[] = 'CLIENT_IDENTITY_AMBIGUOUS';
+            $pendingItems[] = 'CLIENT_IDENTITY_AMBIGUOUS';
         } else {
             // No existing client in MapOS: check if minimum new customer details exist
             if (mb_strlen($clientName) >= 2 && strlen($phoneCanonical) >= 8) {
@@ -169,7 +170,7 @@ class Tecnina_readiness_service
                 $isExistingAccount = false;
             } else {
                 $identityResolution = 'MISSING';
-                $blockingReasons[] = 'CLIENT_IDENTITY_MISSING';
+                $pendingItems[] = 'CLIENT_IDENTITY_MISSING';
             }
         }
 
@@ -192,16 +193,16 @@ class Tecnina_readiness_service
                     $credential = 'PRESENT';
                 } else {
                     $credential = 'MISSING';
-                    $blockingReasons[] = 'CREDENTIAL_MISSING';
+                    $pendingItems[] = 'CREDENTIAL_MISSING';
                 }
             } elseif ($choice === 'DEFER_REGISTRATION') {
                 $registration = 'DEFERRED_NOT_COMPLETED';
                 $credential = 'MISSING';
-                $blockingReasons[] = 'REGISTRATION_PENDING';
+                $pendingItems[] = 'REGISTRATION_PENDING';
             } else {
                 $registration = 'DEFERRED_NOT_COMPLETED';
                 $credential = 'MISSING';
-                $blockingReasons[] = 'REGISTRATION_PENDING';
+                $pendingItems[] = 'REGISTRATION_PENDING';
             }
         }
 
@@ -237,7 +238,7 @@ class Tecnina_readiness_service
                 $legal = 'SATISFIED';
             } else {
                 $legal = 'MISSING';
-                $blockingReasons[] = 'LEGAL_ACCEPTANCE_MISSING';
+                $pendingItems[] = 'LEGAL_ACCEPTANCE_PENDING';
             }
         }
 
@@ -251,7 +252,7 @@ class Tecnina_readiness_service
 
         $equipmentValid = ($deviceType !== '') && ($brand !== '' || $model !== '') && ($problem !== '');
         if (!$equipmentValid) {
-            $blockingReasons[] = 'EQUIPMENT_DATA_INCOMPLETE';
+            $pendingItems[] = 'EQUIPMENT_DATA_INCOMPLETE';
         }
 
         // -------------------------------------------------------------
@@ -270,7 +271,7 @@ class Tecnina_readiness_service
             $attState = strtoupper(trim((string) ($att['state'] ?? '')));
             if (in_array($attState, ['FAILED', 'ERROR'], true)) {
                 $attachments = 'BLOCKING_ERROR';
-                $blockingReasons[] = 'ATTACHMENTS_ERROR';
+                $pendingItems[] = 'ATTACHMENTS_ERROR';
                 break;
             }
             if ($attState === 'PROMOTION_PENDING') {
@@ -284,20 +285,13 @@ class Tecnina_readiness_service
         // -------------------------------------------------------------
         // 8. Overall Readiness Synthesis
         // -------------------------------------------------------------
-        $branchSatisfied = (
-            ($registration === 'READY_TO_MATERIALIZE' && $credential === 'PRESENT' && $legal === 'SATISFIED')
-            || ($registration === 'EXISTING_ACCOUNT' && $credential === 'EXISTING_ACCOUNT' && $legal === 'SATISFIED')
-        );
+        // Per 07-10-2026 adjustment: Only physical receiving is mandatory and blocks OS opening.
+        // Other items (legal manifestations, registration choice, credentials, etc.) are tracked as pending_items without blocking OS opening.
+        if ($physicalReceiving !== 'RECEIVED') {
+            $blockingReasons[] = 'PHYSICAL_RECEIVING_PENDING';
+        }
 
-        $ready = (
-            $physicalReceiving === 'RECEIVED'
-            && $identityResolution === 'READY'
-            && $branchSatisfied
-            && $intakeSnapshot === 'READY'
-            && in_array($attachments, ['READY', 'POST_COMMIT_PENDING_ALLOWED'], true)
-            && $equipmentValid
-            && empty($blockingReasons)
-        );
+        $ready = ($physicalReceiving === 'RECEIVED');
 
         $result = [
             'ready' => $ready,
@@ -310,6 +304,7 @@ class Tecnina_readiness_service
             'attachments' => $attachments,
             'equipment_minimums' => $equipmentValid,
             'blocking_reasons' => array_values(array_unique($blockingReasons)),
+            'pending_items' => array_values(array_unique($pendingItems)),
             'intake_version' => $intakeVersion,
             'snapshot_version' => $snapshotVersion,
             'snapshot_hash' => $snapshotHash,
