@@ -275,6 +275,13 @@
         return parts.join(',');
     }
 
+    function parseCurrencyBRL(value) {
+        var digits = String(value || '').replace(/\D/g, '');
+        if (!digits) { return null; }
+        var cents = parseInt(digits, 10);
+        return isNaN(cents) ? null : (cents / 100);
+    }
+
     function pickupFeeAction(data, actionable) {
         if (!actionable || data.service_mode !== 'PICKUP_REQUESTED') { return ''; }
         if (data.pickup_fee_status !== 'PENDING_TEAM' && data.stage !== 'WAITING_PICKUP_FEE_TEAM') { return ''; }
@@ -819,9 +826,14 @@
     // Workspace de Novo Pré-atendimento (Sem Modal)
     var draftAutoSaveTimer = null;
     var draftIsSaving = false;
+    var activeDevicePattern = null;
 
     function renderNewIntakeWorkspace() {
         currentIntakeData = null;
+        if (activeDevicePattern) {
+            try { activeDevicePattern.destroy(); } catch (e) {}
+            activeDevicePattern = null;
+        }
         var html = '<div class="well wa-intake-form" data-id="" data-version="0" data-is-new="true">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
             '<h4><i class="fas fa-plus-circle text-success"></i> Novo Pré-atendimento Presencial (Balcão)</h4>' +
@@ -832,16 +844,24 @@
             '<small class="muted">Preencha os dados do atendimento. O sistema salva automaticamente como rascunho (Draft) assim que o nome e telefone forem preenchidos, aparecendo na lista à esquerda.</small>' +
             '</div>' +
 
-            '<!-- Autocomplete de Clientes do MapOS -->' +
+            '<!-- Busca Inteligente de Clientes do MapOS (Tarefa 5) -->' +
             '<div class="well well-small" style="background:#f9fbfd;border:1px solid #d0e2ec;margin-bottom:12px;">' +
             '<label for="wa-intake-client-autocomplete" style="font-size:12px;font-weight:bold;margin-bottom:4px;color:#2c3e50;">' +
             '<i class="fas fa-search text-info"></i> Localizar Cliente Cadastrado (Opcional - preenche automático)' +
             '</label>' +
-            '<input type="text" id="wa-intake-client-autocomplete" class="input-block-level" placeholder="Digite nome, telefone ou CPF para buscar cliente no MapOS…" autocomplete="off">' +
+            '<div class="wa-client-search-wrapper">' +
+            '<div style="display:flex;gap:6px;">' +
+            '<input type="text" id="wa-intake-client-autocomplete" class="input-block-level" placeholder="Digite nome, CPF, telefone ou e-mail para buscar cliente…" autocomplete="off" style="margin-bottom:0;flex:1;">' +
+            '<button type="button" class="btn btn-small" id="wa-btn-clear-client-search" title="Limpar busca" style="display:none;"><i class="fas fa-times"></i></button>' +
+            '</div>' +
+            '<div id="wa-client-search-status" style="display:none;font-size:12px;margin-top:4px;"></div>' +
+            '<div id="wa-client-search-dropdown" class="wa-client-dropdown" style="display:none;"></div>' +
+            '</div>' +
             '<input type="hidden" id="wa-intake-client-id" class="wa-i-client-id" value="">' +
-            '<div id="wa-intake-client-match-badge" style="display:none;margin-top:4px;"></div>' +
+            '<div id="wa-intake-client-match-badge" style="display:none;margin-top:6px;"></div>' +
             '</div>' +
 
+            '<!-- Dados Pessoais do Cliente -->' +
             '<div class="row-fluid">' +
             '<div class="span7">' +
             '<label><strong>Nome do Cliente</strong> <span class="text-error">*</span></label>' +
@@ -849,16 +869,33 @@
             '</div>' +
             '<div class="span5">' +
             '<label><strong>WhatsApp / Telefone</strong> <span class="text-error">*</span></label>' +
-            '<input type="text" class="input-block-level wa-i-phone" placeholder="(11) 99999-9999" required>' +
+            '<input type="text" class="input-block-level wa-i-phone" placeholder="(41) 99999-9999" required>' +
             '</div>' +
             '</div>' +
 
             '<div class="row-fluid">' +
             '<div class="span4"><label>CPF (Opcional)</label><input type="text" class="input-block-level wa-i-cpf" placeholder="000.000.000-00"></div>' +
             '<div class="span5"><label>E-mail (Opcional)</label><input type="email" class="input-block-level wa-i-email" placeholder="cliente@exemplo.com"></div>' +
-            '<div class="span3"><label>Cidade</label><input type="text" class="input-block-level wa-i-city" maxlength="80" value="São Paulo" placeholder="Cidade"></div>' +
+            '<div class="span3"><label>Data Nascimento</label><input type="date" class="input-block-level wa-i-birthdate"></div>' +
             '</div>' +
 
+            '<!-- Seção de Endereço do Cliente (Tarefa 8) -->' +
+            '<div class="wa-address-section">' +
+            '<h5 style="margin:0 0 8px 0;font-size:13px;color:#2c3e50;"><i class="fas fa-map-marker-alt text-info"></i> Endereço do Cliente</h5>' +
+            '<div class="row-fluid">' +
+            '<div class="span3"><label>CEP</label><input type="text" class="input-block-level wa-i-cep" placeholder="00000-000"></div>' +
+            '<div class="span7"><label>Rua / Logradouro</label><input type="text" class="input-block-level wa-i-street" maxlength="140" placeholder="Rua, Avenida, Travessa…"></div>' +
+            '<div class="span2"><label>Número</label><input type="text" class="input-block-level wa-i-number" maxlength="20" placeholder="Nº"></div>' +
+            '</div>' +
+            '<div class="row-fluid">' +
+            '<div class="span4"><label>Bairro</label><input type="text" class="input-block-level wa-i-district" maxlength="80" placeholder="Bairro"></div>' +
+            '<div class="span4"><label>Cidade</label><input type="text" class="input-block-level wa-i-city" maxlength="80" value="Antonina" placeholder="Cidade"></div>' +
+            '<div class="span2"><label>UF</label><input type="text" class="input-block-level wa-i-state" maxlength="2" value="PR" placeholder="UF"></div>' +
+            '<div class="span2"><label>Compl.</label><input type="text" class="input-block-level wa-i-complement" maxlength="60" placeholder="Apto, Sala…"></div>' +
+            '</div>' +
+            '</div>' +
+
+            '<!-- Dados do Equipamento -->' +
             '<div class="row-fluid">' +
             '<div class="span4"><label><strong>Equipamento</strong></label><input class="input-block-level wa-i-device" maxlength="80" placeholder="Ex: Notebook, Celular, TV…" value="Notebook"></div>' +
             '<div class="span4"><label>Marca</label><input class="input-block-level wa-i-brand" maxlength="80" placeholder="Ex: Dell, Samsung, Apple…"></div>' +
@@ -868,7 +905,7 @@
             '<label><strong>Problema informado</strong></label>' +
             '<textarea class="input-block-level wa-i-problem" maxlength="2000" rows="3" placeholder="Descreva detalhadamente o defeito ou solicitação do cliente…"></textarea>' +
 
-            '<!-- Senha / Desbloqueio -->' +
+            '<!-- Senha / Desbloqueio (Tarefa 7) -->' +
             '<div class="well well-small" style="background:#fdfdfd;margin-bottom:12px;">' +
             '<label><strong><i class="fas fa-key text-info"></i> Senha / Desbloqueio do Aparelho (Opcional)</strong></label>' +
             '<div class="row-fluid">' +
@@ -880,16 +917,46 @@
             '</select>' +
             '</div>' +
             '<div class="span7 wa-i-cred-val-wrap" style="display:none;">' +
-            '<input type="text" class="input-block-level wa-i-cred-value" placeholder="Digite a senha ou sequência de pontos">' +
+            '<input type="password" class="input-block-level wa-i-cred-value" placeholder="Digite a senha ou PIN">' +
             '</div>' +
+            '</div>' +
+            '<div class="wa-pattern-container" id="wa-pattern-box" style="display:none;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+            '<span style="font-size:12px;font-weight:bold;color:#495057;"><i class="fas fa-fingerprint"></i> Conecte pelo menos 4 pontos:</span>' +
+            '<button type="button" class="btn btn-mini btn-warning" id="wa-btn-clear-pattern"><i class="fas fa-eraser"></i> Limpar padrão</button>' +
+            '</div>' +
+            '<svg id="wa-device-pattern-svg" role="img" aria-label="Grade para desenhar o padrão"></svg>' +
+            '<div class="wa-pattern-sequence" id="wa-pattern-sequence-text">Nenhum ponto selecionado.</div>' +
+            '<input type="hidden" class="wa-i-cred-pattern-val" value="">' +
             '</div>' +
             '</div>' +
 
+            '<!-- Forma de atendimento & Taxa de Coleta (Tarefa 9) -->' +
             '<label>Forma de atendimento</label>' +
             '<select class="input-block-level wa-i-mode">' +
             '<option value="DROP_OFF" selected>Cliente traz o equipamento à loja (Balcão)</option>' +
             '<option value="PICKUP_REQUESTED">Coleta no endereço do cliente</option>' +
             '</select>' +
+
+            '<div class="wa-pickup-fee-box" id="wa-pickup-fee-section" style="display:none;">' +
+            '<label style="font-weight:bold;color:#8a6d3b;"><i class="fas fa-motorcycle"></i> Agendamento de Coleta e Cobrança de Taxa</label>' +
+            '<p style="margin:0 0 8px 0;font-size:12px;line-height:1.4;color:#8a6d3b;">Defina a taxa de deslocamento/coleta e envie a mensagem de cobrança diretamente para o cliente via WhatsApp.</p>' +
+            '<div class="row-fluid" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">' +
+            '<div class="span5" style="margin-left:0;">' +
+            '<label style="font-size:12px;font-weight:bold;">Valor da Taxa (R$)</label>' +
+            '<div class="input-prepend" style="margin-bottom:0;display:flex;width:100%;">' +
+            '<span class="add-on" style="font-weight:bold;background:#fff8e7;color:#8a6d3b;">R$</span>' +
+            '<input type="text" class="input-block-level wa-i-pickup-fee-input" placeholder="0,00" value="" style="font-weight:bold;font-size:14px;text-align:right;">' +
+            '</div>' +
+            '</div>' +
+            '<div class="span7" style="margin-left:0;">' +
+            '<button type="button" class="btn btn-success wa-btn-send-fee-whatsapp" style="width:100%;font-weight:bold;padding:6px 12px;" title="Enviar valor da taxa para o WhatsApp do cliente">' +
+            '<i class="fab fa-whatsapp" style="font-size:15px;"></i> Enviar Taxa via WhatsApp' +
+            '</button>' +
+            '</div>' +
+            '</div>' +
+            '<div id="wa-fee-send-feedback" style="display:none;margin-top:6px;font-size:12px;"></div>' +
+            '</div>' +
 
             '<hr style="margin:16px 0 12px 0;">' +
             '<h5><i class="fas fa-search"></i> Triagem e Inspeção Física do Equipamento</h5>' +
@@ -981,18 +1048,27 @@
         var brand = $.trim(form.find('.wa-i-brand').val());
         var model = $.trim(form.find('.wa-i-model').val());
         var problem = $.trim(form.find('.wa-i-problem').val()) || 'Em avaliação no balcão';
-        var city = $.trim(form.find('.wa-i-city').val()) || 'São Paulo';
+        var city = $.trim(form.find('.wa-i-city').val()) || 'Antonina';
         var notes = $.trim(form.find('.wa-i-receiving-notes').val());
         var clientId = form.find('.wa-i-client-id').val() || null;
         var cpf = $.trim(form.find('.wa-i-cpf').val());
         var email = $.trim(form.find('.wa-i-email').val());
+        var birthDate = $.trim(form.find('.wa-i-birthdate').val());
+        var cep = $.trim(form.find('.wa-i-cep').val());
+        var rua = $.trim(form.find('.wa-i-street').val());
+        var numero = $.trim(form.find('.wa-i-number').val());
+        var bairro = $.trim(form.find('.wa-i-district').val());
+        var estado = $.trim(form.find('.wa-i-state').val()) || 'PR';
+        var complemento = $.trim(form.find('.wa-i-complement').val());
         var credType = form.find('.wa-i-cred-type').val() || 'NONE';
-        var credVal = $.trim(form.find('.wa-i-cred-value').val());
+        var credVal = credType === 'PATTERN' ? form.find('.wa-i-cred-pattern-val').val() : $.trim(form.find('.wa-i-cred-value').val());
         var condition = form.find('.wa-i-condition').val() || 'BOM';
         var serial = $.trim(form.find('.wa-i-serial').val());
         var imei = $.trim(form.find('.wa-i-imei').val());
         var storage = $.trim(form.find('.wa-i-other-ids').val());
         var confirmReceipt = form.find('.wa-i-immediate-possession').is(':checked');
+        var serviceMode = form.find('.wa-i-mode').val() || 'DROP_OFF';
+        var feeVal = parseCurrencyBRL(form.find('.wa-i-pickup-fee-input').val()) || null;
 
         var accList = [];
         if (form.find('.wa-acc-charger').is(':checked')) { accList.push('Carregador'); }
@@ -1013,9 +1089,18 @@
                 problem_description: problem,
                 notes: notes,
                 city: city,
+                cep: cep,
+                rua: rua,
+                numero: numero,
+                bairro: bairro,
+                estado: estado,
+                complemento: complemento,
+                service_mode: serviceMode,
+                pickup_fee: feeVal,
                 possible_mapos_client_id: clientId,
                 registration_cpf: cpf,
                 registration_email: email,
+                birth_date: birthDate,
                 credential_type: credType,
                 credential_value: credVal,
                 confirm_physical_receipt: confirmReceipt,
@@ -1055,7 +1140,7 @@
                     brand: brand,
                     model: model,
                     problem_description: problem,
-                    service_mode: form.find('.wa-i-mode').val() || 'DROP_OFF',
+                    service_mode: serviceMode,
                     notes: notes
                 };
                 request('/pre_atendimento/' + encodeURIComponent(intakeId) + '/save', 'POST', intakePayload, function () {
@@ -1100,51 +1185,299 @@
         renderNewIntakeWorkspace();
     });
 
-    // Alternar campo de senha conforme tipo
+    // Componente de Senha Padrão (Tarefa 7 - Reaproveitamento de DevicePattern)
+    var patternInstance = null;
+    function initPatternComponent() {
+        var svg = document.getElementById('wa-device-pattern-svg');
+        if (!svg || typeof DevicePattern === 'undefined') { return; }
+        if (patternInstance) {
+            patternInstance.destroy();
+            patternInstance = null;
+        }
+        patternInstance = new DevicePattern(svg, {
+            grid: 3,
+            onChange: function (sequence) {
+                var valStr = Array.isArray(sequence) && sequence.length ? sequence.join('-') : '';
+                $('.wa-i-cred-pattern-val').val(valStr);
+                if (sequence && sequence.length > 0) {
+                    $('#wa-pattern-sequence-text').html('<strong>Sequência gravada:</strong> ' + esc(valStr) + ' (' + sequence.length + ' pontos)');
+                } else {
+                    $('#wa-pattern-sequence-text').text('Nenhum ponto selecionado.');
+                }
+                scheduleDraftAutoSave();
+            }
+        });
+    }
+
+    // Alternar campo de credencial conforme tipo (Tarefa 7)
     $(document).on('change', '.wa-i-cred-type', function () {
-        if ($(this).val() === 'NONE') {
+        var val = $(this).val();
+        if (val === 'NONE') {
+            $('.wa-i-cred-val-wrap').hide();
+            $('#wa-pattern-box').hide();
+            $('.wa-i-cred-value').val('');
+            $('.wa-i-cred-pattern-val').val('');
+            if (patternInstance) { patternInstance.clear(); }
+        } else if (val === 'PATTERN') {
             $('.wa-i-cred-val-wrap').hide();
             $('.wa-i-cred-value').val('');
+            $('#wa-pattern-box').show();
+            initPatternComponent();
         } else {
+            $('#wa-pattern-box').hide();
+            if (patternInstance) { patternInstance.clear(); }
+            $('.wa-i-cred-pattern-val').val('');
             $('.wa-i-cred-val-wrap').show();
             $('.wa-i-cred-value').focus();
         }
     });
 
-    // Autocomplete de clientes do MapOS no workspace
-    $(document).on('focus', '#wa-intake-client-autocomplete', function () {
-        var $input = $(this);
-        if ($input.data('ui-autocomplete') || !$.fn.autocomplete) { return; }
-        $input.autocomplete({
-            source: base.replace(/\/+$/, '') + '/index.php/os/autoCompleteCliente',
-            minLength: 2,
-            select: function (event, ui) {
-                if (!ui || !ui.item) { return; }
-                $('#wa-intake-client-id').val(ui.item.id);
-                var label = ui.item.label || '';
-                var parts = label.split('|');
-                if (parts.length > 0) {
-                    $('.wa-i-name').val($.trim(parts[0]));
+    $(document).on('click', '#wa-btn-clear-pattern', function (e) {
+        e.preventDefault();
+        if (patternInstance) {
+            patternInstance.clear();
+        }
+        $('.wa-i-cred-pattern-val').val('');
+        $('#wa-pattern-sequence-text').text('Nenhum ponto selecionado.');
+        scheduleDraftAutoSave();
+    });
+
+    // Busca Inteligente de Clientes Cadastrados (Tarefa 5)
+    var clientSearchTimer = null;
+
+    function renderClientMatchBadge(client) {
+        var badgeHtml = '<div class="alert alert-success" style="padding:6px 10px;margin-bottom:0;display:flex;justify-content:space-between;align-items:center;">' +
+            '<span><i class="fas fa-check-circle"></i> <strong>Cliente vinculado:</strong> #' + esc(client.id) + ' — ' + esc(client.nome) + '</span>' +
+            '<button type="button" class="btn btn-mini btn-danger" id="wa-btn-unlink-client" title="Desvincular cadastro"><i class="fas fa-unlink"></i> Desvincular</button>' +
+            '</div>';
+        $('#wa-intake-client-match-badge').html(badgeHtml).show();
+    }
+
+    $(document).on('input', '#wa-intake-client-autocomplete', function () {
+        var term = $.trim($(this).val());
+        if (clientSearchTimer) { clearTimeout(clientSearchTimer); }
+
+        var clearBtn = $('#wa-btn-clear-client-search');
+        var statusEl = $('#wa-client-search-status');
+        var dropdownEl = $('#wa-client-search-dropdown');
+
+        if (term.length > 0) {
+            clearBtn.show();
+        } else {
+            clearBtn.hide();
+        }
+
+        if (term.length < 2) {
+            statusEl.hide().empty();
+            dropdownEl.hide().empty();
+            return;
+        }
+
+        statusEl.show().html('<i class="fas fa-spinner fa-spin text-info"></i> Buscando clientes no MapOS…');
+        dropdownEl.hide().empty();
+
+        clientSearchTimer = setTimeout(function () {
+            request('/tecnina/clientes/buscar?q=' + encodeURIComponent(term), 'GET', null, function (results) {
+                var list = Array.isArray(results) ? results : (results && results.data ? results.data : []);
+                if (!list.length) {
+                    statusEl.show().html('<span class="text-warning"><i class="fas fa-info-circle"></i> Nenhum cliente encontrado para "<strong>' + esc(term) + '</strong>".</span>');
+                    dropdownEl.hide().empty();
+                    return;
                 }
-                for (var i = 1; i < parts.length; i++) {
-                    var p = parts[i];
-                    if (p.indexOf('Telefone:') !== -1 || p.indexOf('Celular:') !== -1) {
-                        var rawPhone = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
-                        if (rawPhone && rawPhone !== 'null') {
-                            $('.wa-i-phone').val(rawPhone).trigger('input');
-                        }
-                    }
-                    if (p.indexOf('Documento:') !== -1) {
-                        var rawDoc = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
-                        if (rawDoc && rawDoc !== 'null') {
-                            $('.wa-i-cpf').val(rawDoc);
-                        }
-                    }
-                }
-                $('#wa-intake-client-match-badge').show().html('<span class="label label-success"><i class="fas fa-check"></i> Cliente #' + esc(ui.item.id) + ' selecionado do MapOS</span>');
-                scheduleDraftAutoSave();
+
+                statusEl.hide().empty();
+                var itemsHtml = '';
+                $.each(list, function (_, c) {
+                    var phoneText = c.celular || c.telefone || '';
+                    var docText = c.documento || '';
+                    var emailText = c.email || '';
+                    var addressParts = [];
+                    if (c.rua) { addressParts.push(c.rua + (c.numero ? ', ' + c.numero : '')); }
+                    if (c.bairro) { addressParts.push(c.bairro); }
+                    if (c.cidade) { addressParts.push(c.cidade + (c.estado ? '/' + c.estado : '')); }
+                    var addressText = addressParts.join(' — ');
+
+                    itemsHtml += '<div class="wa-client-dropdown-item" data-client="' + esc(JSON.stringify(c)) + '">' +
+                        '<div class="wa-client-dropdown-name"><i class="fas fa-user text-info"></i> <strong>' + esc(c.nome) + '</strong> <span class="muted" style="font-size:11px;">#' + esc(c.id) + '</span></div>' +
+                        '<div class="wa-client-dropdown-details">' +
+                        (docText ? '<span><i class="fas fa-id-card"></i> ' + esc(docText) + '</span>' : '') +
+                        (phoneText ? '<span><i class="fab fa-whatsapp"></i> ' + esc(phoneText) + '</span>' : '') +
+                        (emailText ? '<span><i class="fas fa-envelope"></i> ' + esc(emailText) + '</span>' : '') +
+                        (addressText ? '<span><i class="fas fa-map-marker-alt"></i> ' + esc(addressText) + '</span>' : '') +
+                        '</div>' +
+                        '</div>';
+                });
+
+                dropdownEl.html(itemsHtml).show();
+            });
+        }, 280);
+    });
+
+    $(document).on('click', '.wa-client-dropdown-item', function () {
+        var rawJson = $(this).attr('data-client');
+        var client;
+        try { client = JSON.parse(rawJson); } catch (e) { return; }
+        if (!client) { return; }
+
+        $('#wa-intake-client-id').val(client.id);
+        $('.wa-i-name').val(client.nome);
+        var phone = client.celular || client.telefone || '';
+        if (phone) { $('.wa-i-phone').val(phone).trigger('input'); }
+        if (client.documento) { $('.wa-i-cpf').val(client.documento).trigger('input'); }
+        if (client.email) { $('.wa-i-email').val(client.email); }
+
+        // Preenchimento de endereço (Tarefa 8)
+        if (client.cep) { $('.wa-i-cep').val(client.cep).trigger('input'); }
+        if (client.rua) { $('.wa-i-street').val(client.rua); }
+        if (client.numero) { $('.wa-i-number').val(client.numero); }
+        if (client.bairro) { $('.wa-i-district').val(client.bairro); }
+        $('.wa-i-city').val(client.cidade || 'Antonina');
+        $('.wa-i-state').val(client.estado || 'PR');
+        if (client.complemento) { $('.wa-i-complement').val(client.complemento); }
+
+        renderClientMatchBadge(client);
+        $('#wa-intake-client-autocomplete').val('');
+        $('#wa-client-search-dropdown').hide().empty();
+        $('#wa-btn-clear-client-search').hide();
+        $('#wa-client-search-status').hide().empty();
+        scheduleDraftAutoSave();
+    });
+
+    $(document).on('click', '#wa-btn-clear-client-search', function () {
+        $('#wa-intake-client-autocomplete').val('').focus();
+        $('#wa-client-search-dropdown').hide().empty();
+        $('#wa-client-search-status').hide().empty();
+        $(this).hide();
+    });
+
+    $(document).on('click', '#wa-btn-unlink-client', function () {
+        $('#wa-intake-client-id').val('');
+        $('#wa-intake-client-match-badge').hide().empty();
+        scheduleDraftAutoSave();
+    });
+
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.wa-client-search-wrapper').length) {
+            $('#wa-client-search-dropdown').hide();
+        }
+    });
+
+    // Formatação de CEP (Tarefa 8)
+    $(document).on('input', '.wa-i-cep', function () {
+        var v = $(this).val().replace(/\D/g, '');
+        if (v.length > 8) { v = v.substring(0, 8); }
+        if (v.length > 5) {
+            $(this).val(v.substring(0, 5) + '-' + v.substring(5));
+        } else {
+            $(this).val(v);
+        }
+    });
+
+    // Formatação de CPF/CNPJ
+    $(document).on('input', '.wa-i-cpf', function () {
+        var v = $(this).val().replace(/\D/g, '');
+        if (v.length > 14) { v = v.substring(0, 14); }
+        if (v.length > 11) {
+            $(this).val(v.substring(0, 2) + '.' + v.substring(2, 5) + '.' + v.substring(5, 8) + '/' + v.substring(8, 12) + '-' + v.substring(12));
+        } else if (v.length > 9) {
+            $(this).val(v.substring(0, 3) + '.' + v.substring(3, 6) + '.' + v.substring(6, 9) + '-' + v.substring(9));
+        } else if (v.length > 6) {
+            $(this).val(v.substring(0, 3) + '.' + v.substring(3, 6) + '.' + v.substring(6));
+        } else if (v.length > 3) {
+            $(this).val(v.substring(0, 3) + '.' + v.substring(3));
+        } else {
+            $(this).val(v);
+        }
+    });
+
+    // Alternar visibilidade da taxa de coleta conforme forma de atendimento (Tarefa 9)
+    $(document).on('change', '.wa-i-mode', function () {
+        if ($(this).val() === 'PICKUP_REQUESTED') {
+            $('#wa-pickup-fee-section').slideDown(200);
+            $('#wa-pickup-fee-section .wa-i-pickup-fee-input').focus();
+        } else {
+            $('#wa-pickup-fee-section').slideUp(200);
+        }
+    });
+
+    // Máscara de Moeda (preenchimento direita para a esquerda com vírgula fixa - Tarefa 9)
+    $(document).on('input keyup', '.wa-i-pickup-fee-input, .wa-i-pickup-fee', function () {
+        var raw = $(this).val().replace(/\D/g, '');
+        if (!raw) {
+            $(this).val('');
+            return;
+        }
+        var num = parseInt(raw, 10) / 100;
+        $(this).val(num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    });
+
+    // Enviar mensagem da Taxa de Coleta via WhatsApp (Tarefa 9)
+    $(document).on('click', '.wa-btn-send-fee-whatsapp', function (e) {
+        e.preventDefault();
+        var form = $('#wa-intake-detail .wa-intake-form');
+        var feedback = $('#wa-fee-send-feedback');
+        feedback.hide().empty();
+
+        var feeRaw = $.trim(form.find('.wa-i-pickup-fee-input').val());
+        var feeVal = parseCurrencyBRL(feeRaw);
+        if (!feeVal || feeVal <= 0) {
+            feedback.show().html('<span class="text-error"><i class="fas fa-exclamation-triangle"></i> Informe um valor válido para a taxa de coleta antes de enviar.</span>');
+            form.find('.wa-i-pickup-fee-input').focus();
+            return;
+        }
+
+        var clientName = $.trim(form.find('.wa-i-name').val()) || 'Cliente';
+        var deviceName = $.trim(form.find('.wa-i-device').val()) || 'equipamento';
+        var feeFormatted = Number(feeVal).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        function dispatchWhatsappMessage(rawPhone) {
+            var digits = String(rawPhone || '').replace(/\D/g, '');
+            if (digits.length >= 12 && digits.indexOf('55') === 0) {
+                // Já possui DDI 55
+            } else if (digits.length === 10 || digits.length === 11) {
+                digits = '55' + digits;
+            } else {
+                feedback.show().html('<span class="text-error"><i class="fas fa-times-circle"></i> O telefone do cliente (' + esc(rawPhone) + ') não possui formato válido para WhatsApp.</span>');
+                return;
             }
-        });
+
+            var msg = 'Olá, ' + clientName + '! Tudo bem?\n\n' +
+                'Sobre a solicitação de atendimento na TecNina para o seu ' + deviceName + ':\n' +
+                'A taxa para coleta e deslocamento no seu endereço é de *R$ ' + feeFormatted + '*.\n\n' +
+                'Podemos confirmar o agendamento da coleta?';
+
+            var waUrl = 'https://api.whatsapp.com/send?phone=' + encodeURIComponent(digits) + '&text=' + encodeURIComponent(msg);
+            feedback.show().html('<span class="text-success"><i class="fas fa-check"></i> Mensagem preparada para <strong>+' + esc(digits) + '</strong>. Abrindo WhatsApp…</span>');
+            window.open(waUrl, '_blank');
+        }
+
+        // Resolução hierárquica do telefone (Tarefa 9):
+        // 1º Formulário de pré-atendimento
+        var formPhone = $.trim(form.find('.wa-i-phone').val()).replace(/\D/g, '');
+        if (formPhone.length >= 10) {
+            dispatchWhatsappMessage(formPhone);
+            return;
+        }
+
+        // 2º Base do Cadastro de Cliente no MapOS
+        var clientId = form.find('.wa-i-client-id').val();
+        if (clientId) {
+            feedback.show().html('<i class="fas fa-spinner fa-spin"></i> Localizando telefone no cadastro do MapOS…');
+            request('/tecnina/clientes/' + encodeURIComponent(clientId), 'GET', null, function (clientRes) {
+                var cData = clientRes && clientRes.data ? clientRes.data : clientRes;
+                var foundPhone = (cData && (cData.celular || cData.telefone)) ? (cData.celular || cData.telefone) : '';
+                var cDigits = foundPhone.replace(/\D/g, '');
+                if (cDigits.length >= 10) {
+                    dispatchWhatsappMessage(cDigits);
+                } else {
+                    feedback.show().html('<span class="text-error"><i class="fas fa-times-circle"></i> Telefone não encontrado no formulário nem no cadastro do cliente #' + esc(clientId) + '. Preencha o WhatsApp do cliente.</span>');
+                }
+            });
+            return;
+        }
+
+        feedback.show().html('<span class="text-error"><i class="fas fa-times-circle"></i> Por favor, informe o telefone/WhatsApp do cliente no formulário acima antes de enviar a cobrança.</span>');
+        form.find('.wa-i-phone').focus();
     });
 
     // Formatação de telefone

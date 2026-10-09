@@ -1097,6 +1097,26 @@ class Tecnina_whatsapp extends MY_Controller
             $accessories = implode(', ', array_filter($accessories));
         }
 
+        $serviceMode = trim((string) $this->input->post('service_mode', true));
+        if ($serviceMode === 'DROPOFF') {
+            $serviceMode = 'DROP_OFF';
+        }
+        if (! in_array($serviceMode, ['DROP_OFF', 'PICKUP_REQUESTED'], true)) {
+            $serviceMode = 'DROP_OFF';
+        }
+
+        $cep = trim((string) $this->input->post('cep', true));
+        $rua = trim((string) $this->input->post('rua', true));
+        $numero = trim((string) $this->input->post('numero', true));
+        $bairro = trim((string) $this->input->post('bairro', true));
+        $estado = trim((string) $this->input->post('estado', true)) ?: 'PR';
+        $complemento = trim((string) $this->input->post('complemento', true));
+
+        if ($rua !== '') {
+            $addrLine = "Endereço: {$rua}, {$numero}" . ($complemento !== '' ? " ({$complemento})" : '') . " - {$bairro}, {$city}/{$estado}" . ($cep !== '' ? " - CEP: {$cep}" : '');
+            $notes = $notes !== '' ? ($notes . "\n" . $addrLine) : $addrLine;
+        }
+
         $botPayload = [
             'name' => $name,
             'phone' => $digits,
@@ -1104,8 +1124,8 @@ class Tecnina_whatsapp extends MY_Controller
             'brand' => $brand !== '' ? $brand : null,
             'model' => $model !== '' ? $model : null,
             'problem_description' => $problem,
-            'service_mode' => 'DROP_OFF',
-            'city' => $city !== '' ? $city : 'São Paulo',
+            'service_mode' => $serviceMode,
+            'city' => $city !== '' ? $city : 'Antonina',
             'notes' => $notes !== '' ? $notes : null,
             'possible_mapos_client_id' => $clientId > 0 ? $clientId : null,
             'credential_type' => in_array($credentialType, ['PASSWORD', 'PATTERN', 'NONE'], true) ? $credentialType : 'NONE',
@@ -1341,6 +1361,102 @@ class Tecnina_whatsapp extends MY_Controller
         unset($row);
 
         return $rows;
+    }
+
+    public function buscar_clientes()
+    {
+        if (! $this->authorizedRead()) {
+            return $this->json(['ok' => false, 'reason' => 'forbidden'], 403);
+        }
+
+        $term = trim((string) ($this->input->get('term') ?: $this->input->get('q')));
+        if (mb_strlen($term) < 2) {
+            return $this->json(['ok' => true, 'data' => []]);
+        }
+
+        $digits = preg_replace('/\D/', '', $term);
+
+        $this->db->select('idClientes, nomeCliente, documento, telefone, celular, email, cep, rua, numero, bairro, cidade, estado, complemento');
+        $this->db->from('clientes');
+
+        $this->db->group_start();
+        $this->db->like('nomeCliente', $term);
+        $this->db->or_like('email', $term);
+
+        if ($digits !== '') {
+            $this->db->or_like('documento', $digits);
+            $this->db->or_like('telefone', $digits);
+            $this->db->or_like('celular', $digits);
+            if (is_numeric($term)) {
+                $this->db->or_where('idClientes', (int) $term);
+            }
+        }
+        $this->db->group_end();
+
+        $escaped = $this->db->escape($term);
+        $escapedLike = $this->db->escape($term . '%');
+        $this->db->order_by("CASE WHEN nomeCliente = {$escaped} THEN 1 WHEN nomeCliente LIKE {$escapedLike} THEN 2 ELSE 3 END", 'ASC', false);
+        $this->db->order_by('nomeCliente', 'ASC');
+        $this->db->limit(30);
+
+        $query = $this->db->get();
+        $results = [];
+
+        if ($query && $query->num_rows() > 0) {
+            foreach ($query->result() as $row) {
+                $results[] = [
+                    'id' => (int) $row->idClientes,
+                    'nome' => (string) $row->nomeCliente,
+                    'documento' => (string) ($row->documento ?? ''),
+                    'telefone' => (string) ($row->telefone ?? ''),
+                    'celular' => (string) ($row->celular ?? ''),
+                    'email' => (string) ($row->email ?? ''),
+                    'cep' => (string) ($row->cep ?? ''),
+                    'rua' => (string) ($row->rua ?? ''),
+                    'numero' => (string) ($row->numero ?? ''),
+                    'bairro' => (string) ($row->bairro ?? ''),
+                    'cidade' => (string) ($row->cidade ?? ''),
+                    'estado' => (string) ($row->estado ?? ''),
+                    'complemento' => (string) ($row->complemento ?? ''),
+                ];
+            }
+        }
+
+        return $this->json(['ok' => true, 'data' => $results]);
+    }
+
+    public function obter_cliente($id = null)
+    {
+        if (! $this->authorizedRead()) {
+            return $this->json(['ok' => false, 'reason' => 'forbidden'], 403);
+        }
+        $id = (int) $id;
+        if ($id <= 0) {
+            return $this->json(['ok' => false, 'reason' => 'invalid_id'], 422);
+        }
+        $this->db->where('idClientes', $id);
+        $cliente = $this->db->get('clientes')->row();
+        if (! $cliente) {
+            return $this->json(['ok' => false, 'reason' => 'not_found'], 404);
+        }
+        return $this->json([
+            'ok' => true,
+            'data' => [
+                'id' => (int) $cliente->idClientes,
+                'nome' => (string) $cliente->nomeCliente,
+                'telefone' => (string) ($cliente->telefone ?? ''),
+                'celular' => (string) ($cliente->celular ?? ''),
+                'documento' => (string) ($cliente->documento ?? ''),
+                'email' => (string) ($cliente->email ?? ''),
+                'cep' => (string) ($cliente->cep ?? ''),
+                'rua' => (string) ($cliente->rua ?? ''),
+                'numero' => (string) ($cliente->numero ?? ''),
+                'bairro' => (string) ($cliente->bairro ?? ''),
+                'cidade' => (string) ($cliente->cidade ?? ''),
+                'estado' => (string) ($cliente->estado ?? ''),
+                'complemento' => (string) ($cliente->complemento ?? ''),
+            ],
+        ]);
     }
 
     private function json($body, $status = 200)

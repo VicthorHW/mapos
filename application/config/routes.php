@@ -73,6 +73,8 @@ $route['tecnina/pre-atendimentos/(:any)/attachments/(:num)/delete'] = 'tecnina_w
 $route['tecnina/pre-atendimentos/(:any)/location'] = 'tecnina_whatsapp/location/$1';
 $route['tecnina/pre-atendimentos/(:any)/deferred-registration'] = 'tecnina_whatsapp/trigger_deferred_registration/$1';
 $route['tecnina/pre-atendimentos/(:any)/materialize'] = 'tecnina_whatsapp/materialize/$1';
+$route['tecnina/clientes/buscar'] = 'tecnina_whatsapp/buscar_clientes';
+$route['tecnina/clientes/(:num)'] = 'tecnina_whatsapp/obter_cliente/$1';
 
 // Rotas da API
 if (filter_var($_ENV['API_ENABLED'] ?? false, FILTER_VALIDATE_BOOLEAN)) {

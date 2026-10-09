@@ -1,3 +1,4 @@
+<link rel="stylesheet" href="<?= base_url('assets/css/device-credential.css'); ?>">
 <link rel="stylesheet" href="<?= base_url(); ?>assets/tecnina/css/whatsapp-panel.css?v=<?= filemtime(FCPATH . 'assets/tecnina/css/whatsapp-panel.css'); ?>">
 <div class="row-fluid">
     <div class="span12">
@@ -54,5 +55,6 @@
 
 
 <div id="wa-panel-config" data-base="<?= html_escape(site_url('tecnina_whatsapp')); ?>" data-receiving-base="<?= html_escape(site_url('tecnina/pre-atendimentos')); ?>" data-client-add-base="<?= html_escape(site_url('clientes/adicionar')); ?>" data-client-edit-base="<?= html_escape(site_url('clientes/editar')); ?>" data-os-edit-base="<?= html_escape(site_url('os/editar')); ?>" data-csrf-name="<?= html_escape($csrfName); ?>" data-csrf-hash="<?= html_escape($csrfHash); ?>" style="display:none"></div>
+<script src="<?= base_url('assets/js/device-pattern.js'); ?>"></script>
 <script src="<?= base_url(); ?>assets/tecnina/js/whatsapp-panel-diagnostics.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/whatsapp-panel-diagnostics.js'); ?>"></script>
 <script src="<?= base_url(); ?>assets/tecnina/js/pre-attendance-panel.js?v=<?= filemtime(FCPATH . 'assets/tecnina/js/pre-attendance-panel.js'); ?>"></script>
