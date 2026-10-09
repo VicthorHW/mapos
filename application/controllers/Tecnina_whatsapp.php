@@ -1039,12 +1039,19 @@ class Tecnina_whatsapp extends MY_Controller
         $imei = trim((string) $this->input->post('imei', true));
         $storageLocation = trim((string) $this->input->post('storage_location', true));
 
-        if (empty($name) || empty($phone) || empty($deviceType) || empty($problem)) {
+        if (empty($name) || empty($phone)) {
             return $this->json([
                 'ok' => false,
                 'reason' => 'incomplete_intake',
-                'detail' => 'Nome, telefone, tipo de equipamento e defeito são campos obrigatórios.',
+                'detail' => 'Nome e telefone do cliente são obrigatórios para iniciar o rascunho.',
             ], 422);
+        }
+
+        if (empty($deviceType)) {
+            $deviceType = 'Equipamento';
+        }
+        if (empty($problem)) {
+            $problem = 'Em avaliação no balcão';
         }
 
         $digits = preg_replace('/\D/', '', $phone);

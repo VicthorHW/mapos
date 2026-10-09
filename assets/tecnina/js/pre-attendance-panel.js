@@ -137,14 +137,13 @@
                 if (!response || !response.ok) {
                     var rReason = response ? response.reason : 'unknown';
                     error(reasonMessage(rReason));
-                    if ($('#modal-new-intake').is(':visible')) {
-                        $('#modal-new-intake-error').show().text(reasonMessage(rReason));
-                        $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
-                    }
+                    $('#wa-save-status-msg').show().html('<div class="alert alert-error" style="margin-bottom:8px;">' + esc(reasonMessage(rReason)) + '</div>');
+                    $('.wa-btn-save-draft').prop('disabled', false).html('<i class="fas fa-save"></i> Salvar Rascunho');
                     $('.wa-trigger-deferred-reg').prop('disabled', false);
                     return;
                 }
                 clearError();
+                $('#wa-save-status-msg').hide().empty();
                 done(response.data !== undefined ? response.data : response);
             })
             .fail(function (xhr) {
@@ -172,10 +171,8 @@
                     }
                 }
                 error(reasonMessage(errReason));
-                if ($('#modal-new-intake').is(':visible')) {
-                    $('#modal-new-intake-error').show().text(reasonMessage(errReason));
-                    $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
-                }
+                $('#wa-save-status-msg').show().html('<div class="alert alert-error" style="margin-bottom:8px;">' + esc(reasonMessage(errReason)) + '</div>');
+                $('.wa-btn-save-draft').prop('disabled', false).html('<i class="fas fa-save"></i> Salvar Rascunho');
                 $('.wa-trigger-deferred-reg').prop('disabled', false);
             });
     }
@@ -819,48 +816,303 @@
         });
     });
 
-    // Abrir Modal de Novo Pré-atendimento Presencial / Balcão
+    // Workspace de Novo Pré-atendimento (Sem Modal)
+    var draftAutoSaveTimer = null;
+    var draftIsSaving = false;
+
+    function renderNewIntakeWorkspace() {
+        currentIntakeData = null;
+        var html = '<div class="well wa-intake-form" data-id="" data-version="0" data-is-new="true">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+            '<h4><i class="fas fa-plus-circle text-success"></i> Novo Pré-atendimento Presencial (Balcão)</h4>' +
+            '<span class="wa-state-badge wa-status-review" id="wa-draft-badge"><i class="fas fa-pencil-alt"></i> Novo Rascunho</span>' +
+            '</div>' +
+            '<div class="alert alert-info wa-receiving-status-banner" style="margin-top:8px;">' +
+            '<h4 style="margin:0 0 4px 0;"><i class="fas fa-user-edit"></i> Cadastro e Triagem no Balcão</h4>' +
+            '<small class="muted">Preencha os dados do atendimento. O sistema salva automaticamente como rascunho (Draft) assim que o nome e telefone forem preenchidos, aparecendo na lista à esquerda.</small>' +
+            '</div>' +
+
+            '<!-- Autocomplete de Clientes do MapOS -->' +
+            '<div class="well well-small" style="background:#f9fbfd;border:1px solid #d0e2ec;margin-bottom:12px;">' +
+            '<label for="wa-intake-client-autocomplete" style="font-size:12px;font-weight:bold;margin-bottom:4px;color:#2c3e50;">' +
+            '<i class="fas fa-search text-info"></i> Localizar Cliente Cadastrado (Opcional - preenche automático)' +
+            '</label>' +
+            '<input type="text" id="wa-intake-client-autocomplete" class="input-block-level" placeholder="Digite nome, telefone ou CPF para buscar cliente no MapOS…" autocomplete="off">' +
+            '<input type="hidden" id="wa-intake-client-id" class="wa-i-client-id" value="">' +
+            '<div id="wa-intake-client-match-badge" style="display:none;margin-top:4px;"></div>' +
+            '</div>' +
+
+            '<div class="row-fluid">' +
+            '<div class="span7">' +
+            '<label><strong>Nome do Cliente</strong> <span class="text-error">*</span></label>' +
+            '<input class="input-block-level wa-i-name" maxlength="120" placeholder="Nome completo do cliente" required>' +
+            '</div>' +
+            '<div class="span5">' +
+            '<label><strong>WhatsApp / Telefone</strong> <span class="text-error">*</span></label>' +
+            '<input type="text" class="input-block-level wa-i-phone" placeholder="(11) 99999-9999" required>' +
+            '</div>' +
+            '</div>' +
+
+            '<div class="row-fluid">' +
+            '<div class="span4"><label>CPF (Opcional)</label><input type="text" class="input-block-level wa-i-cpf" placeholder="000.000.000-00"></div>' +
+            '<div class="span5"><label>E-mail (Opcional)</label><input type="email" class="input-block-level wa-i-email" placeholder="cliente@exemplo.com"></div>' +
+            '<div class="span3"><label>Cidade</label><input type="text" class="input-block-level wa-i-city" maxlength="80" value="São Paulo" placeholder="Cidade"></div>' +
+            '</div>' +
+
+            '<div class="row-fluid">' +
+            '<div class="span4"><label><strong>Equipamento</strong></label><input class="input-block-level wa-i-device" maxlength="80" placeholder="Ex: Notebook, Celular, TV…" value="Notebook"></div>' +
+            '<div class="span4"><label>Marca</label><input class="input-block-level wa-i-brand" maxlength="80" placeholder="Ex: Dell, Samsung, Apple…"></div>' +
+            '<div class="span4"><label>Modelo</label><input class="input-block-level wa-i-model" maxlength="120" placeholder="Ex: Inspiron 15, Galaxy S21…"></div>' +
+            '</div>' +
+
+            '<label><strong>Problema informado</strong></label>' +
+            '<textarea class="input-block-level wa-i-problem" maxlength="2000" rows="3" placeholder="Descreva detalhadamente o defeito ou solicitação do cliente…"></textarea>' +
+
+            '<!-- Senha / Desbloqueio -->' +
+            '<div class="well well-small" style="background:#fdfdfd;margin-bottom:12px;">' +
+            '<label><strong><i class="fas fa-key text-info"></i> Senha / Desbloqueio do Aparelho (Opcional)</strong></label>' +
+            '<div class="row-fluid">' +
+            '<div class="span5">' +
+            '<select class="input-block-level wa-i-cred-type">' +
+            '<option value="NONE">Sem senha / Não informado</option>' +
+            '<option value="PASSWORD">Senha numérica ou PIN/Texto</option>' +
+            '<option value="PATTERN">Padrão / Desenho</option>' +
+            '</select>' +
+            '</div>' +
+            '<div class="span7 wa-i-cred-val-wrap" style="display:none;">' +
+            '<input type="text" class="input-block-level wa-i-cred-value" placeholder="Digite a senha ou sequência de pontos">' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+
+            '<label>Forma de atendimento</label>' +
+            '<select class="input-block-level wa-i-mode">' +
+            '<option value="DROP_OFF" selected>Cliente traz o equipamento à loja (Balcão)</option>' +
+            '<option value="PICKUP_REQUESTED">Coleta no endereço do cliente</option>' +
+            '</select>' +
+
+            '<hr style="margin:16px 0 12px 0;">' +
+            '<h5><i class="fas fa-search"></i> Triagem e Inspeção Física do Equipamento</h5>' +
+
+            '<label><strong>Condição física geral do equipamento</strong></label>' +
+            '<select class="input-block-level wa-i-condition">' +
+            '<option value="">— Selecione a condição física —</option>' +
+            '<option value="EXCELENTE">Intacto / Excelente (sem marcas de uso)</option>' +
+            '<option value="BOM" selected>Bom estado (marcas de uso leves)</option>' +
+            '<option value="RISCOS_VISIVEIS">Arranhões / desgastes visíveis na carcaça</option>' +
+            '<option value="TELA_TRINCADA">Tela ou vidro quebrado / trincado</option>' +
+            '<option value="CARCACA_DANIFICADA">Carcaça quebrada, amassada ou com peças faltando</option>' +
+            '<option value="DANOS_LIQUIDO">Sinais de oxidação ou contato com líquido</option>' +
+            '<option value="NAO_LIGA">Equipamento não liga / dano severo</option>' +
+            '<option value="OUTRO">Outra condição (detalhar nas notas)</option>' +
+            '</select>' +
+
+            '<label><strong>Acessórios entregues junto ao equipamento</strong></label>' +
+            '<div class="well well-small" style="padding:6px 12px;margin-bottom:10px;">' +
+            '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-charger"> Carregador / Fonte</label>' +
+            '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-cable"> Cabo de força/USB</label>' +
+            '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-case"> Capa / Case</label>' +
+            '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-adapter"> Adaptador</label>' +
+            '<label class="checkbox inline" style="margin-right:12px;"><input type="checkbox" class="wa-acc-media"> Cartão de memória / Mídia</label>' +
+            '<div style="margin-top:6px;"><label style="font-size:12px;">Outros acessórios entregues:</label><input class="input-block-level wa-i-other-acc" placeholder="Ex: mouse, caneta touch, bolsa"></div>' +
+            '</div>' +
+
+            '<div class="row-fluid">' +
+            '<div class="span4"><label>Número de Série</label><input class="input-block-level wa-i-serial" maxlength="128" placeholder="Opcional"></div>' +
+            '<div class="span4"><label>IMEI / Chassi</label><input class="input-block-level wa-i-imei" maxlength="32" placeholder="Opcional"></div>' +
+            '<div class="span4"><label>Localização / Tag</label><input class="input-block-level wa-i-other-ids" placeholder="Ex: Balcão, Bancada 1"></div>' +
+            '</div>' +
+
+            '<label><strong>Observações integrais de recebimento</strong></label>' +
+            '<textarea class="input-block-level wa-i-receiving-notes" rows="3" placeholder="Registre aqui detalhes da inspeção, condição das peças, bateria, periféricos e instruções especiais…"></textarea>' +
+
+            '<div class="alert alert-success" style="margin-top:10px;padding:8px 12px;">' +
+            '<label class="checkbox" style="margin-bottom:0;font-weight:bold;color:#155724;">' +
+            '<input type="checkbox" class="wa-i-immediate-possession" checked> Confirmar posse física do equipamento no balcão imediatamente' +
+            '</label>' +
+            '<small class="muted" style="display:block;margin-top:2px;">O recebimento físico será registrado em nome do operador atual assim que o rascunho for salvo.</small>' +
+            '</div>' +
+
+            '<div id="wa-save-status-msg" style="display:none;margin-top:10px;"></div>' +
+
+            '<div class="wa-form-actions" style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e5e5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+            '<button type="button" class="btn btn-primary wa-btn-save-draft"><i class="fas fa-save"></i> Salvar Rascunho</button> ' +
+            '<button type="button" class="btn btn-danger wa-btn-cancel-new">Cancelar</button> ' +
+            '<span id="wa-autosave-indicator" class="muted" style="font-size:12px;margin-left:auto;"></span>' +
+            '</div>' +
+            '</div>';
+
+        $('#wa-intake-detail').attr('class', '').html(html);
+        if (window.innerWidth <= 768) {
+            var detailEl = document.getElementById('wa-intake-detail');
+            if (detailEl) {
+                detailEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+            }
+        }
+        $('#wa-intake-detail .wa-i-name').focus();
+    }
+
+    function saveDraft(manual) {
+        var form = $('#wa-intake-detail .wa-intake-form');
+        if (!form.length) { return; }
+        var intakeId = String(form.data('id') || form.attr('data-id') || '');
+        var isNew = form.attr('data-is-new') === 'true' || !intakeId;
+
+        var name = $.trim(form.find('.wa-i-name').val());
+        var phone = $.trim(form.find('.wa-i-phone').val());
+        var rawDigits = phone.replace(/\D/g, '');
+
+        if (!name || rawDigits.length < 8) {
+            if (manual) {
+                $('#wa-save-status-msg').show().html('<div class="alert alert-error" style="margin-bottom:8px;">Por favor, preencha o Nome e o Telefone/WhatsApp do cliente para salvar o rascunho.</div>');
+                if (!name) { form.find('.wa-i-name').focus(); }
+                else { form.find('.wa-i-phone').focus(); }
+            }
+            return;
+        }
+
+        if (draftIsSaving) { return; }
+        draftIsSaving = true;
+
+        var indicator = $('#wa-autosave-indicator');
+        indicator.html('<i class="fas fa-spinner fa-spin"></i> Salvando rascunho…');
+
+        var deviceType = $.trim(form.find('.wa-i-device').val()) || 'Equipamento';
+        var brand = $.trim(form.find('.wa-i-brand').val());
+        var model = $.trim(form.find('.wa-i-model').val());
+        var problem = $.trim(form.find('.wa-i-problem').val()) || 'Em avaliação no balcão';
+        var city = $.trim(form.find('.wa-i-city').val()) || 'São Paulo';
+        var notes = $.trim(form.find('.wa-i-receiving-notes').val());
+        var clientId = form.find('.wa-i-client-id').val() || null;
+        var cpf = $.trim(form.find('.wa-i-cpf').val());
+        var email = $.trim(form.find('.wa-i-email').val());
+        var credType = form.find('.wa-i-cred-type').val() || 'NONE';
+        var credVal = $.trim(form.find('.wa-i-cred-value').val());
+        var condition = form.find('.wa-i-condition').val() || 'BOM';
+        var serial = $.trim(form.find('.wa-i-serial').val());
+        var imei = $.trim(form.find('.wa-i-imei').val());
+        var storage = $.trim(form.find('.wa-i-other-ids').val());
+        var confirmReceipt = form.find('.wa-i-immediate-possession').is(':checked');
+
+        var accList = [];
+        if (form.find('.wa-acc-charger').is(':checked')) { accList.push('Carregador'); }
+        if (form.find('.wa-acc-cable').is(':checked')) { accList.push('Cabo'); }
+        if (form.find('.wa-acc-case').is(':checked')) { accList.push('Capa'); }
+        if (form.find('.wa-acc-adapter').is(':checked')) { accList.push('Adaptador'); }
+        if (form.find('.wa-acc-media').is(':checked')) { accList.push('Mídia'); }
+        var otherAcc = $.trim(form.find('.wa-i-other-acc').val());
+        if (otherAcc) { accList.push(otherAcc); }
+
+        if (isNew) {
+            var payload = {
+                name: name,
+                phone: phone,
+                device_type: deviceType,
+                brand: brand,
+                model: model,
+                problem_description: problem,
+                notes: notes,
+                city: city,
+                possible_mapos_client_id: clientId,
+                registration_cpf: cpf,
+                registration_email: email,
+                credential_type: credType,
+                credential_value: credVal,
+                confirm_physical_receipt: confirmReceipt,
+                device_condition: condition,
+                accessories: accList,
+                serial_number: serial,
+                imei: imei,
+                storage_location: storage
+            };
+
+            request('/tecnina/pre-atendimentos/novo', 'POST', payload, function (res) {
+                draftIsSaving = false;
+                if (res && res.intake_id) {
+                    var newId = res.intake_id;
+                    form.attr('data-id', newId).data('id', newId);
+                    form.removeAttr('data-is-new').data('is-new', false);
+                    $('#wa-draft-badge').removeClass('wa-status-review').addClass('wa-status-ready').html('<i class="fas fa-check"></i> Rascunho #' + esc(newId.substring(0, 8)));
+                    indicator.html('<span class="text-success"><i class="fas fa-check"></i> Rascunho salvo</span>');
+                    $('#wa-save-status-msg').hide().empty();
+                    loadList();
+                    if (manual) {
+                        loadIntake(newId);
+                    }
+                } else {
+                    indicator.html('<span class="text-error">Erro ao salvar rascunho</span>');
+                }
+            });
+        } else {
+            var receivingData = receivingFormData(form);
+            receivingData.action = 'prepare';
+            request('/tecnina/pre-atendimentos/' + encodeURIComponent(intakeId) + '/receiving', 'POST', receivingData, function () {
+                var intakePayload = {
+                    review_version: form.data('version') || 0,
+                    name: name,
+                    city: city,
+                    device_type: deviceType,
+                    brand: brand,
+                    model: model,
+                    problem_description: problem,
+                    service_mode: form.find('.wa-i-mode').val() || 'DROP_OFF',
+                    notes: notes
+                };
+                request('/pre_atendimento/' + encodeURIComponent(intakeId) + '/save', 'POST', intakePayload, function () {
+                    draftIsSaving = false;
+                    indicator.html('<span class="text-success"><i class="fas fa-check"></i> Rascunho atualizado</span>');
+                    loadList();
+                    if (manual) {
+                        loadIntake(intakeId);
+                    }
+                });
+            });
+        }
+    }
+
+    function scheduleDraftAutoSave() {
+        if (draftAutoSaveTimer) { clearTimeout(draftAutoSaveTimer); }
+        draftAutoSaveTimer = setTimeout(function () {
+            saveDraft(false);
+        }, 1200);
+    }
+
+    // Auto-save debounced em alterações
+    $(document).on('input change', '#wa-intake-detail .wa-intake-form[data-is-new="true"] input, #wa-intake-detail .wa-intake-form[data-is-new="true"] textarea, #wa-intake-detail .wa-intake-form[data-is-new="true"] select', function () {
+        scheduleDraftAutoSave();
+    });
+
+    // Salvar Rascunho manual
+    $(document).on('click', '.wa-btn-save-draft', function (e) {
+        e.preventDefault();
+        if (draftAutoSaveTimer) { clearTimeout(draftAutoSaveTimer); }
+        saveDraft(true);
+    });
+
+    // Cancelar novo rascunho
+    $(document).on('click', '.wa-btn-cancel-new', function (e) {
+        e.preventDefault();
+        emptyDetail('Novo pré-atendimento cancelado');
+    });
+
+    // Abrir Workspace de Novo Pré-atendimento ao clicar no botão
     $(document).on('click', '#wa-btn-open-new-intake', function () {
-        $('#modal-new-intake-error').hide().text('');
-        $('#new-intake-client-autocomplete').val('');
-        $('#new-intake-client-id').val('');
-        $('#new-intake-name').val('');
-        $('#new-intake-phone').val('');
-        $('#new-intake-cpf').val('');
-        $('#new-intake-email').val('');
-        $('#new-intake-birth-date').val('');
-        $('#new-intake-device-type').val('Notebook');
-        $('#new-intake-brand').val('');
-        $('#new-intake-model').val('');
-        $('#new-intake-problem').val('');
-        $('#new-intake-notes').val('');
-        $('#new-intake-cred-type').val('NONE');
-        $('#new-intake-cred-value').val('');
-        $('#new-intake-cred-val-container').hide();
-        $('#new-intake-condition').val('Aparelho em bom estado / Conservado');
-        $('#new-intake-storage').val('Balcão');
-        $('#new-intake-serial').val('');
-        $('#new-intake-imei').val('');
-        $('.new-intake-acc').prop('checked', false);
-        $('#new-intake-acc-other').val('');
-        $('#new-intake-confirm-receipt').prop('checked', true);
-        $('#btn-submit-new-intake').prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
-        $('#modal-new-intake').modal('show');
+        renderNewIntakeWorkspace();
     });
 
     // Alternar campo de senha conforme tipo
-    $(document).on('change', '#new-intake-cred-type', function () {
+    $(document).on('change', '.wa-i-cred-type', function () {
         if ($(this).val() === 'NONE') {
-            $('#new-intake-cred-val-container').hide();
-            $('#new-intake-cred-value').val('');
+            $('.wa-i-cred-val-wrap').hide();
+            $('.wa-i-cred-value').val('');
         } else {
-            $('#new-intake-cred-val-container').show();
-            $('#new-intake-cred-value').focus();
+            $('.wa-i-cred-val-wrap').show();
+            $('.wa-i-cred-value').focus();
         }
     });
 
-    // Autocomplete de clientes do MapOS
-    $(document).on('focus', '#new-intake-client-autocomplete', function () {
+    // Autocomplete de clientes do MapOS no workspace
+    $(document).on('focus', '#wa-intake-client-autocomplete', function () {
         var $input = $(this);
         if ($input.data('ui-autocomplete') || !$.fn.autocomplete) { return; }
         $input.autocomplete({
@@ -868,33 +1120,35 @@
             minLength: 2,
             select: function (event, ui) {
                 if (!ui || !ui.item) { return; }
-                $('#new-intake-client-id').val(ui.item.id);
+                $('#wa-intake-client-id').val(ui.item.id);
                 var label = ui.item.label || '';
                 var parts = label.split('|');
                 if (parts.length > 0) {
-                    $('#new-intake-name').val($.trim(parts[0]));
+                    $('.wa-i-name').val($.trim(parts[0]));
                 }
                 for (var i = 1; i < parts.length; i++) {
                     var p = parts[i];
                     if (p.indexOf('Telefone:') !== -1 || p.indexOf('Celular:') !== -1) {
                         var rawPhone = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
                         if (rawPhone && rawPhone !== 'null') {
-                            $('#new-intake-phone').val(rawPhone);
+                            $('.wa-i-phone').val(rawPhone).trigger('input');
                         }
                     }
                     if (p.indexOf('Documento:') !== -1) {
                         var rawDoc = p.split(':')[1] ? $.trim(p.split(':')[1]) : '';
                         if (rawDoc && rawDoc !== 'null') {
-                            $('#new-intake-cpf').val(rawDoc);
+                            $('.wa-i-cpf').val(rawDoc);
                         }
                     }
                 }
+                $('#wa-intake-client-match-badge').show().html('<span class="label label-success"><i class="fas fa-check"></i> Cliente #' + esc(ui.item.id) + ' selecionado do MapOS</span>');
+                scheduleDraftAutoSave();
             }
         });
     });
 
     // Formatação de telefone
-    $(document).on('input', '#new-intake-phone', function () {
+    $(document).on('input', '.wa-i-phone', function () {
         var v = $(this).val().replace(/\D/g, '');
         if (v.length > 11) { v = v.substring(0, 11); }
         if (v.length > 10) {
@@ -906,82 +1160,6 @@
         } else if (v.length > 0) {
             $(this).val('(' + v);
         }
-    });
-
-    // Submissão de Novo Pré-atendimento
-    $(document).on('click', '#btn-submit-new-intake', function (e) {
-        e.preventDefault();
-        var btn = $(this);
-        var errBox = $('#modal-new-intake-error');
-        errBox.hide().text('');
-
-        var name = $.trim($('#new-intake-name').val());
-        var phone = $.trim($('#new-intake-phone').val());
-        var deviceType = $.trim($('#new-intake-device-type').val());
-        var problem = $.trim($('#new-intake-problem').val());
-
-        if (!name) {
-            errBox.show().text('Informe o nome do cliente.');
-            $('#new-intake-name').focus();
-            return;
-        }
-        if (!phone) {
-            errBox.show().text('Informe o telefone/WhatsApp do cliente.');
-            $('#new-intake-phone').focus();
-            return;
-        }
-        if (!deviceType) {
-            errBox.show().text('Selecione o tipo de equipamento.');
-            $('#new-intake-device-type').focus();
-            return;
-        }
-        if (!problem) {
-            errBox.show().text('Informe o defeito ou problema relatado.');
-            $('#new-intake-problem').focus();
-            return;
-        }
-
-        var accList = [];
-        $('.new-intake-acc:checked').each(function () {
-            accList.push($(this).val());
-        });
-        var otherAcc = $.trim($('#new-intake-acc-other').val());
-        if (otherAcc) {
-            accList.push(otherAcc);
-        }
-
-        var payload = {
-            name: name,
-            phone: phone,
-            device_type: deviceType,
-            brand: $.trim($('#new-intake-brand').val()),
-            model: $.trim($('#new-intake-model').val()),
-            problem_description: problem,
-            notes: $.trim($('#new-intake-notes').val()),
-            possible_mapos_client_id: $('#new-intake-client-id').val() || null,
-            registration_cpf: $.trim($('#new-intake-cpf').val()),
-            registration_email: $.trim($('#new-intake-email').val()),
-            birth_date: $('#new-intake-birth-date').val() || null,
-            credential_type: $('#new-intake-cred-type').val(),
-            credential_value: $.trim($('#new-intake-cred-value').val()),
-            confirm_physical_receipt: $('#new-intake-confirm-receipt').is(':checked'),
-            device_condition: $('#new-intake-condition').val(),
-            accessories: accList,
-            serial_number: $.trim($('#new-intake-serial').val()),
-            imei: $.trim($('#new-intake-imei').val()),
-            storage_location: $.trim($('#new-intake-storage').val())
-        };
-
-        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Criando pré-atendimento…');
-
-        request('/tecnina/pre-atendimentos/novo', 'POST', payload, function (res) {
-            btn.prop('disabled', false).html('<i class="fas fa-save"></i> Criar Pré-atendimento');
-            $('#modal-new-intake').modal('hide');
-            loadList();
-            if (res && res.intake_id) {
-                loadIntake(res.intake_id);
-            }
-        });
     });
 
     // Reject intake

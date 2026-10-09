@@ -84,16 +84,14 @@
 }
 
 @media (max-width: 768px) {
-    #modal-confirm-receiving,
-    #modal-new-intake {
+    #modal-confirm-receiving {
         left: 10px !important;
         right: 10px !important;
         width: auto !important;
         margin-left: 0 !important;
         top: 20px !important;
     }
-    #modal-confirm-receiving .modal-body,
-    #modal-new-intake .modal-body {
+    #modal-confirm-receiving .modal-body {
         max-height: calc(100vh - 180px);
         overflow-y: auto;
     }

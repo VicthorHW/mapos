@@ -216,10 +216,27 @@ class Tecnina_bot_gateway
                 'snapshot_identity_conflict',
                 'whatsapp_send_failed',
                 'whatsapp_delivery_unknown',
+                'phone_not_available',
+                'intake_not_active',
+                'intake_capabilities_unavailable',
+                'intake_runtime_unavailable',
             ];
-            $detail = isset($decoded['detail']) && is_string($decoded['detail'])
-                ? $decoded['detail']
-                : '';
+            $detail = '';
+            if (isset($decoded['detail'])) {
+                if (is_string($decoded['detail'])) {
+                    $detail = $decoded['detail'];
+                } elseif (is_array($decoded['detail'])) {
+                    $first = reset($decoded['detail']);
+                    if (is_array($first) && isset($first['msg'])) {
+                        $loc = isset($first['loc']) && is_array($first['loc']) ? implode('.', $first['loc']) : '';
+                        $detail = ($loc ? $loc . ': ' : '') . $first['msg'];
+                    } else {
+                        $detail = json_encode($decoded['detail']);
+                    }
+                }
+            } elseif (isset($decoded['reason']) && is_string($decoded['reason'])) {
+                $detail = $decoded['reason'];
+            }
             $reason = 'gateway_request_failed';
             if (in_array($detail, $safeReasons, true)) {
                 $reason = $detail;
