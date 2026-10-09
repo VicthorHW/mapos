@@ -381,8 +381,18 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="row-fluid" style="margin-top: 10px;">
-                            <div class="span12 text-right" style="text-align: right;">
+                        <div class="row-fluid" style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                            <div class="span6" style="margin-left: 0;">
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-info" id="btn-export-audit-modal" title="Abrir painel de exportação estruturada para auditoria externa">
+                                        <i class="bx bx-export"></i> Exportar Auditoria para IA
+                                    </button>
+                                    <button type="button" class="btn" id="btn-copy-audit-clipboard" title="Copiar relatório completo para a área de transferência">
+                                        <i class="bx bx-copy"></i> Copiar Prompt
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="span6 text-right" style="text-align: right; margin-left: 0;">
                                 <button type="button" class="btn btn-success" id="btn-run-all-scenarios">
                                     <i class="bx bx-play-circle"></i> Executar todos
                                 </button>
@@ -456,6 +466,19 @@
                         </div>
                     </div>
 
+                    <!-- AI Audit & Export Banner -->
+                    <div id="sc-audit-export-banner" class="alert alert-info bot-lab-export-banner" style="margin-top: 15px; display: none; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div>
+                            <strong><i class="bx bx-brain"></i> Auditoria Externa de IA:</strong>
+                            <span>Resultados prontos para validação e auditoria externa em LLMs (ChatGPT, Claude, Gemini).</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-small btn-primary" id="btn-download-audit-md"><i class="bx bx-file"></i> Baixar Markdown (.md)</button>
+                            <button type="button" class="btn btn-small btn-info" id="btn-download-audit-json"><i class="bx bx-data"></i> Baixar JSON (.json)</button>
+                            <button type="button" class="btn btn-small btn-success" id="btn-quick-copy-audit"><i class="bx bx-copy"></i> Copiar Texto</button>
+                        </div>
+                    </div>
+
                     <!-- Results List Container -->
                     <div id="sc-results-container" class="scenarios-results-container" style="margin-top: 20px;">
                         <!-- Dynamically populated -->
@@ -499,6 +522,35 @@
     <div class="modal-footer">
         <button class="btn" data-dismiss="modal" aria-hidden="true">Cancelar</button>
         <button class="btn btn-primary" id="btn-submit-location">Enviar localização</button>
+    </div>
+</div>
+
+<!-- Modal: Exportação e Auditoria para IA -->
+<div id="modal-audit-export" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="modal-audit-title" aria-hidden="true" style="width: 840px; max-width: 95vw; margin-left: -420px;">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="modal-audit-title"><i class="bx bx-brain text-info"></i> Exportar Auditoria Estruturada para IA</h3>
+    </div>
+    <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+        <p class="muted">Documento estruturado contendo catálogo de testes, turnos conversacionais, asserções de FSM e métricas, pronto para ser analisado por modelos externos (ChatGPT, Claude, Gemini).</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap;">
+            <div class="btn-group" data-toggle="buttons-radio" id="modal-audit-format-toggle">
+                <button type="button" class="btn btn-small active" id="btn-preview-md"><i class="bx bx-file"></i> Markdown / Texto</button>
+                <button type="button" class="btn btn-small" id="btn-preview-json"><i class="bx bx-code-alt"></i> JSON Estruturado</button>
+            </div>
+            <span id="modal-audit-copy-feedback" class="text-success" style="margin-left: auto; font-size: 12px; display: none;"><i class="bx bx-check"></i> Copiado com sucesso para a área de transferência!</span>
+        </div>
+        <textarea id="modal-audit-content" class="input-block-level" rows="16" style="font-family: Consolas, monospace; font-size: 11px; white-space: pre; line-height: 1.4;" readonly placeholder="Carregando auditoria…"></textarea>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-primary" id="btn-modal-download-md"><i class="bx bx-download"></i> Baixar .md</button>
+            <button type="button" class="btn btn-info" id="btn-modal-download-json"><i class="bx bx-download"></i> Baixar .json</button>
+        </div>
+        <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-success" id="btn-modal-copy"><i class="bx bx-copy"></i> Copiar Tudo</button>
+            <button type="button" class="btn" data-dismiss="modal" aria-hidden="true">Fechar</button>
+        </div>
     </div>
 </div>
 

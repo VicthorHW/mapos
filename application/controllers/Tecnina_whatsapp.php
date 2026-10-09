@@ -720,6 +720,33 @@ class Tecnina_whatsapp extends MY_Controller
         return $this->json($result, $result['status']);
     }
 
+    public function simulador_exportar_auditoria()
+    {
+        if (! $this->authorized(true)) {
+            return;
+        }
+        if ($this->input->method(true) !== 'POST') {
+            return $this->json(['ok' => false, 'reason' => 'method_not_allowed'], 405);
+        }
+
+        $rawPayload = (string) $this->input->post('payload', false);
+        $payload = (object) [];
+        if ($rawPayload !== '') {
+            $decoded = json_decode($rawPayload);
+            if (json_last_error() === JSON_ERROR_NONE && is_object($decoded)) {
+                $payload = $decoded;
+            }
+        }
+
+        $result = $this->tecnina_bot_gateway->request(
+            'POST',
+            '/admin/simulator/scenarios/export',
+            $payload,
+            $this->tecnina_bot_gateway->scenarioTimeoutSeconds()
+        );
+        return $this->json($result, $result['status'] ?? 200);
+    }
+
     public function receiving($intakeId = '')
     {
         $method = $this->input->method(true);

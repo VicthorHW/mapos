@@ -1066,8 +1066,16 @@
         });
     }
 
+    var lastSuiteResult = null;
+    var cachedExportJson = null;
+    var cachedExportMd = null;
+
     function renderScenarioResults(suite) {
         if (!suite) return;
+        lastSuiteResult = suite;
+        cachedExportJson = null;
+        cachedExportMd = null;
+        $('#sc-audit-export-banner').css('display', 'flex').show();
 
         $('#sc-stat-total').text(suite.total || 0);
         $('#sc-stat-passed').text(suite.passed || 0);
@@ -1250,6 +1258,314 @@
     $(document).on('click', '.sc-quick-tag-btn', function () {
         var tag = $(this).data('tag') || '';
         $('#sc-filter-tag').val(tag).trigger('change');
+    });
+
+    // =========================================================================
+    // AI Audit & Test Export Feature (Tarefa 4)
+    // =========================================================================
+    function getAuditFilename(ext) {
+        var now = new Date();
+        var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+        var stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+        return 'tecnina_bot_lab_audit_' + stamp + '.' + ext;
+    }
+
+    function downloadFile(filename, content, mimeType) {
+        var blob = new Blob([content], { type: mimeType || 'text/plain;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+    }
+
+    function copyToClipboard(text, callback) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                if (callback) callback(true);
+            }).catch(function () {
+                fallbackCopy(text, callback);
+            });
+        } else {
+            fallbackCopy(text, callback);
+        }
+    }
+
+    function fallbackCopy(text, callback) {
+        var textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '0';
+        textArea.style.left = '0';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        var success = false;
+        try {
+            success = document.execCommand('copy');
+        } catch (e) {}
+        document.body.removeChild(textArea);
+        if (callback) callback(success);
+    }
+
+    function buildLocalAuditData() {
+        var nowIso = new Date().toISOString();
+        var interactive = null;
+        if (currentSessionId && currentSessionData) {
+            interactive = {
+                simulation_id: currentSessionId,
+                status: currentSessionData.runtime_status || 'UNKNOWN',
+                stage: (currentSessionData.state && currentSessionData.state.stage) || '—',
+                transcript: currentTranscript || []
+            };
+        }
+
+        var execSummary = null;
+        if (lastSuiteResult) {
+            execSummary = {
+                total: lastSuiteResult.total || 0,
+                passed: lastSuiteResult.passed || 0,
+                failed: lastSuiteResult.failed || 0,
+                errors: lastSuiteResult.errors || 0,
+                duration_ms: lastSuiteResult.duration_ms || 0,
+                tags_covered: lastSuiteResult.tags_covered || [],
+                states_visited: lastSuiteResult.states_visited || [],
+                capability_kinds_visited: lastSuiteResult.capability_kinds_visited || [],
+                results: lastSuiteResult.results || []
+            };
+        }
+
+        return {
+            audit_version: '1.0',
+            system: 'TecNina Bot Simulation Testbed (Bot Lab)',
+            environment: 'development_isolated_sandbox',
+            exported_at: nowIso,
+            catalog_metadata: catalogMetadata || {},
+            suite_execution: execSummary,
+            interactive_session: interactive
+        };
+    }
+
+    function formatLocalAuditMarkdown(data) {
+        var lines = [];
+        lines.push('# RELATÓRIO DE AUDITORIA ESTRUTURADA: TECNINA BOT (BOT LAB)');
+        lines.push('');
+        lines.push('> Documento gerado pelo Bot Lab para auditoria externa de IA.');
+        lines.push('> Executado em ambiente isolado (DEV / In-Memory Simulation), com zero impacto em produção.');
+        lines.push('');
+        lines.push('## 1. Metadados e Sumário Executivo');
+        lines.push('');
+        lines.push('- **Data da Exportação:** `' + (data.exported_at || '—') + '`');
+        lines.push('- **Ambiente:** `' + (data.environment || 'DEV') + '`');
+        var meta = data.catalog_metadata || {};
+        lines.push('- **Total de Cenários no Catálogo:** `' + (meta.scenario_count || 0) + '`');
+        lines.push('- **Total de Casos no Catálogo:** `' + (meta.case_count || 0) + '`');
+        lines.push('- **Tags:** `' + ((meta.tags && meta.tags.length) ? meta.tags.join(', ') : 'nenhuma') + '`');
+        lines.push('');
+
+        var exec = data.suite_execution;
+        if (exec) {
+            lines.push('### Métricas da Suite Executada');
+            lines.push('');
+            lines.push('| Métrica | Valor |');
+            lines.push('|---|---|');
+            lines.push('| **Total Executado** | ' + (exec.total || 0) + ' |');
+            lines.push('| **Aprovados (PASS)** | ' + (exec.passed || 0) + ' |');
+            lines.push('| **Falhas (FAIL)** | ' + (exec.failed || 0) + ' |');
+            lines.push('| **Erros (ERROR)** | ' + (exec.errors || 0) + ' |');
+            lines.push('| **Duração** | ' + Math.round(exec.duration_ms || 0) + ' ms |');
+            var rate = exec.total ? Math.round((exec.passed / exec.total) * 100) : 0;
+            lines.push('| **Taxa de Sucesso** | ' + rate + '% |');
+            lines.push('');
+            lines.push('- **Tags Cobertas:** `' + (exec.tags_covered ? exec.tags_covered.join(', ') : '—') + '`');
+            lines.push('- **Estados FSM Visitados:** `' + (exec.states_visited ? exec.states_visited.join(', ') : '—') + '`');
+            lines.push('');
+
+            if (exec.results && exec.results.length) {
+                lines.push('## 2. Resultados Detalhados dos Casos de Teste');
+                lines.push('');
+                for (var i = 0; i < exec.results.length; i++) {
+                    var r = exec.results[i];
+                    var statusIcon = r.status === 'PASS' ? '🟢 PASS' : (r.status === 'FAIL' ? '🔴 FAIL' : '⚠️ ERROR');
+                    lines.push('### `' + r.case_id + '` (' + r.scenario_id + ') — ' + statusIcon);
+                    lines.push('- **Título:** ' + (r.title || '—'));
+                    lines.push('- **Duração:** ' + Math.round(r.duration_ms || 0) + ' ms');
+                    lines.push('- **Asserções:** ' + (r.passed_assertion_count || 0) + '/' + (r.assertion_count || 0) + ' aprovadas');
+                    lines.push('- **Estado Final:** `' + (r.final_state || '—') + '`');
+                    if (r.error_message) {
+                        lines.push('- **Falha:** `' + r.error_message + '`');
+                    }
+                    lines.push('');
+                    if (r.steps && r.steps.length) {
+                        lines.push('**Passos Executados:**');
+                        for (var s = 0; s < r.steps.length; s++) {
+                            var st = r.steps[s];
+                            var stIcon = st.status === 'PASS' ? '✓' : '✗';
+                            lines.push('- [' + stIcon + '] **Passo ' + st.sequence + ' (' + st.action + '):** ' + (st.safe_summary || ''));
+                            if (st.failed_assertions && st.failed_assertions.length) {
+                                for (var f = 0; f < st.failed_assertions.length; f++) {
+                                    lines.push('  - ⚠️ Falha na asserção: `' + st.failed_assertions[f] + '`');
+                                }
+                            }
+                        }
+                        lines.push('');
+                    }
+                }
+            }
+        }
+
+        var inter = data.interactive_session;
+        if (inter && inter.transcript && inter.transcript.length) {
+            lines.push('## 3. Sessão Interativa (Simulador)');
+            lines.push('');
+            lines.push('- **Sessão:** `' + inter.simulation_id + '`');
+            lines.push('- **Status:** `' + inter.status + '`');
+            lines.push('- **Etapa:** `' + inter.stage + '`');
+            lines.push('');
+            lines.push('### Transcrição:');
+            lines.push('');
+            for (var t = 0; t < inter.transcript.length; t++) {
+                var ent = inter.transcript[t];
+                var sender = ent.sender === 'CLIENT' || ent.sender === 'USUARIO' ? '👤 Usuário' : '🤖 TecNina Bot';
+                lines.push('> **' + sender + ' (' + (ent.created_at || '') + '):** ' + ent.text);
+                lines.push('');
+            }
+        }
+
+        lines.push('---');
+        lines.push('## 4. Instruções de Auditoria para Modelos de Linguagem (LLM)');
+        lines.push('');
+        lines.push('1. Verifique a coerência das transições de estado da FSM e ausência de estados inconsistentes.');
+        lines.push('2. Valide que todos os links públicos gerados possuem tokens de capability corretos e sem dados sensíveis expostos.');
+        lines.push('3. Confirme que cenários de exceção e idempotência foram tratados conforme regras contratuais.');
+        lines.push('');
+        return lines.join('\n');
+    }
+
+    function fetchOrGenerateAudit(format, done) {
+        if (format === 'markdown' && cachedExportMd) {
+            done(cachedExportMd, 'markdown');
+            return;
+        }
+        if (format === 'json' && cachedExportJson) {
+            done(cachedExportJson, 'json');
+            return;
+        }
+
+        var runSuite = !lastSuiteResult;
+        request('/simulador_exportar_auditoria', 'POST', {
+            payload: JSON.stringify({
+                run_suite: runSuite,
+                format: format
+            })
+        }, function (res) {
+            if (res && res.format === 'markdown' && res.content) {
+                cachedExportMd = res.content;
+                done(res.content, 'markdown');
+            } else if (res && res.data) {
+                cachedExportJson = JSON.stringify(res.data, null, 2);
+                if (format === 'markdown') {
+                    var mdFromData = formatLocalAuditMarkdown(res.data);
+                    cachedExportMd = mdFromData;
+                    done(mdFromData, 'markdown');
+                } else {
+                    done(cachedExportJson, 'json');
+                }
+            } else {
+                var localData = buildLocalAuditData();
+                if (format === 'markdown') {
+                    var localMd = formatLocalAuditMarkdown(localData);
+                    cachedExportMd = localMd;
+                    done(localMd, 'markdown');
+                } else {
+                    var localJson = JSON.stringify(localData, null, 2);
+                    cachedExportJson = localJson;
+                    done(localJson, 'json');
+                }
+            }
+        }, function () {
+            var localData = buildLocalAuditData();
+            if (format === 'markdown') {
+                var localMd = formatLocalAuditMarkdown(localData);
+                cachedExportMd = localMd;
+                done(localMd, 'markdown');
+            } else {
+                var localJson = JSON.stringify(localData, null, 2);
+                cachedExportJson = localJson;
+                done(localJson, 'json');
+            }
+        });
+    }
+
+    // UI Event: Download Markdown (.md)
+    $(document).on('click', '#btn-download-audit-md, #btn-modal-download-md', function () {
+        var btn = $(this);
+        var origText = btn.html();
+        btn.prop('disabled', true).html('<i class="bx bx-loader-alt bx-spin"></i> Baixando…');
+        fetchOrGenerateAudit('markdown', function (content) {
+            btn.prop('disabled', false).html(origText);
+            downloadFile(getAuditFilename('md'), content, 'text/markdown;charset=utf-8');
+        });
+    });
+
+    // UI Event: Download JSON (.json)
+    $(document).on('click', '#btn-download-audit-json, #btn-modal-download-json', function () {
+        var btn = $(this);
+        var origText = btn.html();
+        btn.prop('disabled', true).html('<i class="bx bx-loader-alt bx-spin"></i> Baixando…');
+        fetchOrGenerateAudit('json', function (content) {
+            btn.prop('disabled', false).html(origText);
+            downloadFile(getAuditFilename('json'), content, 'application/json;charset=utf-8');
+        });
+    });
+
+    // UI Event: Quick Copy Markdown to Clipboard
+    $(document).on('click', '#btn-quick-copy-audit, #btn-copy-audit-clipboard, #btn-modal-copy', function () {
+        var btn = $(this);
+        var origText = btn.html();
+        btn.prop('disabled', true).html('<i class="bx bx-loader-alt bx-spin"></i> Copiando…');
+        fetchOrGenerateAudit('markdown', function (content) {
+            copyToClipboard(content, function (ok) {
+                btn.prop('disabled', false).html('<i class="bx bx-check"></i> Copiado!');
+                $('#modal-audit-copy-feedback').show();
+                setTimeout(function () {
+                    btn.html(origText);
+                    $('#modal-audit-copy-feedback').fadeOut();
+                }, 2500);
+            });
+        });
+    });
+
+    // UI Event: Open Export Modal
+    $(document).on('click', '#btn-export-audit-modal', function () {
+        $('#modal-audit-content').val('Gerando relatório estruturado…');
+        $('#modal-audit-export').modal('show');
+        $('#btn-preview-md').addClass('active');
+        $('#btn-preview-json').removeClass('active');
+        fetchOrGenerateAudit('markdown', function (content) {
+            $('#modal-audit-content').val(content);
+        });
+    });
+
+    // UI Event: Toggle Modal Format
+    $(document).on('click', '#btn-preview-md', function () {
+        $('#btn-preview-md').addClass('active');
+        $('#btn-preview-json').removeClass('active');
+        fetchOrGenerateAudit('markdown', function (content) {
+            $('#modal-audit-content').val(content);
+        });
+    });
+
+    $(document).on('click', '#btn-preview-json', function () {
+        $('#btn-preview-json').addClass('active');
+        $('#btn-preview-md').removeClass('active');
+        fetchOrGenerateAudit('json', function (content) {
+            $('#modal-audit-content').val(content);
+        });
     });
 
     // Service Watchdog Inspection & Control
